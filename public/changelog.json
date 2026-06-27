@@ -3,20 +3,44 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+<<<<<<< Updated upstream
     "id": "add-card-priority-label-rows",
     "type": "improvement",
     "category": "Boards",
     "description": "Picking a priority or label when adding a board card is easier to read and tap. Each option now sits on its own full-width row with a color dot, and the one you choose fills in with its color and a check mark so the selection is obvious at a glance.",
+=======
+    "id": "add-card-modal-collapsable-sections",
+    "type": "improvement",
+    "category": "Boards",
+    "description": "The Add Board Card modal now has collapsable Priority and Labels sections — click the header to expand or collapse them. Priority also moved up above Column so you set the important stuff first.",
+>>>>>>> Stashed changes
     "page": "/boards"
   },
   {
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+<<<<<<< Updated upstream
     "id": "today-reschedule-menu-stays-open",
     "type": "fix",
     "category": "Today",
     "description": "The Reschedule menu on the Today page no longer closes itself before you can pick a date. The pop-up used a full-screen tap-catcher behind it that, on phones, could swallow the tap meant for the calendar and dismiss the menu instantly. It now stays open until you choose a date or tap somewhere outside it.",
+=======
+    "id": "quick-add-all-modals",
+    "type": "improvement",
+    "category": "Today",
+    "description": "Quick add is now available in the Log Prayer, Set Follow-Up, and Log Connection modals. Type a natural-language phrase (\"Call Sarah tomorrow 3pm\", \"yesterday\") and the date and note fields fill in automatically — just like Add a Card.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "today-hide-completed-cards",
+    "type": "feature",
+    "category": "Today",
+    "description": "You can now hide completed cards on the Today page. A new \"Hide done\" toggle next to Refresh tucks away cards you've finished — across Focus Cards, Cards Due Today, Overdue Cards, and the day timeline — so you can focus on what's left. Tap \"Show done\" to bring them back. Your choice is remembered between visits.",
+>>>>>>> Stashed changes
     "page": "/today"
   },
   {

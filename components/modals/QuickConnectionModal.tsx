@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Modal from '../ui/Modal';
 import LeaderCombobox from '../ui/LeaderCombobox';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDateOnlyForDisplay, getTodayDateString } from '../../lib/dateUtils';
 import { clearTodayCache } from '../../hooks/useTodayData';
+import { parseQuickAdd } from '../../lib/quickAddParser';
+
+function nowCST(): Date {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+}
 
 interface Leader { id: number; name: string; }
 interface ConnectionType { id: number; name: string; active: boolean; }
@@ -34,6 +39,7 @@ export default function QuickConnectionModal({ isOpen, onClose, onSaved }: Props
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [connectionTypes, setConnectionTypes] = useState<ConnectionType[]>(DEFAULT_CONNECTION_TYPES);
   const [selectedLeaderId, setSelectedLeaderId] = useState('');
+  const [quickInput, setQuickInput] = useState('');
   const [date, setDate] = useState('');
   const [connectionTypeId, setConnectionTypeId] = useState('');
   const [note, setNote] = useState('');
@@ -41,15 +47,32 @@ export default function QuickConnectionModal({ isOpen, onClose, onSaved }: Props
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const parsed = useMemo(
+    () => (quickInput.trim() ? parseQuickAdd(quickInput, nowCST()) : null),
+    [quickInput]
+  );
+
   useEffect(() => {
     if (!isOpen) return;
     setDate(getTodayDateString());
     setSelectedLeaderId('');
+    setQuickInput('');
     setConnectionTypeId('');
     setNote('');
     setError('');
     loadData();
   }, [isOpen]);
+
+  const handleQuickInputChange = (value: string) => {
+    setQuickInput(value);
+    const result = value.trim() ? parseQuickAdd(value, nowCST()) : null;
+    setNote(result ? result.title : '');
+    if (result?.dueDate) {
+      setDate(result.dueDate);
+    } else if (!value.trim()) {
+      setDate(getTodayDateString());
+    }
+  };
 
   const loadData = async () => {
     setIsLoading(true);
@@ -120,6 +143,37 @@ export default function QuickConnectionModal({ isOpen, onClose, onSaved }: Props
             {error}
           </div>
         )}
+
+        {/* Quick add */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Quick add
+          </label>
+          <input
+            type="text"
+            value={quickInput}
+            onChange={e => handleQuickInputChange(e.target.value)}
+            placeholder="Called Sarah yesterday"
+            className={inputClass}
+            disabled={isSaving}
+            autoFocus
+          />
+          {parsed && parsed.tokens.filter(t => t.type === 'date' || t.type === 'time').length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {parsed.tokens.filter(t => t.type === 'date' || t.type === 'time').map((t, i) => (
+                <span
+                  key={`${t.type}-${i}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                >
+                  {t.text}
+                </span>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+            Type a date (&ldquo;yesterday&rdquo;, &ldquo;last week&rdquo;) to set the connection date. Everything below stays editable.
+          </p>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

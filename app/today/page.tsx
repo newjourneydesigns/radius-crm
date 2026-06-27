@@ -118,6 +118,17 @@ const LinkIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
   </svg>
 );
+const EyeIcon = () => (
+  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+const EyeOffIcon = () => (
+  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+  </svg>
+);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1233,7 +1244,7 @@ function TodaySkeleton() {
 // ─── Sections (shared between mobile list and desktop rail) ───────────────────
 
 function TodaySections({
-  data, completed, hasAnything, isOpen, toggle,
+  data, completed, showCompleted, hasAnything, isOpen, toggle,
   markEncouragementSent, undoEncouragementSent,
   clearFollowUp, undoFollowUp,
   markCardComplete, undoCardComplete,
@@ -1245,6 +1256,7 @@ function TodaySections({
 }: {
   data: TodayData;
   completed: TodayCompleted;
+  showCompleted: boolean;
   hasAnything: boolean;
   isOpen: (key: string) => boolean;
   toggle: (key: string) => void;
@@ -1265,7 +1277,16 @@ function TodaySections({
   setCardPriority: (cardId: string, priority: CardPriority) => void;
   onOpenCard: (boardId: string, cardId: string) => void;
 }) {
-  const totalFocus = (data.focusCards ?? []).length;
+  // When "Hide done" is on, completed cards drop out of the card lists (and the
+  // section counts reflect only what's shown). Other section types are unaffected.
+  const isCardDone = (c: CardDigestItem) => Boolean(c.is_complete) || completed.cards.has(c.id);
+  const visibleCards = (list: CardDigestItem[]) =>
+    showCompleted ? list : list.filter(c => !isCardDone(c));
+
+  const focusCards   = visibleCards(data.focusCards ?? []);
+  const dueTodayCards = visibleCards(data.cards.dueToday);
+  const overdueCards  = visibleCards(data.cards.overdue);
+  const totalFocus = focusCards.length;
 
   // Apply one reschedule date to every overdue card at once.
   const rescheduleAllOverdueCards = (date: string) => {
@@ -1295,7 +1316,7 @@ function TodaySections({
       {/* ── Focus Cards ── */}
       <Section id="focus-cards" title="Focus Cards" icon={<Star className="h-4 w-4" />} count={totalFocus}
         sectionKey="focusCards" isOpen={isOpen('focusCards')} onToggle={() => toggle('focusCards')} accentColor="#f59e0b">
-        {[...(data.focusCards ?? [])].sort(byPriorityDesc).map((c: CardDigestItem) => {
+        {[...focusCards].sort(byPriorityDesc).map((c: CardDigestItem) => {
           const done = Boolean(c.is_complete) || completed.cards.has(c.id);
           return (
           <Item key={c.id} accentColor={done ? T.green : '#f59e0b'}>
@@ -1438,9 +1459,9 @@ function TodaySections({
       </Section>
 
       {/* ── Cards Due Today ── */}
-      <Section id="cards-today" title="Cards Due Today" icon={<ClipboardList className="h-4 w-4" />} count={data.cards.dueToday.length}
+      <Section id="cards-today" title="Cards Due Today" icon={<ClipboardList className="h-4 w-4" />} count={dueTodayCards.length}
         sectionKey="cardsToday" isOpen={isOpen('cardsToday')} onToggle={() => toggle('cardsToday')} accentColor={T.amber}>
-        {[...data.cards.dueToday].sort(byPriorityDesc).map((c: CardDigestItem) => {
+        {[...dueTodayCards].sort(byPriorityDesc).map((c: CardDigestItem) => {
           const done = Boolean(c.is_complete) || completed.cards.has(c.id);
           return (
           <Item key={c.id} accentColor={done ? T.green : T.amber}>
@@ -1468,9 +1489,9 @@ function TodaySections({
       </Section>
 
       {/* ── Overdue Cards ── */}
-      <Section id="overdue-cards" title="Overdue Cards" icon={<AlertTriangle className="h-4 w-4" />} count={data.cards.overdue.length}
+      <Section id="overdue-cards" title="Overdue Cards" icon={<AlertTriangle className="h-4 w-4" />} count={overdueCards.length}
         sectionKey="overdueCards" isOpen={isOpen('overdueCards')} onToggle={() => toggle('overdueCards')} accentColor={T.red}>
-        {data.cards.overdue.length > 1 && (
+        {overdueCards.length > 1 && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
             padding: '8px 16px', borderBottom: `1px solid ${T.cardBorder}`,
@@ -1482,7 +1503,7 @@ function TodaySections({
             <RescheduleBtn onPick={rescheduleAllOverdueCards} includeToday label="Reschedule all" />
           </div>
         )}
-        {[...data.cards.overdue].sort(byPriorityDesc).map((c: CardDigestItem) => {
+        {[...overdueCards].sort(byPriorityDesc).map((c: CardDigestItem) => {
           const done = Boolean(c.is_complete) || completed.cards.has(c.id);
           return (
           <Item key={c.id} accentColor={done ? T.green : T.red}>
@@ -1696,6 +1717,7 @@ function TodaySections({
 
 const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif';
 const MOBILE_TAB_KEY = 'today_mobile_tab';
+const SHOW_COMPLETED_KEY = 'today_show_completed';
 
 export default function TodayPage() {
   const {
@@ -1717,6 +1739,7 @@ export default function TodayPage() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [layoutReady, setLayoutReady] = useState(false);
   const [mobileTab, setMobileTabState] = useState<'list' | 'day'>('list');
+  const [showCompleted, setShowCompletedState] = useState(true);
   const [openCard, setOpenCard] = useState<{ boardId: string; cardId: string } | null>(null);
 
   const { fetchAll: fetchCalendars } = calendars;
@@ -1775,12 +1798,22 @@ export default function TodayPage() {
     try {
       const stored = localStorage.getItem(MOBILE_TAB_KEY);
       if (stored === 'day' || stored === 'list') setMobileTabState(stored);
+      const storedCompleted = localStorage.getItem(SHOW_COMPLETED_KEY);
+      if (storedCompleted === 'false') setShowCompletedState(false);
     } catch {}
   }, []);
 
   const setMobileTab = (tab: 'list' | 'day') => {
     setMobileTabState(tab);
     try { localStorage.setItem(MOBILE_TAB_KEY, tab); } catch {}
+  };
+
+  const toggleShowCompleted = () => {
+    setShowCompletedState(prev => {
+      const next = !prev;
+      try { localStorage.setItem(SHOW_COMPLETED_KEY, String(next)); } catch {}
+      return next;
+    });
   };
 
   const handleOpenCard = useCallback((boardId: string, cardId: string) => {
@@ -1923,6 +1956,9 @@ export default function TodayPage() {
 
     const pushCard = (c: CardDigestItem, overdue: boolean) => {
       const done = Boolean(c.is_complete) || (isViewToday && completed.cards.has(c.id));
+      // "Hide done" hides completed cards from the timeline too, for consistency
+      // with the lists.
+      if (done && !showCompleted) return;
       // Scheduled cards occupy one-hour blocks; an overdue card's time belongs
       // to a past day, so it stays in the all-day strip until rescheduled.
       const startMin = overdue ? null : parseTimeToMin(c.due_time);
@@ -2057,7 +2093,7 @@ export default function TodayPage() {
     });
 
     return evts;
-  }, [data, dayData, isViewToday, completed, calendars.events, dayCalEvents]);
+  }, [data, dayData, isViewToday, completed, showCompleted, calendars.events, dayCalEvents]);
 
   // ── App-icon badge: cards + follow-ups still open today (or overdue).
   // Same formula the push cron sends with reminders, so the badge a closed
@@ -2143,6 +2179,7 @@ export default function TodayPage() {
     <TodaySections
       data={data}
       completed={completed}
+      showCompleted={showCompleted}
       hasAnything={hasAnything}
       isOpen={isOpen}
       toggle={toggle}
@@ -2211,6 +2248,44 @@ export default function TodayPage() {
     </button>
   );
 
+  // Number of completed cards currently sitting in the three card lists (deduped
+  // across Focus / Cards Due / Overdue). Drives the toggle's label + visibility.
+  const completedCardIds = new Set<string>();
+  for (const c of [...(data.focusCards ?? []), ...data.cards.dueToday, ...data.cards.overdue]) {
+    if (Boolean(c.is_complete) || completed.cards.has(c.id)) completedCardIds.add(c.id);
+  }
+  const completedCardCount = completedCardIds.size;
+
+  // Show the toggle whenever there's something to act on: completed cards exist,
+  // or they're already hidden (so the user can bring them back).
+  const showCompletedToggle = completedCardCount > 0 || !showCompleted;
+  const completedToggleBtn = showCompletedToggle ? (
+    <button
+      onClick={toggleShowCompleted}
+      title={showCompleted ? 'Hide completed cards' : 'Show completed cards'}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '7px 12px', borderRadius: 9, fontSize: 12, fontWeight: 600,
+        background: showCompleted ? 'rgba(255,255,255,0.04)' : `${T.green}1a`,
+        border: `1px solid ${showCompleted ? T.cardBorder : `${T.green}55`}`,
+        color: showCompleted ? T.textMuted : T.green,
+        cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
+      }}
+    >
+      {showCompleted ? <EyeOffIcon /> : <EyeIcon />}
+      {showCompleted
+        ? `Hide done${completedCardCount ? ` (${completedCardCount})` : ''}`
+        : 'Show done'}
+    </button>
+  ) : null;
+
+  const headerActions = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      {completedToggleBtn}
+      {refreshBtn}
+    </div>
+  );
+
   const globalCss = `
     .today-page-bg { position: fixed; inset: 0; background: ${T.pageBg}; z-index: 0; pointer-events: none; }
     .today-page-content { position: relative; z-index: 1; }
@@ -2258,7 +2333,7 @@ export default function TodayPage() {
                 <h1 style={{ fontSize: 22, fontWeight: 700, color: '#f9fafb', margin: 0, lineHeight: 1.1 }}>Today</h1>
                 <p style={{ fontSize: 12, color: T.textMuted, marginTop: 3 }}>{formatDate(data.today)}</p>
               </div>
-              {refreshBtn}
+              {headerActions}
             </div>
 
             <div className="today-rail" style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: 2 }}>
@@ -2302,7 +2377,7 @@ export default function TodayPage() {
             <h1 style={{ fontSize: 26, fontWeight: 700, color: '#f9fafb', margin: 0, lineHeight: 1.1 }}>Today</h1>
             <p style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>{formatDate(data.today)}</p>
           </div>
-          {refreshBtn}
+          {headerActions}
         </div>
 
         {/* ── View toggle ── */}

@@ -64,6 +64,8 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
   const [isLoadingBoards, setIsLoadingBoards] = useState(false);
   const [isLoadingColumns, setIsLoadingColumns] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [priorityOpen, setPriorityOpen] = useState(false);
+  const [labelsOpen, setLabelsOpen] = useState(false);
   const [savedTitle, setSavedTitle] = useState('');
   const [error, setError] = useState('');
 
@@ -348,6 +350,129 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
           )}
         </div>
 
+        {/* Priority — collapsable */}
+        <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setPriorityOpen(o => !o)}
+            className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+          >
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              Priority
+              {priority !== null && (
+                <span
+                  className="inline-block w-2 h-2 rounded-full"
+                  style={{ backgroundColor: PRIORITY_CONFIG[priority].color }}
+                />
+              )}
+            </span>
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform duration-150 ${priorityOpen ? 'rotate-180' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {priorityOpen && (
+            <div className="px-3 py-3 space-y-2">
+              <button
+                type="button"
+                onClick={() => setPriority(null)}
+                disabled={isSaving}
+                className={
+                  'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition ' +
+                  (priority === null
+                    ? 'border-gray-400 dark:border-gray-300 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/40')
+                }
+              >
+                <span className={'w-2.5 h-2.5 rounded-full border ' + (priority === null ? 'border-gray-500 dark:border-gray-300' : 'border-gray-300 dark:border-gray-500')} />
+                <span>None</span>
+                {priority === null && <CheckIcon />}
+              </button>
+              {PRIORITY_ORDER.slice().reverse().map(p => {
+                const cfg = PRIORITY_CONFIG[p];
+                const active = priority === p;
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPriority(p)}
+                    disabled={isSaving}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition"
+                    style={{
+                      color: active ? '#fff' : cfg.color,
+                      backgroundColor: active ? cfg.color : 'transparent',
+                      borderColor: cfg.color,
+                    }}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: active ? '#fff' : cfg.color }} />
+                    <span>{cfg.label}</span>
+                    {active && <CheckIcon />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Labels — collapsable */}
+        {selectedBoardId && labels.length > 0 && (
+          <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setLabelsOpen(o => !o)}
+              className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+            >
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                Labels
+                <span className="text-gray-400 dark:text-gray-500 font-normal text-xs">(optional)</span>
+                {selectedLabelIds.length > 0 && (
+                  <span className="bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 text-xs font-medium px-1.5 py-0.5 rounded-full">
+                    {selectedLabelIds.length}
+                  </span>
+                )}
+              </span>
+              <svg
+                className={`w-4 h-4 text-gray-400 transition-transform duration-150 ${labelsOpen ? 'rotate-180' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {labelsOpen && (
+              <div className="px-3 py-3 space-y-2">
+                {labels.map(l => {
+                  const active = selectedLabelIds.includes(l.id);
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => toggleLabel(l.id)}
+                      disabled={isSaving}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition"
+                      style={{
+                        color: active ? '#fff' : l.color,
+                        backgroundColor: active ? l.color : 'transparent',
+                        borderColor: l.color,
+                      }}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: active ? '#fff' : l.color }} />
+                      <span>{l.name}</span>
+                      {active && <CheckIcon />}
+                    </button>
+                  );
+                })}
+                {unmatchedTokens.length > 0 && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+                    No label on this board for: {unmatchedTokens.map(t => `#${t}`).join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {selectedBoardId && (
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -365,87 +490,6 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
                 <option value="">Select a column...</option>
                 {columns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
               </select>
-            )}
-          </div>
-        )}
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-            Priority
-          </label>
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => setPriority(null)}
-              disabled={isSaving}
-              className={
-                'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition ' +
-                (priority === null
-                  ? 'border-gray-400 dark:border-gray-300 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
-                  : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/40')
-              }
-            >
-              <span className={'w-2.5 h-2.5 rounded-full border ' + (priority === null ? 'border-gray-500 dark:border-gray-300' : 'border-gray-300 dark:border-gray-500')} />
-              <span>None</span>
-              {priority === null && <CheckIcon />}
-            </button>
-            {PRIORITY_ORDER.slice().reverse().map(p => {
-              const cfg = PRIORITY_CONFIG[p];
-              const active = priority === p;
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPriority(p)}
-                  disabled={isSaving}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition"
-                  style={{
-                    color: active ? '#fff' : cfg.color,
-                    backgroundColor: active ? cfg.color : 'transparent',
-                    borderColor: cfg.color,
-                  }}
-                >
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: active ? '#fff' : cfg.color }} />
-                  <span>{cfg.label}</span>
-                  {active && <CheckIcon />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {selectedBoardId && labels.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              Labels <span className="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <div className="space-y-2">
-              {labels.map(l => {
-                const active = selectedLabelIds.includes(l.id);
-                return (
-                  <button
-                    key={l.id}
-                    type="button"
-                    onClick={() => toggleLabel(l.id)}
-                    disabled={isSaving}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition"
-                    style={{
-                      color: active ? '#fff' : l.color,
-                      backgroundColor: active ? l.color : 'transparent',
-                      borderColor: l.color,
-                    }}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: active ? '#fff' : l.color }} />
-                    <span>{l.name}</span>
-                    {active && <CheckIcon />}
-                  </button>
-                );
-              })}
-            </div>
-            {unmatchedTokens.length > 0 && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
-                No label on this board for: {unmatchedTokens.map(t => `#${t}`).join(', ')}
-              </p>
             )}
           </div>
         )}
