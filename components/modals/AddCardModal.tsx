@@ -131,6 +131,12 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
       });
       if (e) throw e;
 
+      // Let open pages (e.g. Today) refresh immediately. Realtime can be slow or
+      // suspended on mobile, so we don't rely on it alone to surface the new card.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('radius:card-saved', { detail: { dueDate: dueDate || null } }));
+      }
+
       setSavedTitle(title.trim());
       setSaved(true);
       onSaved?.();

@@ -3,6 +3,36 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "today-fab-card-appears",
+    "type": "fix",
+    "category": "Today",
+    "description": "Adding a card from the global + (Add a Card) button now makes it show up on the Today page right away when it's due today, instead of only appearing after a manual refresh. This previously failed on mobile, where the live connection that would have surfaced the card can be paused by the browser.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "today-card-completion-sticky",
+    "type": "fix",
+    "category": "Today",
+    "description": "Marking something Done on the Today page now stays Done. An earlier fix still left a gap on mobile, where a background refresh could read the item's old state for a moment and flip it back to undone. Today now treats anything you've checked off this session as done until you tap Undo, so it no longer reverts on you.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "today-card-completion-no-revert",
+    "type": "fix",
+    "category": "Today",
+    "description": "Marking a card (or any item) Done on the Today page now sticks. Previously the page could briefly flash and snap the item back to undone even though it had actually saved — a background refresh that started before you tapped was landing late and overwriting your action with its older view. Today now ignores those stale, out-of-order refreshes so your completion stays put.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "campaign-stat-cards-navigate",
     "type": "improvement",
     "category": "Campaigns",
