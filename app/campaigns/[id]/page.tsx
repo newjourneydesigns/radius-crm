@@ -1531,38 +1531,57 @@ export default function CampaignDetailPage() {
 
             {/* Column filter bar — one dropdown per filterable column; selections AND together */}
             {activeTab !== 'summary' && filterFacets.length >= 1 && (
-              <div className="grid grid-cols-1 sm:flex sm:flex-wrap sm:items-center gap-2.5 sm:gap-2 mb-4">
-                {filterFacets.map(f => (
-                  <div key={f.key} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
-                    <span className="text-xs text-slate-500">{f.label}</span>
-                    <select
-                      value={filters[f.key] ?? ''}
-                      onChange={e => {
-                        const v = e.target.value;
-                        setFilters(prev => {
-                          const next = { ...prev };
-                          if (v) next[f.key] = v; else delete next[f.key];
-                          return next;
-                        });
-                      }}
-                      className={`w-full sm:w-auto bg-zinc-800 border rounded-lg px-3 sm:px-2.5 py-2 sm:py-1 text-sm sm:text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
-                        filters[f.key] ? 'border-indigo-500/50 text-indigo-200' : 'border-zinc-700 text-slate-300'
-                      }`}
-                    >
-                      <option value="">All</option>
-                      {f.values.map(v => (
-                        <option key={v} value={v}>{v}</option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3.5 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {filterFacets.map(f => (
+                    <div key={f.key}>
+                      <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1">
+                        {f.label}
+                      </label>
+                      <select
+                        value={filters[f.key] ?? ''}
+                        onChange={e => {
+                          const v = e.target.value;
+                          setFilters(prev => {
+                            const next = { ...prev };
+                            if (v) next[f.key] = v; else delete next[f.key];
+                            return next;
+                          });
+                        }}
+                        className={`w-full bg-zinc-800 border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
+                          filters[f.key] ? 'border-indigo-500/50 text-indigo-200' : 'border-zinc-700 text-slate-300'
+                        }`}
+                      >
+                        <option value="">All</option>
+                        {f.values.map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
                 {activeFilters.length > 0 && (
-                  <button
-                    onClick={() => setFilters({})}
-                    className="text-xs text-slate-400 hover:text-white px-2 py-2 sm:py-1 rounded-lg hover:bg-zinc-800 transition-colors text-left sm:text-center"
-                  >
-                    Clear filters
-                  </button>
+                  <div className="mt-3 pt-2.5 border-t border-zinc-800 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-slate-500">Active:</span>
+                    {activeFilters.map(([k, v]) => {
+                      const facetLabel = filterFacets.find(f => f.key === k)?.label ?? k;
+                      return (
+                        <button
+                          key={k}
+                          onClick={() => setFilters(prev => { const n = { ...prev }; delete n[k]; return n; })}
+                          className="inline-flex items-center gap-1 text-xs bg-indigo-500/15 text-indigo-300 px-2 py-0.5 rounded-full hover:bg-indigo-500/25 transition-colors"
+                        >
+                          {facetLabel}: {v} <X className="w-3 h-3" />
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => setFilters({})}
+                      className="text-xs text-slate-500 hover:text-white transition-colors ml-1"
+                    >
+                      Clear all
+                    </button>
+                  </div>
                 )}
               </div>
             )}
