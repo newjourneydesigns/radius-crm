@@ -3,21 +3,11 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
-    "id": "circle-toolkit-splash-clean-cut",
-    "type": "fix",
-    "category": "Circle Leader Toolkit",
-    "description": "The green welcome splash no longer flickers as it hands off to your events. It used to fade out, which let the page flash through the half-faded splash for a moment; now it holds for a beat and switches straight to the events page in one clean cut.",
-    "page": "/circle-leader-toolkit"
-  },
-  {
-    "date": "2026-06-27",
-    "date_display": "June 27, 2026",
-    "date_iso": "2026-06-27",
-    "id": "today-card-completion-no-revert",
-    "type": "fix",
-    "category": "Today",
-    "description": "Marking a card (or any item) Done on the Today page now sticks. Previously the page could briefly flash and snap the item back to undone even though it had actually saved — a background refresh that started before you tapped was landing late and overwriting your action with its older view. Today now ignores those stale, out-of-order refreshes so your completion stays put.",
-    "page": "/today"
+    "id": "campaign-stat-cards-navigate",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "On a campaign, the stat cards now double as navigation — tap Unsubmitted to jump to the Unsubmitted list, Total Submitted or Submitted in Group for Submitted, Not in Group, or Review Matches for their lists. The card for the list you're viewing is highlighted, and on a phone the page scrolls down to the list so the switch is obvious.",
+    "page": "/campaigns"
   },
   {
     "date": "2026-06-27",
@@ -3288,5 +3278,25 @@
     "category": "Prayer",
     "description": "The Prayer page no longer shows leaders with Archived status. Archived leaders are now excluded from the Circle Leaders list so the prayer list stays focused on active circles.",
     "page": "/prayer"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "circle-toolkit-splash-clean-cut",
+    "type": "fix",
+    "category": "Circle Leader Toolkit",
+    "description": "The green welcome splash no longer flickers as it hands off to your events. It used to fade out, which let the page flash through the half-faded splash for a moment; now it holds for a beat and switches straight to the events page in one clean cut.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "today-card-completion-no-revert",
+    "type": "fix",
+    "category": "Today",
+    "description": "Marking a card (or any item) Done on the Today page now sticks. Previously the page could briefly flash and snap the item back to undone even though it had actually saved — a background refresh that started before you tapped was landing late and overwriting your action with its older view. Today now ignores those stale, out-of-order refreshes so your completion stays put.",
+    "page": "/today"
   }
 ]
