@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "campaign-stat-cards-navigate",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "On a campaign, the stat cards now double as navigation — tap Unsubmitted to jump to the Unsubmitted list, Total Submitted or Submitted in Group for Submitted, Not in Group, or Review Matches for their lists. The card for the list you're viewing is highlighted, and on a phone the page scrolls down to the list so the switch is obvious.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "campaigns-mobile-friendly",
     "type": "improvement",
     "category": "Campaigns",

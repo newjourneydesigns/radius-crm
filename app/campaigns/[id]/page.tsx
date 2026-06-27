@@ -248,17 +248,37 @@ function StatCard({
   label,
   value,
   accent = 'text-white',
+  onClick,
+  active = false,
 }: {
   label: string;
   value: string | number | null;
   accent?: string;
+  onClick?: () => void;
+  active?: boolean;
 }) {
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 sm:px-5 sm:py-4">
+  const body = (
+    <>
       <p className="text-xs text-slate-400 uppercase tracking-wide">{label}</p>
       <p className={`text-2xl sm:text-3xl font-bold mt-1 ${accent}`}>{value ?? '—'}</p>
-    </div>
+    </>
   );
+  const base = 'rounded-xl border bg-zinc-900/40 px-4 py-3 sm:px-5 sm:py-4 transition-colors';
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={active}
+        className={`${base} w-full text-left cursor-pointer hover:bg-zinc-800/50 focus:outline-none focus:ring-1 focus:ring-indigo-500 active:scale-[0.99] ${
+          active ? 'border-indigo-500/60 ring-1 ring-indigo-500/40' : 'border-zinc-800 hover:border-zinc-600'
+        }`}
+      >
+        {body}
+      </button>
+    );
+  }
+  return <div className={`${base} border-zinc-800`}>{body}</div>;
 }
 
 function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
@@ -789,6 +809,18 @@ export default function CampaignDetailPage() {
     });
   }
 
+  // Jump to a people tab from a top stat card. On mobile (where the tabs are a
+  // dropdown and the stats fill the screen) scroll down to the list so the
+  // switch is visible; on larger screens the tabs are already in view.
+  function goToTab(tab: TabKey) {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+      setTimeout(() => {
+        document.getElementById('campaign-people-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    }
+  }
+
   // Clicking a row toggles its expanded area (note editor on note tabs, submission
   // detail on the submitted tab). Seeds the note draft when opening on a note tab.
   function handleRowExpand(p: CampaignPerson) {
@@ -1262,8 +1294,16 @@ export default function CampaignDetailPage() {
                     : ((campaign.submitted_count ?? 0) + (campaign.not_in_group_count ?? 0)) || null
                 }
                 accent="text-green-400"
+                onClick={() => goToTab('submitted')}
+                active={activeTab === 'submitted'}
               />
-              <StatCard label="Unsubmitted" value={filteredStats?.missing ?? campaign.missing_count} accent="text-red-400" />
+              <StatCard
+                label="Unsubmitted"
+                value={filteredStats?.missing ?? campaign.missing_count}
+                accent="text-red-400"
+                onClick={() => goToTab('missing')}
+                active={activeTab === 'missing'}
+              />
               <StatCard
                 label="Completion"
                 value={(filteredStats?.completion_pct ?? campaign.completion_pct) !== null
@@ -1274,10 +1314,27 @@ export default function CampaignDetailPage() {
             </div>
             {/* Row 2 — detail breakdown */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Submitted in Group" value={filteredStats?.submitted ?? campaign.submitted_count} accent="text-green-400/70" />
+              <StatCard
+                label="Submitted in Group"
+                value={filteredStats?.submitted ?? campaign.submitted_count}
+                accent="text-green-400/70"
+                onClick={() => goToTab('submitted')}
+                active={activeTab === 'submitted'}
+              />
               <StatCard label="Contacted" value={filteredStats?.contacted ?? campaign.contacted_count} accent="text-indigo-400" />
-              <StatCard label="Not in Group" value={filteredStats ? null : campaign.not_in_group_count} />
-              <StatCard label="Review Matches" value={filteredStats?.needs_review ?? campaign.needs_review_count} accent="text-amber-400" />
+              <StatCard
+                label="Not in Group"
+                value={filteredStats ? null : campaign.not_in_group_count}
+                onClick={() => goToTab('not_in_group')}
+                active={activeTab === 'not_in_group'}
+              />
+              <StatCard
+                label="Review Matches"
+                value={filteredStats?.needs_review ?? campaign.needs_review_count}
+                accent="text-amber-400"
+                onClick={() => goToTab('needs_review')}
+                active={activeTab === 'needs_review'}
+              />
             </div>
           </div>
         )}
@@ -1301,6 +1358,8 @@ export default function CampaignDetailPage() {
         {/* Tabs + table */}
         {campaign.last_reconciled_at && (
           <>
+            {/* Anchor for stat-card → tab navigation scroll on mobile */}
+            <div id="campaign-people-anchor" className="scroll-mt-4" />
             {/* Tabs / view picker + global search */}
             <div className="mb-4 space-y-3">
               {/* Find person — own full-width line on mobile, inline on desktop */}
