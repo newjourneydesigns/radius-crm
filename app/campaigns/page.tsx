@@ -179,9 +179,97 @@ export default function CampaignsPage() {
           </div>
         )}
 
-        {/* Campaign table */}
+        {/* Campaign cards — mobile */}
         {!loading && visible.length > 0 && (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
+          <div className="space-y-3 sm:hidden">
+            {visible.map(c => (
+              <div
+                key={c.id}
+                className={`rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 ${c.archived_at ? 'opacity-60' : ''}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <Link
+                    href={`/campaigns/${c.id}`}
+                    className="font-semibold text-slate-100 hover:text-white transition-colors leading-snug"
+                  >
+                    {c.name}
+                  </Link>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {c.archived_at && (
+                      <span className="text-xs text-slate-500 border border-zinc-700 rounded px-1.5 py-0.5 leading-none">
+                        archived
+                      </span>
+                    )}
+                    <CompletionPill pct={c.completion_pct} />
+                  </div>
+                </div>
+
+                {/* Stat strip */}
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  <div className="rounded-lg bg-zinc-800/50 px-3 py-2">
+                    <p className="text-[11px] text-slate-500 uppercase tracking-wide">Invited</p>
+                    <p className="text-base font-semibold text-slate-200 tabular-nums">{c.expected_count ?? '—'}</p>
+                  </div>
+                  <div className="rounded-lg bg-zinc-800/50 px-3 py-2">
+                    <p className="text-[11px] text-slate-500 uppercase tracking-wide">Submitted</p>
+                    <p className="text-base font-semibold text-green-400 tabular-nums">{c.submitted_count ?? '—'}</p>
+                  </div>
+                  <div className="rounded-lg bg-zinc-800/50 px-3 py-2">
+                    <p className="text-[11px] text-slate-500 uppercase tracking-wide">Unsubmitted</p>
+                    <p className="text-base font-semibold text-red-400 tabular-nums">{c.missing_count ?? '—'}</p>
+                  </div>
+                </div>
+
+                {/* Meta */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-xs text-slate-500">
+                  <span>Due {formatDate(c.due_date)}</span>
+                  <span>
+                    {c.last_reconciled_at
+                      ? `Reconciled ${formatDate(c.last_reconciled_at)}`
+                      : 'Not yet reconciled'}
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-zinc-800">
+                  <Link
+                    href={`/campaigns/${c.id}`}
+                    className="flex-1 text-center bg-zinc-800 text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    View
+                  </Link>
+                  <button
+                    className="flex-1 text-center bg-zinc-800 text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    onClick={() => openEdit(c)}
+                  >
+                    Edit
+                  </button>
+                  {c.archived_at ? (
+                    <button
+                      className="flex-1 flex items-center justify-center bg-zinc-800 text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
+                      disabled={archiving === c.id}
+                      onClick={() => handleRestore(c)}
+                    >
+                      {archiving === c.id ? <Spinner /> : 'Restore'}
+                    </button>
+                  ) : (
+                    <button
+                      className="flex-1 flex items-center justify-center bg-zinc-800 text-slate-400 hover:text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
+                      disabled={archiving === c.id}
+                      onClick={() => handleArchive(c)}
+                    >
+                      {archiving === c.id ? <Spinner /> : 'Archive'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Campaign table — tablet & up */}
+        {!loading && visible.length > 0 && (
+          <div className="hidden sm:block rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>

@@ -416,7 +416,14 @@ export default function CampaignDetailPage() {
     setFilters({});
     setHighlightedId(p.id);
     setTimeout(() => {
-      document.getElementById(`campaign-row-${p.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Both the desktop row and the mobile card exist in the DOM; scroll the
+      // one that's actually visible (the other is hidden via responsive classes).
+      const targets = [
+        document.getElementById(`campaign-row-${p.id}`),
+        document.getElementById(`campaign-card-${p.id}`),
+      ];
+      const visible = targets.find(el => el && el.offsetParent !== null) ?? targets.find(Boolean);
+      visible?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 80);
     setTimeout(() => setHighlightedId(null), 2000);
   }
@@ -1054,12 +1061,89 @@ export default function CampaignDetailPage() {
 
   const expectedCount = (campaign.submitted_count ?? 0) + (campaign.missing_count ?? 0) + (campaign.needs_review_count ?? 0);
 
+  // Inline editor for a person (name/contact/attributes/note). Shared by the
+  // desktop table's expanded row and the mobile card so behavior stays identical.
+  const renderEditPanel = (p: CampaignPerson) => {
+    if (!editDrafts[p.id]) return null;
+    return (
+      <div className="space-y-3" onClick={e => e.stopPropagation()}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {([
+            { key: 'first_name', label: 'First name', type: 'text' },
+            { key: 'last_name', label: 'Last name', type: 'text' },
+            { key: 'email', label: 'Email', type: 'email' },
+            { key: 'phone', label: 'Phone', type: 'tel' },
+          ] as const).map(field => (
+            <div key={field.key}>
+              <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1">{field.label}</label>
+              <input
+                type={field.type}
+                className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                placeholder="—"
+                value={editDrafts[p.id][field.key]}
+                onChange={e => updateDraft(p.id, { [field.key]: e.target.value } as Partial<PersonDraft>)}
+              />
+            </div>
+          ))}
+        </div>
+
+        {allAttrKeys.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {allAttrKeys.map(k => (
+              <div key={k}>
+                <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1">{k}</label>
+                <input
+                  type="text"
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  placeholder="—"
+                  value={editDrafts[p.id].attributes[k] ?? ''}
+                  onChange={e => updateDraftAttr(p.id, k, e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div>
+          <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1">Note</label>
+          <textarea
+            className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+            placeholder="Add a note about this person…"
+            value={editDrafts[p.id].note}
+            onChange={e => updateDraft(p.id, { note: e.target.value })}
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+            onClick={() => savePerson(p.id)}
+            disabled={!!savingPerson[p.id]}
+          >
+            {savingPerson[p.id] ? <><Spinner size="sm" /> Saving…</> : (noteSaved[p.id] ? 'Saved ✓' : 'Save')}
+          </button>
+          {allAttrKeys.length > 0 && (
+            <span className="text-[11px] text-slate-500">Separate multiple values with a semicolon (;)</span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Read-only form submission detail. Shared by table + card on the Submitted tab.
+  const renderSubmissionPanel = (p: CampaignPerson) => (
+    <>
+      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Form Submission</p>
+      <SubmissionDetail data={p.form_response_data} />
+    </>
+  );
+
   return (
     <ProtectedRoute>
       <div className="p-4 sm:p-6 lg:p-8 max-w-screen-xl mx-auto pb-32">
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
           <div>
             <Link
               href="/campaigns"
@@ -1086,56 +1170,62 @@ export default function CampaignDetailPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs text-slate-600">
+          {/* Actions — Reconcile leads (full width on mobile), the rest sit below it */}
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3 lg:flex-wrap">
+            {admin && (
+              <button
+                className="order-1 bg-btn-success text-white px-3 py-2.5 lg:py-1.5 rounded-lg text-sm font-semibold lg:font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                onClick={handleReconcile}
+                disabled={reconciling}
+              >
+                {reconciling ? <><Spinner size="sm" /> Reconciling…</> : 'Reconcile Now'}
+              </button>
+            )}
+            <div className="order-2 grid grid-cols-2 gap-2 lg:flex lg:items-center lg:gap-3">
+              <button
+                className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 lg:py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-40"
+                onClick={handleExport}
+                disabled={allPeople.length === 0}
+                title="Export the current view to CSV — the active tab + filters, with notes and form answers"
+              >
+                <Download className="w-4 h-4" strokeWidth={1.8} /> Export CSV
+              </button>
+              {admin && (
+                <>
+                  <button
+                    className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 lg:py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+                    onClick={openEdit}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 lg:py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+                    onClick={() => {
+                      setShowAddPerson(true);
+                      setSearchQuery('');
+                      setSearchResults([]);
+                      setAddedIds(new Set());
+                      setSearchError(null);
+                    }}
+                  >
+                    + Add Person
+                  </button>
+                  <button
+                    className="bg-slate-700 hover:bg-red-600 text-slate-300 hover:text-white px-3 py-2 lg:py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
+                    onClick={() => setShowDelete(true)}
+                    title="Delete campaign"
+                  >
+                    <Trash2 className="w-4 h-4" strokeWidth={1.8} />
+                    <span className="lg:hidden">Delete</span>
+                  </button>
+                </>
+              )}
+            </div>
+            <span className="order-3 text-xs text-slate-600 lg:order-first">
               {campaign.last_reconciled_at
                 ? `Last reconciled ${formatDate(campaign.last_reconciled_at)}`
                 : 'Not yet reconciled'}
             </span>
-            <button
-              className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40"
-              onClick={handleExport}
-              disabled={allPeople.length === 0}
-              title="Export the current view to CSV — the active tab + filters, with notes and form answers"
-            >
-              <Download className="w-4 h-4" strokeWidth={1.8} /> Export CSV
-            </button>
-            {admin && (
-              <>
-                <button
-                  className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-                  onClick={openEdit}
-                >
-                  Edit
-                </button>
-                <button
-                  className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-                  onClick={() => {
-                    setShowAddPerson(true);
-                    setSearchQuery('');
-                    setSearchResults([]);
-                    setAddedIds(new Set());
-                    setSearchError(null);
-                  }}
-                >
-                  + Add Person
-                </button>
-                <button
-                  className="bg-btn-success text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
-                  onClick={handleReconcile}
-                  disabled={reconciling}
-                >
-                  {reconciling ? <><Spinner size="sm" /> Reconciling…</> : 'Reconcile Now'}
-                </button>
-                <button
-                  className="bg-slate-700 hover:bg-red-600 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center"
-                  onClick={() => setShowDelete(true)}
-                  title="Delete campaign"
-                >
-                  <Trash2 className="w-4 h-4" strokeWidth={1.8} />
-                </button>
-              </>
-            )}
           </div>
         </div>
 
@@ -1211,61 +1301,23 @@ export default function CampaignDetailPage() {
         {/* Tabs + table */}
         {campaign.last_reconciled_at && (
           <>
-            {/* Tabs row + global search */}
-            <div className="flex items-end gap-3 mb-4">
-            {/* Underline tabs */}
-            <div className="border-b border-zinc-800 flex gap-1 overflow-x-auto flex-1">
-              <button
-                className={`px-3 pb-2.5 pt-1 text-sm font-medium whitespace-nowrap transition-colors ${
-                  activeTab === 'summary'
-                    ? 'border-b-2 border-indigo-400 text-indigo-300 -mb-px'
-                    : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent -mb-px'
-                }`}
-                onClick={() => setActiveTab('summary')}
-              >
-                Summary
-              </button>
-              {TABS.map(t => {
-                const pool = activeFilters.length
-                  ? allPeople.filter(matchesFilters)
-                  : allPeople;
-                const count = allPeople.length > 0
-                  ? pool.filter(p => p.reconcile_status === t.statusKey).length
-                  : null;
-                return (
-                  <button
-                    key={t.key}
-                    className={`px-3 pb-2.5 pt-1 text-sm font-medium whitespace-nowrap transition-colors ${
-                      activeTab === t.key
-                        ? 'border-b-2 border-indigo-400 text-indigo-300 -mb-px'
-                        : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent -mb-px'
-                    }`}
-                    onClick={() => setActiveTab(t.key)}
-                  >
-                    {t.label}
-                    {count !== null && (
-                      <span className="ml-1.5 text-xs opacity-50">({count})</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-              {/* Global people search */}
+            {/* Tabs / view picker + global search */}
+            <div className="mb-4 space-y-3">
+              {/* Find person — own full-width line on mobile, inline on desktop */}
               {allPeople.length > 0 && (
-                <div ref={globalSearchRef} className="relative flex-shrink-0 pb-0.5">
+                <div ref={globalSearchRef} className="relative w-full sm:hidden">
                   <input
                     type="text"
                     placeholder="Find person…"
                     value={globalSearch}
                     onChange={e => setGlobalSearch(e.target.value)}
-                    className="bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg pl-8 pr-3 py-1.5 text-sm w-44 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                   />
-                  <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
                   </svg>
                   {globalSearchResults.length > 0 && (
-                    <div className="absolute right-0 top-full mt-1 w-72 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
                       {globalSearchResults.map(p => {
                         const tab = TABS.find(t => t.key === tabForPerson(p));
                         const badgeColor = {
@@ -1293,12 +1345,124 @@ export default function CampaignDetailPage() {
                     </div>
                   )}
                   {globalSearch.trim().length >= 2 && globalSearchResults.length === 0 && (
-                    <div className="absolute right-0 top-full mt-1 w-56 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 px-3 py-3">
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 px-3 py-3">
                       <p className="text-xs text-slate-500">No matches found</p>
                     </div>
                   )}
                 </div>
               )}
+
+              {/* View picker — dropdown on mobile, underline tabs on tablet+ */}
+              <div className="sm:hidden">
+                <label className="block text-xs text-slate-500 uppercase tracking-wide mb-1.5">View</label>
+                <select
+                  value={activeTab}
+                  onChange={e => setActiveTab(e.target.value as TabKey)}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                >
+                  <option value="summary">Summary</option>
+                  {TABS.map(t => {
+                    const pool = activeFilters.length ? allPeople.filter(matchesFilters) : allPeople;
+                    const count = allPeople.length > 0
+                      ? pool.filter(p => p.reconcile_status === t.statusKey).length
+                      : null;
+                    return (
+                      <option key={t.key} value={t.key}>
+                        {t.label}{count !== null ? ` (${count})` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div className="hidden sm:flex items-end gap-3">
+                {/* Underline tabs */}
+                <div className="border-b border-zinc-800 flex gap-1 overflow-x-auto flex-1">
+                  <button
+                    className={`px-3 pb-2.5 pt-1 text-sm font-medium whitespace-nowrap transition-colors ${
+                      activeTab === 'summary'
+                        ? 'border-b-2 border-indigo-400 text-indigo-300 -mb-px'
+                        : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent -mb-px'
+                    }`}
+                    onClick={() => setActiveTab('summary')}
+                  >
+                    Summary
+                  </button>
+                  {TABS.map(t => {
+                    const pool = activeFilters.length
+                      ? allPeople.filter(matchesFilters)
+                      : allPeople;
+                    const count = allPeople.length > 0
+                      ? pool.filter(p => p.reconcile_status === t.statusKey).length
+                      : null;
+                    return (
+                      <button
+                        key={t.key}
+                        className={`px-3 pb-2.5 pt-1 text-sm font-medium whitespace-nowrap transition-colors ${
+                          activeTab === t.key
+                            ? 'border-b-2 border-indigo-400 text-indigo-300 -mb-px'
+                            : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent -mb-px'
+                        }`}
+                        onClick={() => setActiveTab(t.key)}
+                      >
+                        {t.label}
+                        {count !== null && (
+                          <span className="ml-1.5 text-xs opacity-50">({count})</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Global people search */}
+                {allPeople.length > 0 && (
+                  <div ref={globalSearchRef} className="relative flex-shrink-0 pb-0.5">
+                    <input
+                      type="text"
+                      placeholder="Find person…"
+                      value={globalSearch}
+                      onChange={e => setGlobalSearch(e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg pl-8 pr-3 py-1.5 text-sm w-44 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                    />
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                    </svg>
+                    {globalSearchResults.length > 0 && (
+                      <div className="absolute right-0 top-full mt-1 w-72 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                        {globalSearchResults.map(p => {
+                          const tab = TABS.find(t => t.key === tabForPerson(p));
+                          const badgeColor = {
+                            missing: 'bg-red-500/15 text-red-400',
+                            submitted: 'bg-green-500/15 text-green-400',
+                            not_in_group: 'bg-slate-500/20 text-slate-400',
+                            needs_review: 'bg-amber-500/15 text-amber-400',
+                            contacted: 'bg-indigo-500/15 text-indigo-400',
+                          }[tabForPerson(p)];
+                          return (
+                            <button
+                              key={p.id}
+                              className="w-full text-left flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-zinc-800 transition-colors"
+                              onClick={() => jumpToPerson(p)}
+                            >
+                              <span className="text-sm text-slate-200 truncate">
+                                {p.first_name} {p.last_name}
+                              </span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${badgeColor}`}>
+                                {tab?.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {globalSearch.trim().length >= 2 && globalSearchResults.length === 0 && (
+                      <div className="absolute right-0 top-full mt-1 w-56 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 px-3 py-3">
+                        <p className="text-xs text-slate-500">No matches found</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>{/* end tabs row */}
 
             {/* Campaign summary (exec view) */}
@@ -1308,9 +1472,9 @@ export default function CampaignDetailPage() {
 
             {/* Column filter bar — one dropdown per filterable column; selections AND together */}
             {activeTab !== 'summary' && filterFacets.length >= 1 && (
-              <div className="flex flex-wrap items-center gap-2 mb-4">
+              <div className="grid grid-cols-1 sm:flex sm:flex-wrap sm:items-center gap-2.5 sm:gap-2 mb-4">
                 {filterFacets.map(f => (
-                  <div key={f.key} className="flex items-center gap-1.5">
+                  <div key={f.key} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
                     <span className="text-xs text-slate-500">{f.label}</span>
                     <select
                       value={filters[f.key] ?? ''}
@@ -1322,7 +1486,7 @@ export default function CampaignDetailPage() {
                           return next;
                         });
                       }}
-                      className={`bg-zinc-800 border rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
+                      className={`w-full sm:w-auto bg-zinc-800 border rounded-lg px-3 sm:px-2.5 py-2 sm:py-1 text-sm sm:text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
                         filters[f.key] ? 'border-indigo-500/50 text-indigo-200' : 'border-zinc-700 text-slate-300'
                       }`}
                     >
@@ -1336,7 +1500,7 @@ export default function CampaignDetailPage() {
                 {activeFilters.length > 0 && (
                   <button
                     onClick={() => setFilters({})}
-                    className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-zinc-800 transition-colors"
+                    className="text-xs text-slate-400 hover:text-white px-2 py-2 sm:py-1 rounded-lg hover:bg-zinc-800 transition-colors text-left sm:text-center"
                   >
                     Clear filters
                   </button>
@@ -1344,18 +1508,179 @@ export default function CampaignDetailPage() {
               </div>
             )}
 
-            {/* People table */}
-            {activeTab !== 'summary' && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
-              {loadingPeople ? (
-                <div className="flex justify-center items-center py-12">
-                  <Spinner />
-                </div>
-              ) : filteredPeople.length === 0 ? (
-                <div className="py-14 text-center">
-                  <p className="text-slate-500 text-sm">No people in this bucket.</p>
-                </div>
-              ) : (
+            {/* People list */}
+            {activeTab !== 'summary' && loadingPeople && (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 flex justify-center items-center py-12">
+                <Spinner />
+              </div>
+            )}
+            {activeTab !== 'summary' && !loadingPeople && filteredPeople.length === 0 && (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 py-14 text-center">
+                <p className="text-slate-500 text-sm">No people in this bucket.</p>
+              </div>
+            )}
+
+            {/* Mobile cards */}
+            {activeTab !== 'summary' && !loadingPeople && filteredPeople.length > 0 && (
+              <div className="sm:hidden space-y-3">
+                {showCheckboxes && (
+                  <label className="flex items-center gap-2.5 px-1 text-sm text-slate-400 select-none">
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5 rounded border-zinc-600 bg-zinc-800 accent-indigo-500 cursor-pointer"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                    />
+                    Select all ({sortedPeople.length})
+                  </label>
+                )}
+                {sortedPeople.map(p => {
+                  const expandable = isNoteTab || activeTab === 'submitted';
+                  const isOpen = expandedRows.has(p.id);
+                  return (
+                    <div
+                      key={p.id}
+                      className={`rounded-xl border bg-zinc-900/40 transition-colors ${
+                        highlightedId === p.id ? 'border-indigo-500/60' : 'border-zinc-800'
+                      }`}
+                    >
+                      <div className="p-4">
+                        <div className="flex items-start gap-3">
+                          {showCheckboxes && (
+                            <input
+                              type="checkbox"
+                              className="mt-1 w-5 h-5 rounded border-zinc-600 bg-zinc-800 accent-indigo-500 cursor-pointer flex-shrink-0"
+                              checked={selected.has(p.id)}
+                              onChange={() => toggleRow(p.id)}
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-slate-100">{p.first_name} {p.last_name}</span>
+                              {p.manually_added && (
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="text-xs text-slate-500 border border-zinc-700 rounded px-1 py-0.5 leading-none">manual</span>
+                                  {(activeTab === 'missing' || activeTab === 'needs_review') && (
+                                    <button
+                                      className="text-slate-600 hover:text-red-400 transition-colors leading-none"
+                                      title="Remove from campaign"
+                                      onClick={() => handleRemoveManual(p.id)}
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Contact */}
+                            <div id={`campaign-card-${p.id}`} className="mt-1.5 space-y-0.5 text-sm text-slate-400">
+                              {p.email
+                                ? <div className="break-all">{p.email}</div>
+                                : <div className="text-slate-600">No email</div>}
+                              {bestPhone(p) && <div>{bestPhone(p)}</div>}
+                            </div>
+
+                            {/* Groups */}
+                            {facets.length >= 1 && facetSummary(p) && (
+                              <div className="mt-1.5 text-xs text-slate-500">{facetSummary(p)}</div>
+                            )}
+
+                            {/* Last contacted (Unsubmitted) */}
+                            {activeTab === 'missing' && p.contacted_at && (
+                              <div className="mt-1.5 text-xs text-indigo-400">
+                                Contacted {DateTime.fromISO(p.contacted_at).toFormat('MMM d · h:mm a')}
+                              </div>
+                            )}
+
+                            {/* Submitted meta */}
+                            {activeTab === 'submitted' && (
+                              <div className="mt-1.5 text-xs text-slate-500 space-y-0.5">
+                                {submittedAt(p) && <div>Submitted {DateTime.fromSQL(submittedAt(p)).toFormat('MMM d · h:mm a')}</div>}
+                                {p.match_method && <div>Match: {p.match_method}</div>}
+                              </div>
+                            )}
+
+                            {/* Needs review: candidate form name */}
+                            {activeTab === 'needs_review' && (
+                              <div className="mt-1.5 text-xs text-amber-400">
+                                Form: {p.form_first_name || p.form_last_name
+                                  ? `${p.form_first_name || ''} ${p.form_last_name || ''}`.trim()
+                                  : '—'}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right-side affordance */}
+                          {isNoteTab && activeTab !== 'needs_review' && (
+                            <button
+                              className={`flex-shrink-0 transition-colors ${isOpen || p.note ? 'text-indigo-400' : 'text-slate-600'}`}
+                              title={isOpen ? 'Hide note' : (p.note ? 'Edit note' : 'Add note')}
+                              onClick={() => handleRowExpand(p)}
+                            >
+                              <StickyNote className="w-5 h-5" strokeWidth={1.8} />
+                            </button>
+                          )}
+                          {activeTab === 'submitted' && (
+                            <button
+                              className="flex-shrink-0 text-slate-500 hover:text-slate-300 transition-colors"
+                              title="View submission"
+                              onClick={() => toggleExpand(p.id)}
+                            >
+                              {isOpen ? <ChevronUp className="w-5 h-5" strokeWidth={1.8} /> : <ChevronDown className="w-5 h-5" strokeWidth={1.8} />}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Needs-review actions */}
+                        {activeTab === 'needs_review' && (
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 bg-green-600/90 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                              onClick={() => resolveMatches([p.id], 'confirmed')}
+                              disabled={resolvingMatch}
+                            >
+                              <Check className="w-4 h-4" strokeWidth={2} /> Confirm
+                            </button>
+                            <button
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 bg-zinc-700 hover:bg-red-600 text-slate-200 hover:text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                              onClick={() => resolveMatches([p.id], 'rejected')}
+                              disabled={resolvingMatch}
+                            >
+                              <X className="w-4 h-4" strokeWidth={2} /> Not a match
+                            </button>
+                            <button
+                              className="flex-shrink-0 inline-flex items-center justify-center text-slate-500 hover:text-indigo-400 px-2 transition-colors"
+                              title={isOpen ? 'Hide note' : (p.note ? 'Edit note' : 'Add note')}
+                              onClick={() => handleRowExpand(p)}
+                            >
+                              <StickyNote className="w-5 h-5" strokeWidth={1.8} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Expanded: note editor */}
+                      {isNoteTab && isOpen && editDrafts[p.id] && (
+                        <div className="border-t border-zinc-800 bg-zinc-900/60 p-4">
+                          {renderEditPanel(p)}
+                        </div>
+                      )}
+                      {/* Expanded: submission detail */}
+                      {activeTab === 'submitted' && isOpen && (
+                        <div className="border-t border-zinc-800 bg-zinc-900/60 p-4 overflow-x-auto">
+                          {renderSubmissionPanel(p)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Desktop table */}
+            {activeTab !== 'summary' && !loadingPeople && filteredPeople.length > 0 && (
+              <div className="hidden sm:block rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -1516,66 +1841,8 @@ export default function CampaignDetailPage() {
                           {isNoteTab && expandedRows.has(p.id) && editDrafts[p.id] && (
                             <tr key={`${p.id}-edit`} className="bg-zinc-900/60">
                               <td colSpan={99} className="px-6 py-4">
-                                <div className="space-y-3 max-w-3xl" onClick={e => e.stopPropagation()}>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {([
-                                      { key: 'first_name', label: 'First name', type: 'text' },
-                                      { key: 'last_name', label: 'Last name', type: 'text' },
-                                      { key: 'email', label: 'Email', type: 'email' },
-                                      { key: 'phone', label: 'Phone', type: 'tel' },
-                                    ] as const).map(field => (
-                                      <div key={field.key}>
-                                        <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1">{field.label}</label>
-                                        <input
-                                          type={field.type}
-                                          className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                                          placeholder="—"
-                                          value={editDrafts[p.id][field.key]}
-                                          onChange={e => updateDraft(p.id, { [field.key]: e.target.value } as Partial<PersonDraft>)}
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-
-                                  {allAttrKeys.length > 0 && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                      {allAttrKeys.map(k => (
-                                        <div key={k}>
-                                          <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1">{k}</label>
-                                          <input
-                                            type="text"
-                                            className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                                            placeholder="—"
-                                            value={editDrafts[p.id].attributes[k] ?? ''}
-                                            onChange={e => updateDraftAttr(p.id, k, e.target.value)}
-                                          />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  <div>
-                                    <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1">Note</label>
-                                    <textarea
-                                      className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                                      placeholder="Add a note about this person…"
-                                      value={editDrafts[p.id].note}
-                                      onChange={e => updateDraft(p.id, { note: e.target.value })}
-                                    />
-                                  </div>
-
-                                  <div className="flex items-center gap-3">
-                                    <button
-                                      className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-                                      onClick={() => savePerson(p.id)}
-                                      disabled={!!savingPerson[p.id]}
-                                    >
-                                      {savingPerson[p.id] ? <><Spinner size="sm" /> Saving…</> : (noteSaved[p.id] ? 'Saved ✓' : 'Save')}
-                                    </button>
-                                    {allAttrKeys.length > 0 && (
-                                      <span className="text-[11px] text-slate-500">Separate multiple values with a semicolon (;)</span>
-                                    )}
-                                  </div>
+                                <div className="max-w-3xl">
+                                  {renderEditPanel(p)}
                                 </div>
                               </td>
                             </tr>
@@ -1583,10 +1850,7 @@ export default function CampaignDetailPage() {
                           {activeTab === 'submitted' && expandedRows.has(p.id) && (
                             <tr key={`${p.id}-detail`} className="bg-zinc-900/60">
                               <td colSpan={facets.length >= 1 ? 6 : 5} className="px-6 py-4">
-                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">
-                                  Form Submission
-                                </p>
-                                <SubmissionDetail data={p.form_response_data} />
+                                {renderSubmissionPanel(p)}
                               </td>
                             </tr>
                           )}
@@ -1595,8 +1859,7 @@ export default function CampaignDetailPage() {
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
+              </div>
             )}
           </>
         )}

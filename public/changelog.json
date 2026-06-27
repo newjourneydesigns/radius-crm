@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "campaigns-mobile-friendly",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaigns are now much easier to use on a phone. The campaign list and the people lists render as tap-friendly cards instead of tables you had to scroll sideways. On a campaign, Reconcile Now gets its own full-width button with Export, Edit, Add Person, and Delete tucked neatly below it; Find person sits on its own line; the tab bar becomes a View dropdown; and the Campus/Team/Leader filters stack full-width. Tablets and desktops keep the familiar tables and tabs.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "campaign-summary-campus-first",
     "type": "improvement",
     "category": "Campaigns",
