@@ -243,7 +243,21 @@ export function useTodayData() {
 
       const applyData = () => {
         if (!isLatest()) return;
-        if (freshCore) setData({ ...freshCore, ...(freshCards || EMPTY_CARDS) });
+        setData(prev => {
+          // First paint needs core before we can render anything meaningful.
+          if (!prev) return freshCore ? { ...freshCore, ...(freshCards || EMPTY_CARDS) } : prev;
+          // On a refresh, overlay only the half/halves that have arrived. The
+          // core and cards requests resolve independently; previously, applying
+          // core first reset the card lists to EMPTY_CARDS until cards landed a
+          // beat later, which blanked the cards section and made it flash/jump.
+          // Keeping the existing half until its fresh data arrives updates the
+          // page in place with no blink.
+          return {
+            ...prev,
+            ...(freshCore || {}),
+            ...(freshCards || {}),
+          };
+        });
       };
 
       // Both fetches start simultaneously

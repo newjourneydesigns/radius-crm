@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "today-refresh-no-blink",
+    "type": "improvement",
+    "category": "Today",
+    "description": "The Today page no longer blinks or jumps after you check something off. The background refresh that runs after an update used to briefly clear the card lists before refilling them a moment later; it now updates in place, so the page stays steady while your change saves.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "today-fab-card-appears",
     "type": "fix",
     "category": "Today",
