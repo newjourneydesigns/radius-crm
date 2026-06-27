@@ -38,6 +38,7 @@ import DayTimeline, {
 import TodayCardModal from '../../components/today/TodayCardModal';
 import type { TodayData } from '../../hooks/useTodayData';
 import { supabase } from '../../lib/supabase';
+import type { CardPriority } from '../../lib/supabase';
 import type {
   EncouragementItem,
   FollowUpItem,
@@ -332,6 +333,157 @@ function UndoBtn({ onClick }: { onClick: () => void }) {
 /** Title styling for a completed item — struck through and dimmed. */
 const doneTitle = (done: boolean): React.CSSProperties =>
   done ? { color: T.textFaint, textDecoration: 'line-through' } : { color: T.text, textDecoration: 'none' };
+
+// ─── Reschedule menu ─────────────────────────────────────────────────────────
+
+const PRIORITY_RANK: Record<string, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
+const byPriorityDesc = (a: CardDigestItem, b: CardDigestItem) =>
+  (PRIORITY_RANK[b.priority || ''] || 0) - (PRIORITY_RANK[a.priority || ''] || 0);
+
+const PRIORITY_LEVELS: CardPriority[] = ['urgent', 'high', 'medium', 'low'];
+
+/** The quick reschedule chips, computed in Central time. */
+function rescheduleOptions(includeToday: boolean): { label: string; date: string; hint: string }[] {
+  const now = DateTime.now().setZone('America/Chicago');
+  let sat = now;
+  while (sat.weekday !== 6) sat = sat.plus({ days: 1 });
+  let mon = now.plus({ days: 1 });
+  while (mon.weekday !== 1) mon = mon.plus({ days: 1 });
+  const opts = [
+    { label: 'Today', date: now.toISODate()!, hint: now.toFormat('ccc') },
+    { label: 'Tomorrow', date: now.plus({ days: 1 }).toISODate()!, hint: now.plus({ days: 1 }).toFormat('ccc') },
+    { label: 'This weekend', date: sat.toISODate()!, hint: sat.toFormat('ccc d') },
+    { label: 'Next week', date: mon.toISODate()!, hint: mon.toFormat('LLL d') },
+  ];
+  return includeToday ? opts : opts.filter(o => o.label !== 'Today');
+}
+
+function RescheduleBtn({ onPick, includeToday = true, label }: {
+  onPick: (date: string) => void;
+  includeToday?: boolean;
+  label?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const opts = rescheduleOptions(includeToday);
+  const pick = (date: string) => { setOpen(false); onPick(date); };
+  const rowStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none',
+    background: 'transparent', color: T.text, fontSize: 12, fontWeight: 600,
+    cursor: 'pointer', textAlign: 'left',
+  };
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        title="Reschedule"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px',
+          borderRadius: 7, border: `1px solid ${T.cardBorder}`, background: 'rgba(255,255,255,0.03)',
+          color: T.textMuted, fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+        }}
+        className="today-action-btn"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+        </svg>
+        {label || 'Reschedule'}
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+          <div style={{
+            position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 41,
+            background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 10,
+            padding: 6, minWidth: 184, boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+          }}>
+            {opts.map(o => (
+              <button key={o.label} onClick={() => pick(o.date)} style={rowStyle} className="today-resched-row">
+                <span>{o.label}</span>
+                <span style={{ color: T.textFaint, fontSize: 11, fontWeight: 500 }}>{o.hint}</span>
+              </button>
+            ))}
+            <div style={{ borderTop: `1px solid ${T.cardBorder}`, margin: '5px 4px' }} />
+            <label style={{ ...rowStyle, cursor: 'pointer', color: T.textMuted }}>
+              <span>Pick a date</span>
+              <input
+                type="date"
+                onChange={e => { if (e.target.value) pick(e.target.value); }}
+                style={{
+                  background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.cardBorder}`,
+                  borderRadius: 6, color: T.text, fontSize: 11, padding: '2px 6px',
+                  colorScheme: 'dark',
+                }}
+              />
+            </label>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Inline priority flag ────────────────────────────────────────────────────
+
+function PriorityFlag({ cardId, priority, onSet }: {
+  cardId: string;
+  priority?: string | null;
+  onSet: (cardId: string, priority: CardPriority) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const meta = priority ? PRIORITY_META[priority] : null;
+  const color = meta?.color ?? T.textFaint;
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        title={meta ? `Priority: ${meta.label}` : 'Set priority'}
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 26, height: 26, borderRadius: 7, cursor: 'pointer',
+          border: `1px solid ${meta ? color + '40' : T.cardBorder}`,
+          background: meta ? color + '14' : 'rgba(255,255,255,0.03)', color,
+        }}
+        className="today-action-btn"
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill={meta ? color : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+          <div style={{
+            position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 41,
+            background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 10,
+            padding: 6, minWidth: 130, boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+          }}>
+            {PRIORITY_LEVELS.map(p => {
+              const m = PRIORITY_META[p];
+              const active = priority === p;
+              return (
+                <button
+                  key={p}
+                  onClick={() => { setOpen(false); onSet(cardId, p); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                    padding: '6px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                    background: active ? m.color + '18' : 'transparent',
+                    color: active ? m.color : T.text, fontSize: 12, fontWeight: 600, textAlign: 'left',
+                  }}
+                  className="today-resched-row"
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: m.color, flexShrink: 0 }} />
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 // ─── Leader link ─────────────────────────────────────────────────────────────
 
@@ -1076,6 +1228,7 @@ function TodaySections({
   markChecklistDone,
   markBirthdayDone, undoBirthdayDone,
   markPrayerDone, undoPrayerDone,
+  rescheduleCard, rescheduleFollowUp, rescheduleChecklist, setCardPriority,
   onOpenCard,
 }: {
   data: TodayData;
@@ -1094,9 +1247,18 @@ function TodaySections({
   undoBirthdayDone: (id: number) => void;
   markPrayerDone: (id: number, isGeneral: boolean) => void;
   undoPrayerDone: (id: number, isGeneral: boolean) => void;
+  rescheduleCard: (cardId: string, dueDate: string, dueTime: string | null) => void;
+  rescheduleFollowUp: (leaderId: number, date: string, time: string | null) => void;
+  rescheduleChecklist: (itemId: string, dueDate: string) => void;
+  setCardPriority: (cardId: string, priority: CardPriority) => void;
   onOpenCard: (boardId: string, cardId: string) => void;
 }) {
   const totalFocus = (data.focusCards ?? []).length;
+
+  // Apply one reschedule date to every overdue card at once.
+  const rescheduleAllOverdueCards = (date: string) => {
+    data.cards.overdue.forEach(c => rescheduleCard(c.id, date, c.due_time ?? null));
+  };
 
   const cardClick = (boardId: string, cardId: string) => (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey) return;
@@ -1121,7 +1283,7 @@ function TodaySections({
       {/* ── Focus Cards ── */}
       <Section id="focus-cards" title="Focus Cards" icon={<Star className="h-4 w-4" />} count={totalFocus}
         sectionKey="focusCards" isOpen={isOpen('focusCards')} onToggle={() => toggle('focusCards')} accentColor="#f59e0b">
-        {(data.focusCards ?? []).map((c: CardDigestItem) => {
+        {[...(data.focusCards ?? [])].sort(byPriorityDesc).map((c: CardDigestItem) => {
           const done = Boolean(c.is_complete) || completed.cards.has(c.id);
           return (
           <Item key={c.id} accentColor={done ? T.green : '#f59e0b'}>
@@ -1143,6 +1305,7 @@ function TodaySections({
               : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                   {c.due_date && <DateBadge date={formatShort(c.due_date)} color="#f59e0b" />}
+                  <PriorityFlag cardId={c.id} priority={c.priority} onSet={setCardPriority} />
                   <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
                 </div>
               )}
@@ -1251,7 +1414,11 @@ function TodaySections({
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {done
                 ? <><DateBadge date="Cleared" color={T.green} /><UndoBtn onClick={() => undoFollowUp(f.id)} /></>
-                : <>{f.follow_up_date && <DateBadge date={`Due ${formatShort(f.follow_up_date)}`} color={T.amber} />}<ActionBtn onClick={() => clearFollowUp(f.id)} color={T.green}>Clear</ActionBtn></>}
+                : <>
+                    {f.follow_up_date && <DateBadge date={`Due ${formatShort(f.follow_up_date)}`} color={T.amber} />}
+                    <RescheduleBtn onPick={d => rescheduleFollowUp(f.id, d, f.follow_up_time ?? null)} includeToday={false} />
+                    <ActionBtn onClick={() => clearFollowUp(f.id)} color={T.green}>Clear</ActionBtn>
+                  </>}
             </div>
           </Item>
           );
@@ -1261,7 +1428,7 @@ function TodaySections({
       {/* ── Cards Due Today ── */}
       <Section id="cards-today" title="Cards Due Today" icon={<ClipboardList className="h-4 w-4" />} count={data.cards.dueToday.length}
         sectionKey="cardsToday" isOpen={isOpen('cardsToday')} onToggle={() => toggle('cardsToday')} accentColor={T.amber}>
-        {data.cards.dueToday.map((c: CardDigestItem) => {
+        {[...data.cards.dueToday].sort(byPriorityDesc).map((c: CardDigestItem) => {
           const done = Boolean(c.is_complete) || completed.cards.has(c.id);
           return (
           <Item key={c.id} accentColor={done ? T.green : T.amber}>
@@ -1276,7 +1443,13 @@ function TodaySections({
             </div>
             {done
               ? <UndoBtn onClick={() => undoCardComplete(c.id)} />
-              : <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>}
+              : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <PriorityFlag cardId={c.id} priority={c.priority} onSet={setCardPriority} />
+                  <RescheduleBtn onPick={d => rescheduleCard(c.id, d, c.due_time ?? null)} includeToday={false} />
+                  <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
+                </div>
+              )}
           </Item>
           );
         })}
@@ -1285,7 +1458,19 @@ function TodaySections({
       {/* ── Overdue Cards ── */}
       <Section id="overdue-cards" title="Overdue Cards" icon={<AlertTriangle className="h-4 w-4" />} count={data.cards.overdue.length}
         sectionKey="overdueCards" isOpen={isOpen('overdueCards')} onToggle={() => toggle('overdueCards')} accentColor={T.red}>
-        {data.cards.overdue.map((c: CardDigestItem) => {
+        {data.cards.overdue.length > 1 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            padding: '8px 16px', borderBottom: `1px solid ${T.cardBorder}`,
+            background: 'rgba(255,255,255,0.015)',
+          }}>
+            <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>
+              Move every overdue card at once
+            </span>
+            <RescheduleBtn onPick={rescheduleAllOverdueCards} includeToday label="Reschedule all" />
+          </div>
+        )}
+        {[...data.cards.overdue].sort(byPriorityDesc).map((c: CardDigestItem) => {
           const done = Boolean(c.is_complete) || completed.cards.has(c.id);
           return (
           <Item key={c.id} accentColor={done ? T.green : T.red}>
@@ -1303,6 +1488,8 @@ function TodaySections({
               : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                   {c.due_date && <DateBadge date={formatShort(c.due_date)} color={T.red} />}
+                  <PriorityFlag cardId={c.id} priority={c.priority} onSet={setCardPriority} />
+                  <RescheduleBtn onPick={d => rescheduleCard(c.id, d, c.due_time ?? null)} includeToday />
                   <ActionBtn onClick={() => markCardComplete(c.id)} color={T.green}>Done</ActionBtn>
                 </div>
               )}
@@ -1325,7 +1512,10 @@ function TodaySections({
                 </Link>
               </Sub>
             </div>
-            <ActionBtn onClick={() => markChecklistDone(cl.id)} color={T.green}>Done</ActionBtn>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              <RescheduleBtn onPick={d => rescheduleChecklist(cl.id, d)} includeToday={false} />
+              <ActionBtn onClick={() => markChecklistDone(cl.id)} color={T.green}>Done</ActionBtn>
+            </div>
           </Item>
         ))}
       </Section>
@@ -1342,6 +1532,7 @@ function TodaySections({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {cl.due_date && <DateBadge date={`Due ${formatShort(cl.due_date)}`} color={T.red} />}
+              <RescheduleBtn onPick={d => rescheduleChecklist(cl.id, d)} includeToday />
               <ActionBtn onClick={() => markChecklistDone(cl.id)} color={T.green}>Done</ActionBtn>
             </div>
           </Item>
@@ -1378,6 +1569,7 @@ function TodaySections({
               {f.follow_up_date
                 ? <DateBadge date={`Due ${formatShort(f.follow_up_date)}`} color={T.red} />
                 : <DateBadge date="No due date" color={T.textFaint} />}
+              <RescheduleBtn onPick={d => rescheduleFollowUp(f.id, d, f.follow_up_time ?? null)} includeToday />
               <ActionBtn onClick={() => clearFollowUp(f.id)} color={T.green}>Clear</ActionBtn>
             </div>
           </Item>
@@ -1503,7 +1695,7 @@ export default function TodayPage() {
     markChecklistDone,
     markBirthdayDone, undoBirthdayDone,
     markPrayerDone, undoPrayerDone,
-    scheduleCard, scheduleFollowUp, quickAddCard,
+    scheduleCard, scheduleFollowUp, scheduleChecklist, setCardPriority, quickAddCard,
   } = useTodayData();
   const bigThree = useBigThree();
   const calendars = useTodayCalendars();
@@ -1953,6 +2145,10 @@ export default function TodayPage() {
       undoBirthdayDone={undoBirthdayDone}
       markPrayerDone={markPrayerDone}
       undoPrayerDone={undoPrayerDone}
+      rescheduleCard={scheduleCard}
+      rescheduleFollowUp={scheduleFollowUp}
+      rescheduleChecklist={scheduleChecklist}
+      setCardPriority={setCardPriority}
       onOpenCard={handleOpenCard}
     />
   );

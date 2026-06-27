@@ -10,6 +10,7 @@ import { isCoachingAutomationsEnabled } from "../../lib/circle-leader-toolkit/co
 import { isTeamsToolkitEnabled } from "../../lib/teams-toolkit/feature-flag";
 import { MESSAGES_ENABLED } from "../../lib/features";
 import GlobalSearch from './GlobalSearch';
+import { useQuickActions } from "../../contexts/QuickActionsContext";
 
 // ----- Icon components (heroicons-style, 20 × 20) -----
 const TrendUpIcon = () => (
@@ -245,6 +246,7 @@ export default function AuthenticatedNavigation({
   showUpdateLogBadge,
 }: AuthenticatedNavigationProps) {
   const { user, signOut, isAuthenticated, isAdmin } = useAuth();
+  const { open: openQuickAction } = useQuickActions();
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
@@ -337,6 +339,18 @@ export default function AuthenticatedNavigation({
           {/* ── Right: Search + Tools + User — flush right ── */}
           <div className="flex items-center gap-1 shrink-0">
             <GlobalSearch />
+
+            {/* Quick add card — natural-language quick capture */}
+            <button
+              onClick={() => openQuickAction('card')}
+              aria-label="Quick add card"
+              title="Quick add card"
+              className="flex items-center justify-center w-9 h-9 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-colors duration-150"
+            >
+              <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
 
             {/* Inbox (all users) */}
             <Link

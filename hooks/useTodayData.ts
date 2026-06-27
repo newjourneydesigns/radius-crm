@@ -7,6 +7,7 @@ import type { RealtimeSubscriptionConfig } from './useRealtimeSubscription';
 import type { TodayCoreData } from '../app/api/today/core/route';
 import type { TodayCardsData } from '../app/api/today/cards/route';
 import type { CardDigestItem, ChecklistDigestItem } from '../lib/emailService';
+import type { CardPriority } from '../lib/supabase';
 
 export type TodayData = TodayCoreData & TodayCardsData;
 
@@ -143,6 +144,18 @@ function setCardCompleteFlag(data: TodayData, cardId: string, isComplete: boolea
     cards: {
       dueToday: data.cards.dueToday.map(update),
       overdue: data.cards.overdue.map(update).filter(card => !card.is_complete),
+    },
+    focusCards: (data.focusCards || []).map(update),
+  };
+}
+
+function setCardPriorityValue(data: TodayData, cardId: string, priority: CardPriority): TodayData {
+  const update = (card: CardDigestItem) => card.id === cardId ? { ...card, priority } : card;
+  return {
+    ...data,
+    cards: {
+      dueToday: data.cards.dueToday.map(update),
+      overdue: data.cards.overdue.map(update),
     },
     focusCards: (data.focusCards || []).map(update),
   };
@@ -591,6 +604,41 @@ export function useTodayData() {
     }
   }, [invalidateInFlightFetches]);
 
+  // Reschedule a checklist item — sets card_checklists.due_date. Drops it from
+  // today's lists optimistically when moved off today.
+  const scheduleChecklist = useCallback(async (itemId: string, dueDate: string) => {
+    invalidateInFlightFetches();
+    setData(prev => {
+      if (!prev) return prev;
+      const movesOffToday = dueDate !== prev.today;
+      const update = (cl: ChecklistDigestItem) => cl.id === itemId ? { ...cl, due_date: dueDate } : cl;
+      const dueToday = prev.checklistItems.dueToday
+        .map(update)
+        .filter(cl => !(cl.id === itemId && movesOffToday));
+      const overdue = prev.checklistItems.overdue.filter(cl => cl.id !== itemId);
+      // Landing on today from overdue: surface it in dueToday.
+      const fromOverdue = prev.checklistItems.overdue.find(cl => cl.id === itemId);
+      if (fromOverdue && !movesOffToday) dueToday.push({ ...fromOverdue, due_date: dueDate });
+      return { ...prev, checklistItems: { dueToday, overdue } };
+    });
+    try {
+      await supabase.from('card_checklists').update({ due_date: dueDate }).eq('id', itemId);
+    } catch (err) {
+      console.error('Failed to reschedule checklist item:', err);
+    }
+  }, [invalidateInFlightFetches]);
+
+  // Set a board card's priority inline.
+  const setCardPriority = useCallback(async (cardId: string, priority: CardPriority) => {
+    invalidateInFlightFetches();
+    setData(prev => prev ? setCardPriorityValue(prev, cardId, priority) : prev);
+    try {
+      await supabase.from('board_cards').update({ priority }).eq('id', cardId);
+    } catch (err) {
+      console.error('Failed to set card priority:', err);
+    }
+  }, [invalidateInFlightFetches]);
+
   // Create a card directly from the timeline (click an empty slot), appended
   // to the selected board list.
   const quickAddCard = useCallback(async (
@@ -682,6 +730,8 @@ export function useTodayData() {
     undoPrayerDone,
     scheduleCard,
     scheduleFollowUp,
+    scheduleChecklist,
+    setCardPriority,
     quickAddCard,
   };
 }
