@@ -364,8 +364,23 @@ function RescheduleBtn({ onPick, includeToday = true, label }: {
   label?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const opts = rescheduleOptions(includeToday);
   const pick = (date: string) => { setOpen(false); onPick(date); };
+
+  // Close on a genuine outside tap. The listener is attached only after the menu
+  // is open (next commit), so the same gesture that opened it can't immediately
+  // close it. Replaces a full-screen fixed backdrop that, on mobile, could
+  // swallow taps meant for the menu and dismiss it before a date was picked.
+  useEffect(() => {
+    if (!open) return;
+    const handle = (e: Event) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', handle);
+    return () => document.removeEventListener('pointerdown', handle);
+  }, [open]);
+
   const rowStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
     width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none',
@@ -373,9 +388,9 @@ function RescheduleBtn({ onPick, includeToday = true, label }: {
     cursor: 'pointer', textAlign: 'left',
   };
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
+    <div ref={wrapRef} style={{ position: 'relative', flexShrink: 0 }}>
       <button
-        onClick={() => setOpen(v => !v)}
+        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
         title="Reschedule"
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px',
@@ -390,34 +405,31 @@ function RescheduleBtn({ onPick, includeToday = true, label }: {
         {label || 'Reschedule'}
       </button>
       {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-          <div style={{
-            position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 41,
-            background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 10,
-            padding: 6, minWidth: 184, boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-          }}>
-            {opts.map(o => (
-              <button key={o.label} onClick={() => pick(o.date)} style={rowStyle} className="today-resched-row">
-                <span>{o.label}</span>
-                <span style={{ color: T.textFaint, fontSize: 11, fontWeight: 500 }}>{o.hint}</span>
-              </button>
-            ))}
-            <div style={{ borderTop: `1px solid ${T.cardBorder}`, margin: '5px 4px' }} />
-            <label style={{ ...rowStyle, cursor: 'pointer', color: T.textMuted }}>
-              <span>Pick a date</span>
-              <input
-                type="date"
-                onChange={e => { if (e.target.value) pick(e.target.value); }}
-                style={{
-                  background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.cardBorder}`,
-                  borderRadius: 6, color: T.text, fontSize: 11, padding: '2px 6px',
-                  colorScheme: 'dark',
-                }}
-              />
-            </label>
-          </div>
-        </>
+        <div style={{
+          position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 41,
+          background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 10,
+          padding: 6, minWidth: 184, boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+        }}>
+          {opts.map(o => (
+            <button key={o.label} onClick={() => pick(o.date)} style={rowStyle} className="today-resched-row">
+              <span>{o.label}</span>
+              <span style={{ color: T.textFaint, fontSize: 11, fontWeight: 500 }}>{o.hint}</span>
+            </button>
+          ))}
+          <div style={{ borderTop: `1px solid ${T.cardBorder}`, margin: '5px 4px' }} />
+          <label style={{ ...rowStyle, cursor: 'pointer', color: T.textMuted }}>
+            <span>Pick a date</span>
+            <input
+              type="date"
+              onChange={e => { if (e.target.value) pick(e.target.value); }}
+              style={{
+                background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.cardBorder}`,
+                borderRadius: 6, color: T.text, fontSize: 11, padding: '2px 6px',
+                colorScheme: 'dark',
+              }}
+            />
+          </label>
+        </div>
       )}
     </div>
   );

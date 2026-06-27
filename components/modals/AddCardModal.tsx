@@ -34,6 +34,15 @@ function nowCST(): Date {
 const TIME_OPTIONS_15_MIN = buildTimeOptions15Min('08:00');
 const PRIORITY_ORDER: CardPriority[] = ['low', 'medium', 'high', 'urgent'];
 
+/** Right-aligned check shown on the selected priority/label row. */
+function CheckIcon() {
+  return (
+    <svg className="w-4 h-4 ml-auto" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
 export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
   const { user } = useAuth();
   const [boards, setBoards] = useState<Board[]>([]);
@@ -361,22 +370,24 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             Priority
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-2">
             <button
               type="button"
               onClick={() => setPriority(null)}
               disabled={isSaving}
               className={
-                'px-3 py-1 rounded-full text-xs font-medium border transition ' +
+                'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition ' +
                 (priority === null
-                  ? 'border-gray-400 dark:border-gray-300 text-gray-700 dark:text-gray-200'
-                  : 'border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500')
+                  ? 'border-gray-400 dark:border-gray-300 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                  : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/40')
               }
             >
-              None
+              <span className={'w-2.5 h-2.5 rounded-full border ' + (priority === null ? 'border-gray-500 dark:border-gray-300' : 'border-gray-300 dark:border-gray-500')} />
+              <span>None</span>
+              {priority === null && <CheckIcon />}
             </button>
             {PRIORITY_ORDER.slice().reverse().map(p => {
               const cfg = PRIORITY_CONFIG[p];
@@ -387,14 +398,16 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
                   type="button"
                   onClick={() => setPriority(p)}
                   disabled={isSaving}
-                  className="px-3 py-1 rounded-full text-xs font-medium border transition"
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition"
                   style={{
                     color: active ? '#fff' : cfg.color,
                     backgroundColor: active ? cfg.color : 'transparent',
                     borderColor: cfg.color,
                   }}
                 >
-                  {cfg.label}
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: active ? '#fff' : cfg.color }} />
+                  <span>{cfg.label}</span>
+                  {active && <CheckIcon />}
                 </button>
               );
             })}
@@ -403,10 +416,10 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
 
         {selectedBoardId && labels.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               Labels <span className="text-gray-400 font-normal">(optional)</span>
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-2">
               {labels.map(l => {
                 const active = selectedLabelIds.includes(l.id);
                 return (
@@ -415,14 +428,16 @@ export default function AddCardModal({ isOpen, onClose, onSaved }: Props) {
                     type="button"
                     onClick={() => toggleLabel(l.id)}
                     disabled={isSaving}
-                    className="px-3 py-1 rounded-full text-xs font-medium border transition"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition"
                     style={{
                       color: active ? '#fff' : l.color,
                       backgroundColor: active ? l.color : 'transparent',
                       borderColor: l.color,
                     }}
                   >
-                    {l.name}
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: active ? '#fff' : l.color }} />
+                    <span>{l.name}</span>
+                    {active && <CheckIcon />}
                   </button>
                 );
               })}
