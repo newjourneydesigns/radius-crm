@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "today-live-updates-no-stale-cache",
+    "type": "fix",
+    "category": "Today",
+    "description": "The Today page is now truly live. Completing a card, deleting one, dragging it to a new time, or adding one from the quick-add (+) all show on the page immediately instead of snapping back or lagging behind. The Refresh button now pulls the latest state of every card on the page, not just newly added ones. (The page was reading cards through a server-side cache that kept serving the pre-change version.)",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "today-shows-cards-you-created",
     "type": "fix",
     "category": "Today",
@@ -17,6 +27,36 @@
     "type": "improvement",
     "category": "Today",
     "description": "The Today page no longer blinks or jumps after you check something off. The background refresh that runs after an update used to briefly clear the card lists before refilling them a moment later; it now updates in place, so the page stays steady while your change saves.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "quick-add-natural-language",
+    "type": "feature",
+    "category": "Boards",
+    "description": "Adding a card is now as fast as typing a sentence. The Add Card form has a Quick add line that reads natural language — type something like \"Call Sarah next Friday 3pm !p1 #followup\" and it fills in the due date, time, priority, and label for you. There's also a new quick-add button (the +) in the top navigation, and the board you used last is remembered as the default.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "today-smart-reschedule",
+    "type": "improvement",
+    "category": "Today",
+    "description": "Overdue and due-today items can now be rescheduled in one tap. Cards, follow-ups, and checklist items show a Reschedule button with quick options — Tomorrow, This weekend, Next week, or pick a date. Overdue Cards also has a \"Reschedule all\" action to move everything that slipped to a new day at once.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "today-priority-flags",
+    "type": "improvement",
+    "category": "Today",
+    "description": "Card priority is now front and center on the Today page. Each card has a priority flag you can tap to set Urgent, High, Medium, or Low without opening the card, and the highest-priority cards float to the top of each list so the most important work is always first.",
     "page": "/today"
   },
   {
