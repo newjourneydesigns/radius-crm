@@ -42,6 +42,10 @@ export interface ParsedTable {
   columnCount: number;
 }
 
+// An attribute value is a single string, or an array when the same person was
+// listed more than once with different values (e.g. on multiple teams).
+export type AttrValue = string | string[];
+
 export interface PastedPerson {
   ccbId: string;
   firstName: string;
@@ -50,7 +54,13 @@ export interface PastedPerson {
   email: string;
   // Every non-core column, keyed by its header (Campus, Team, Age, …). These are
   // group-able dimensions in the campaign view.
-  attributes: Record<string, string>;
+  attributes: Record<string, AttrValue>;
+}
+
+// Normalize an attribute value to a flat list of non-empty strings.
+export function attrValues(v: AttrValue | null | undefined): string[] {
+  if (v == null) return [];
+  return (Array.isArray(v) ? v : [v]).map((s) => String(s).trim()).filter(Boolean);
 }
 
 function stripCell(cell: string): string {
@@ -167,7 +177,7 @@ export function applyMapping(table: ParsedTable, mapping: RosterMapping): Pasted
     const lastName = get(row, mapping.lastName);
     if (!firstName && !lastName) continue;
 
-    const attributes: Record<string, string> = {};
+    const attributes: Record<string, AttrValue> = {};
     for (let i = 0; i < table.headers.length; i++) {
       if (mappedIdx.has(i)) continue;
       const val = (row[i] ?? '').trim();
@@ -197,4 +207,48 @@ export function attributeKeys(people: PastedPerson[]): string[] {
     }
   }
   return keys;
+}
+
+export interface DedupeResult {
+  people: PastedPerson[]; // one entry per CCB id, with attribute values merged
+  duplicateCount: number; // how many rows were merged into an existing person
+  duplicateNames: string[]; // names that appeared more than once (for the import notice)
+}
+
+// Collapse rows that share a CCB Individual ID into a single invite, unioning
+// each attribute's values (so a person on multiple teams keeps all their teams).
+// Rows without a CCB id can't be matched, so they're kept as-is.
+export function dedupePeople(people: PastedPerson[]): DedupeResult {
+  const byId = new Map<string, PastedPerson>();
+  const out: PastedPerson[] = [];
+  let duplicateCount = 0;
+  const dupNames = new Set<string>();
+
+  const mergeValue = (attrs: Record<string, AttrValue>, key: string, incoming: string) => {
+    const current = attrValues(attrs[key]);
+    if (current.includes(incoming)) return;
+    const next = [...current, incoming];
+    attrs[key] = next.length === 1 ? next[0] : next;
+  };
+
+  for (const p of people) {
+    if (!p.ccbId) { out.push(p); continue; }
+    const existing = byId.get(p.ccbId);
+    if (!existing) {
+      const copy: PastedPerson = { ...p, attributes: { ...p.attributes } };
+      byId.set(p.ccbId, copy);
+      out.push(copy);
+      continue;
+    }
+    duplicateCount++;
+    dupNames.add(`${p.firstName} ${p.lastName}`.trim());
+    for (const [k, v] of Object.entries(p.attributes)) {
+      for (const val of attrValues(v)) mergeValue(existing.attributes, k, val);
+    }
+    // Backfill any core field the first occurrence was missing
+    if (!existing.phone && p.phone) existing.phone = p.phone;
+    if (!existing.email && p.email) existing.email = p.email;
+  }
+
+  return { people: out, duplicateCount, duplicateNames: Array.from(dupNames) };
 }

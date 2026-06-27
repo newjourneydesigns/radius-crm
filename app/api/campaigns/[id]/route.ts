@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient, getUserFromAuthHeader } from '../../../../lib/server-supabase';
+import { ccbFormUrl } from '../../../../lib/campaigns/ccbFormUrl';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,16 +38,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (auth.response) return auth.response;
 
   const body = await req.json();
-  const { name, ccb_group_ids, ccb_form_id, form_link, due_date, message_template, archived } = body;
+  const { name, ccb_group_ids, ccb_form_id, due_date, message_template, archived } = body;
 
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name.trim();
+  // Group IDs are optional (paste-built campaigns have none); store whatever's given.
   if (Array.isArray(ccb_group_ids)) {
-    const clean = ccb_group_ids.map((id: unknown) => String(id).trim()).filter(Boolean);
-    if (clean.length > 0) updates.ccb_group_ids = clean;
+    updates.ccb_group_ids = ccb_group_ids.map((id: unknown) => String(id).trim()).filter(Boolean);
   }
-  if (ccb_form_id !== undefined) updates.ccb_form_id = String(ccb_form_id).trim();
-  if (form_link !== undefined) updates.form_link = form_link.trim();
+  if (ccb_form_id !== undefined) {
+    updates.ccb_form_id = String(ccb_form_id).trim();
+    // Re-derive the form link from the form ID whenever it changes.
+    updates.form_link = ccbFormUrl(ccb_form_id);
+  }
   if (due_date !== undefined) updates.due_date = due_date;
   if (message_template !== undefined) updates.message_template = message_template.trim();
   if (archived === true) updates.archived_at = new Date().toISOString();

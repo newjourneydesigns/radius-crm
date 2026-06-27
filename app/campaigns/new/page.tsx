@@ -11,6 +11,8 @@ import {
   guessMapping,
   applyMapping,
   attributeKeys,
+  dedupePeople,
+  attrValues,
   ROSTER_FIELDS,
   EMPTY_MAPPING,
   type RosterMapping,
@@ -68,11 +70,14 @@ export default function NewCampaignPage() {
   }, [headerKey]);
 
   const parsedPeople = useMemo(() => applyMapping(table, mapping), [table, mapping]);
-  const groupableKeys = useMemo(() => attributeKeys(parsedPeople), [parsedPeople]);
+  // Collapse rows sharing a CCB id into one invite (merging their values), so the
+  // preview, count, and what gets saved all reflect one row per person.
+  const deduped = useMemo(() => dedupePeople(parsedPeople), [parsedPeople]);
+  const people = deduped.people;
+  const groupableKeys = useMemo(() => attributeKeys(people), [people]);
   const namesMapped = mapping.firstName !== null && mapping.lastName !== null;
 
   const [formId, setFormId] = useState('');
-  const [formLink, setFormLink] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   const [saving, setSaving] = useState(false);
@@ -97,7 +102,7 @@ export default function NewCampaignPage() {
         setErr('Map both First name and Last name to a column');
         return;
       }
-      if (parsedPeople.length === 0) {
+      if (people.length === 0) {
         setErr('No people found — check your paste and column mapping');
         return;
       }
@@ -110,10 +115,9 @@ export default function NewCampaignPage() {
         name: name.trim(),
         ccb_group_ids: sourceMode === 'groups' ? cleanGroupIds : [],
         ccb_form_id: formId.trim(),
-        form_link: formLink.trim(),
         due_date: dueDate,
         message_template: template.trim(),
-        people: sourceMode === 'paste' ? parsedPeople : undefined,
+        people: sourceMode === 'paste' ? people : undefined,
       });
       if (campaign) router.push(`/campaigns/${campaign.id}`);
     } catch (e) {
@@ -268,17 +272,30 @@ export default function NewCampaignPage() {
                         )}
                       </div>
 
+                      {/* Merged-duplicates notice */}
+                      {deduped.duplicateCount > 0 && (
+                        <p className="text-xs text-amber-300/90 mt-3">
+                          {deduped.duplicateCount} duplicate {deduped.duplicateCount === 1 ? 'row' : 'rows'} merged
+                          into existing people (same CCB ID){deduped.duplicateNames.length > 0 && ': '}
+                          <span className="text-amber-300/70">
+                            {deduped.duplicateNames.slice(0, 8).join(', ')}
+                            {deduped.duplicateNames.length > 8 && `, +${deduped.duplicateNames.length - 8} more`}
+                          </span>
+                          . Each is one invite; their combined values stay group-able in the campaign.
+                        </p>
+                      )}
+
                       {/* Live preview */}
                       <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-800/60 overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-700 text-xs">
                           <span className="text-slate-300 font-medium">
-                            {parsedPeople.length} {parsedPeople.length === 1 ? 'person' : 'people'} ready
+                            {people.length} {people.length === 1 ? 'person' : 'people'} ready
                           </span>
                           <span className="text-slate-500">
                             {table.hasHeader ? 'header row detected' : 'no header row'}
                           </span>
                         </div>
-                        {parsedPeople.length > 0 ? (
+                        {people.length > 0 ? (
                           <>
                             {groupableKeys.length > 0 && (
                               <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-zinc-700/50">
@@ -304,14 +321,14 @@ export default function NewCampaignPage() {
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-700/50">
-                                  {parsedPeople.slice(0, 200).map((p, i) => (
+                                  {people.slice(0, 200).map((p, i) => (
                                     <tr key={i} className="text-slate-200">
                                       <td className="px-3 py-1.5 whitespace-nowrap">{`${p.firstName} ${p.lastName}`.trim()}</td>
                                       <td className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.ccbId || '—'}</td>
                                       <td className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.email || '—'}</td>
                                       <td className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.phone || '—'}</td>
                                       {groupableKeys.slice(0, 2).map(k => (
-                                        <td key={k} className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.attributes[k] || '—'}</td>
+                                        <td key={k} className="px-3 py-1.5 whitespace-nowrap text-slate-400">{attrValues(p.attributes[k]).join(', ') || '—'}</td>
                                       ))}
                                     </tr>
                                   ))}
@@ -363,22 +380,6 @@ export default function NewCampaignPage() {
               </div>
             </div>
 
-            {/* Form link */}
-            <div>
-              <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
-                Form link
-              </label>
-              <input
-                type="url"
-                className={inputCls}
-                placeholder="https://yourchurch.ccbchurch.com/goto/forms/56/responses/new"
-                value={formLink}
-                onChange={e => setFormLink(e.target.value)}
-              />
-              <p className="text-xs text-slate-600 mt-1.5">
-                Substituted into <code className="font-mono text-slate-500">{'{{form_link}}'}</code> in your message
-              </p>
-            </div>
 
             {/* Message template */}
             <div>

@@ -255,6 +255,29 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     else contactedNullMap.set(`${normName(r.first_name)}|${normName(r.last_name)}`, r as ContactedRow);
   }
 
+  // 6b. Load admin decisions on fuzzy matches so a confirmed/rejected match isn't
+  // re-flagged as needs_review on every reconcile.
+  const resolved = await fetchAllRows<{
+    ccb_individual_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    match_resolution: string | null;
+  }>((from, to) =>
+    supabase
+      .from('follow_up_campaign_people')
+      .select('ccb_individual_id, first_name, last_name, match_resolution')
+      .eq('campaign_id', params.id)
+      .not('match_resolution', 'is', null)
+      .range(from, to),
+  );
+  const resolutionByCcbId = new Map<string, string>();
+  const resolutionByName = new Map<string, string>();
+  for (const r of resolved ?? []) {
+    if (!r.match_resolution) continue;
+    if (r.ccb_individual_id) resolutionByCcbId.set(r.ccb_individual_id, r.match_resolution);
+    else resolutionByName.set(`${normName(r.first_name)}|${normName(r.last_name)}`, r.match_resolution);
+  }
+
   // 7. Upsert all people
   // For each reconciled person, if they were previously contacted, keep that status.
   // Preserve manually_added flag for anyone who was manually added.
@@ -266,22 +289,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const isManual = p.ccbIndividualId ? manualCcbIds.has(p.ccbIndividualId) : manualNullKeys.has(nameKey);
     const v2Ph = p.ccbIndividualId ? v2PhoneMap[p.ccbIndividualId] : null;
     const attributes = (p.ccbIndividualId ? manualAttrsByCcbId.get(p.ccbIndividualId) : manualAttrsByName.get(nameKey)) ?? null;
+
+    // Honor a prior admin decision on a fuzzy match: confirmed -> submitted,
+    // rejected -> missing (drop the form link). Only applies to fuzzy matches.
+    const resolution = p.ccbIndividualId ? resolutionByCcbId.get(p.ccbIndividualId) : resolutionByName.get(nameKey);
+    const applyResolution = resolution && (p.status === 'needs_review' || p.matchMethod === 'fuzzy');
+    const status = applyResolution
+      ? (resolution === 'confirmed' ? 'submitted' : 'missing')
+      : p.status;
+    const rejected = applyResolution && resolution === 'rejected';
+
     return {
       campaign_id: params.id,
       ccb_individual_id: p.ccbIndividualId || null,
       first_name: p.firstName,
       last_name: p.lastName,
-      form_first_name: p.formFirstName || null,
-      form_last_name: p.formLastName || null,
+      form_first_name: rejected ? null : (p.formFirstName || null),
+      form_last_name: rejected ? null : (p.formLastName || null),
       email: p.email || null,
       phone: v2Ph?.phone || p.phone || null,
       mobile_phone: v2Ph?.mobilePhone || p.mobilePhone || null,
       in_group: p.inGroup,
-      in_form: p.inForm,
+      in_form: rejected ? false : p.inForm,
       manually_added: isManual,
-      form_response_data: p.formResponseData || null,
-      reconcile_status: p.status,
+      form_response_data: rejected ? null : (p.formResponseData || null),
+      reconcile_status: status,
       match_method: p.matchMethod || null,
+      match_resolution: applyResolution ? resolution : null,
       source_group_id: p.sourceGroupId || null,
       source_group_name: p.sourceGroupName || null,
       // Preserve pasted free-form attributes (Campus, Team, …) across reconcile

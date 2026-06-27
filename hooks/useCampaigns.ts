@@ -41,10 +41,12 @@ export interface CampaignPerson {
   form_response_data: Record<string, unknown> | null;
   reconcile_status: string;
   match_method: string | null;
+  match_resolution: 'confirmed' | 'rejected' | null;
   source_group_id: string | null;
   source_group_name: string | null;
-  // Free-form columns from a pasted roster (Campus, Team, Age, …) — group-able in the campaign view
-  attributes: Record<string, string> | null;
+  // Free-form columns from a pasted roster (Campus, Team, Age, …) — group-able in the campaign view.
+  // A value is an array when one person was listed more than once with different values (e.g. multiple teams).
+  attributes: Record<string, string | string[]> | null;
   note: string | null;
   contact_note: string | null;
   contacted_at: string | null;
@@ -85,11 +87,10 @@ export function useCampaigns() {
     name: string;
     ccb_group_ids: string[];
     ccb_form_id: string;
-    form_link: string;
     due_date: string;
     message_template: string;
     // Optional pasted roster — an alternative to CCB groups for the invite list
-    people?: { ccbId: string; firstName: string; lastName: string; phone: string; email: string; attributes: Record<string, string> }[];
+    people?: { ccbId: string; firstName: string; lastName: string; phone: string; email: string; attributes: Record<string, string | string[]> }[];
   }): Promise<Campaign | null> => {
     const headers = await authHeader();
     const res = await fetch('/api/campaigns', {

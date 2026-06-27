@@ -46,7 +46,6 @@ export default function CampaignsPage() {
   const [editName, setEditName] = useState('');
   const [editGroupIds, setEditGroupIds] = useState<string[]>(['']);
   const [editFormId, setEditFormId] = useState('');
-  const [editFormLink, setEditFormLink] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [editTemplate, setEditTemplate] = useState('');
   const [saving, setSaving] = useState(false);
@@ -66,7 +65,6 @@ export default function CampaignsPage() {
     setEditName(c.name);
     setEditGroupIds(c.ccb_group_ids?.length ? [...c.ccb_group_ids] : ['']);
     setEditFormId(c.ccb_form_id ?? '');
-    setEditFormLink(c.form_link ?? '');
     setEditDueDate(c.due_date ?? '');
     setEditTemplate(c.message_template ?? '');
     setSaveError(null);
@@ -81,7 +79,6 @@ export default function CampaignsPage() {
     e.preventDefault();
     if (!editingCampaign) return;
     const cleanGroupIds = editGroupIds.map(id => id.trim()).filter(Boolean);
-    if (cleanGroupIds.length === 0) { setSaveError('At least one CCB Group ID is required'); return; }
     setSaving(true);
     setSaveError(null);
     try {
@@ -89,7 +86,6 @@ export default function CampaignsPage() {
         name: editName.trim(),
         ccb_group_ids: cleanGroupIds,
         ccb_form_id: editFormId.trim(),
-        form_link: editFormLink.trim(),
         due_date: editDueDate,
         message_template: editTemplate.trim(),
       });
@@ -294,7 +290,7 @@ export default function CampaignsPage() {
 
           {/* CCB Group IDs */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">CCB Group IDs</label>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">CCB Group IDs <span className="text-slate-600 normal-case">(optional for pasted lists)</span></label>
             <div className="space-y-2">
               {editGroupIds.map((gid, i) => (
                 <div key={i} className="flex gap-2">
@@ -305,7 +301,6 @@ export default function CampaignsPage() {
                     placeholder={i === 0 ? 'e.g. 1234' : 'e.g. 5678'}
                     value={gid}
                     onChange={e => setEditGroupIds(prev => prev.map((v, idx) => idx === i ? e.target.value : v))}
-                    required={i === 0}
                   />
                   {editGroupIds.length > 1 && (
                     <button
@@ -355,18 +350,6 @@ export default function CampaignsPage() {
                 required
               />
             </div>
-          </div>
-
-          {/* Form link */}
-          <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Form link</label>
-            <input
-              type="url"
-              className={inputCls}
-              placeholder="https://yourchurch.ccbchurch.com/goto/forms/56/responses/new"
-              value={editFormLink}
-              onChange={e => setEditFormLink(e.target.value)}
-            />
           </div>
 
           {/* Message template */}

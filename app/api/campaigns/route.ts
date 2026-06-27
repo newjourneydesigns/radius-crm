@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient, getUserFromAuthHeader } from '../../../lib/server-supabase';
 import { normalizePhone } from '../../../lib/phoneUtils';
+import { dedupePeople, type PastedPerson, type AttrValue } from '../../../lib/campaigns/parseRoster';
+import { ccbFormUrl } from '../../../lib/campaigns/ccbFormUrl';
 
 interface PastedPersonInput {
   ccbId?: string;
@@ -11,14 +13,22 @@ interface PastedPersonInput {
   attributes?: Record<string, unknown>;
 }
 
-// Keep only non-empty string values, so the stored attributes stay clean.
-function cleanAttributes(attrs: Record<string, unknown> | undefined): Record<string, string> {
-  const out: Record<string, string> = {};
+// Keep only non-empty values, so the stored attributes stay clean. Values may be
+// a single string or an array (a person listed more than once with different values).
+function cleanAttributes(attrs: Record<string, unknown> | undefined): Record<string, AttrValue> {
+  const out: Record<string, AttrValue> = {};
   if (!attrs || typeof attrs !== 'object') return out;
   for (const [k, v] of Object.entries(attrs)) {
     const key = String(k).trim();
-    const val = v == null ? '' : String(v).trim();
-    if (key && val) out[key] = val;
+    if (!key) continue;
+    if (Array.isArray(v)) {
+      const arr = v.map((x) => String(x).trim()).filter(Boolean);
+      if (arr.length === 1) out[key] = arr[0];
+      else if (arr.length > 1) out[key] = arr;
+    } else {
+      const val = v == null ? '' : String(v).trim();
+      if (val) out[key] = val;
+    }
   }
   return out;
 }
@@ -66,7 +76,7 @@ export async function POST(req: NextRequest) {
   if (auth.response) return auth.response;
 
   const body = await req.json();
-  const { name, ccb_group_ids, ccb_form_id, form_link, due_date, message_template, people } = body;
+  const { name, ccb_group_ids, ccb_form_id, due_date, message_template, people } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: 'Campaign name is required' }, { status: 400 });
 
@@ -76,8 +86,7 @@ export async function POST(req: NextRequest) {
 
   // The invite list can come from CCB groups OR a pasted roster — require at least one.
   const pastedPeople: PastedPersonInput[] = Array.isArray(people) ? people : [];
-  const seenCcbIds = new Set<string>();
-  const validPasted = pastedPeople
+  const normalized: PastedPerson[] = pastedPeople
     .map((p) => ({
       ccbId: (p.ccbId || '').trim(),
       firstName: (p.firstName || '').trim(),
@@ -86,14 +95,12 @@ export async function POST(req: NextRequest) {
       email: (p.email || '').trim(),
       attributes: cleanAttributes(p.attributes),
     }))
-    .filter((p) => p.firstName || p.lastName)
-    // Drop duplicate CCB ids — they'd violate the per-campaign unique constraint.
-    .filter((p) => {
-      if (!p.ccbId) return true;
-      if (seenCcbIds.has(p.ccbId)) return false;
-      seenCcbIds.add(p.ccbId);
-      return true;
-    });
+    .filter((p) => p.firstName || p.lastName);
+
+  // Collapse rows sharing a CCB id into one invite, merging their attribute values
+  // (so a person on multiple teams keeps every team). One row per person also keeps
+  // the per-campaign unique constraint and the completion math person-accurate.
+  const validPasted = dedupePeople(normalized).people;
 
   if (cleanGroupIds.length === 0 && validPasted.length === 0) {
     return NextResponse.json(
@@ -111,7 +118,8 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       ccb_group_ids: cleanGroupIds,
       ccb_form_id: String(ccb_form_id).trim(),
-      form_link: (form_link || '').trim(),
+      // Form link is always derived from the form ID (same URL shape every time)
+      form_link: ccbFormUrl(ccb_form_id),
       due_date,
       message_template: (message_template || '').trim(),
       created_by: auth.user!.id,

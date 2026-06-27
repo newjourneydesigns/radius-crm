@@ -1,5 +1,45 @@
 [
   {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-summary-tab",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "Campaigns now have a Summary tab — an exec-ready breakdown by every column you pasted (Campus, Team, Leader/STM, …), each showing Invited, Responded, Responded %, RSVP Yes, RSVP No, and No Response with an 'All VCC' total. RSVP Yes/No is read straight from each CCB form submission, so it matches what people actually answered.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-review-matches",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "The Review Matches tab is now actionable. When reconcile finds someone in your form responses whose name matches an invitee but can't match them with certainty, you can Confirm the match (counts them as Submitted) or mark Not a match (keeps them Unsubmitted) — per person or in bulk. Your decision sticks: reconcile remembers it instead of re-flagging the same person every time.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-form-url-and-optional-groups",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Simplified campaign setup: the Form link field is gone — just enter the CCB Form ID and the form URL is built for you automatically (and {{form_link}} keeps working). Editing a campaign no longer demands a CCB Group ID, so campaigns built from a pasted list save without errors.",
+    "page": "/campaigns/new"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
+    "id": "campaign-export-delete",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaigns now have an Export CSV button that downloads exactly the view you're looking at — the current tab plus any active filters — with every column, status, contact history, notes, and each person's form answers (Shirt Size, Area of Life, etc.). On the Summary tab it exports the whole campaign. You can also delete a campaign from its page — a confirmation makes clear it permanently removes the campaign and its people, with Archive offered as the reversible alternative. Click anywhere on a person's row to open an inline editor where you can fill in missing data or correct any field — name, email, phone, their note, and any pasted column like Campus or Team. And column filters now stay applied as you move between tabs.",
+    "page": "/campaigns"
+  },
+  {
     "date": "2026-06-26",
     "date_display": "June 26, 2026",
     "date_iso": "2026-06-26",
@@ -16,7 +56,7 @@
     "id": "campaign-paste-list",
     "type": "feature",
     "category": "Campaigns",
-    "description": "You can now set up a campaign by pasting a spreadsheet instead of giving CCB group IDs. On the New Campaign page, switch the invite list to \"Paste a list\" and paste rows straight from a spreadsheet — any column order works. The core fields (CCB Individual ID, First, Last, Email, Phone) are auto-matched and fixable with a dropdown, and every other column you paste (Campus, Team, Age, and so on) is kept too. A live preview shows exactly who will be added. When the CCB Individual ID and Email are mapped, pasted people reconcile against your CCB form by exact ID/email; otherwise they match by phone and name. Inside the campaign, a new \"Group by\" control lets you group and filter people by any pasted column — switch between Campus, Team, or anything else on the fly.",
+    "description": "You can now set up a campaign by pasting a spreadsheet instead of giving CCB group IDs. On the New Campaign page, switch the invite list to \"Paste a list\" and paste rows straight from a spreadsheet — any column order works. The core fields (CCB Individual ID, First, Last, Email, Phone) are auto-matched and fixable with a dropdown, and every other column you paste (Campus, Team, Age, and so on) is kept too. A live preview shows exactly who will be added. When the CCB Individual ID and Email are mapped, pasted people reconcile against your CCB form by exact ID/email; otherwise they match by phone and name. Inside the campaign, a filter bar lets you narrow the list by several columns at once — e.g. Campus = Lewisville and Team = Kids and Role = Leaders — and the stats update to match your selection. If the same person appears more than once (e.g. on multiple teams), they're merged into a single invite — the import tells you how many were merged — and they still match each of their teams when you filter, so counts stay person-accurate.",
     "page": "/campaigns/new"
   },
   {
