@@ -1609,7 +1609,7 @@ function BulkMessageContent() {
                       <button
                         onClick={handleStartAutoSend}
                         disabled={recipients.length === 0 || !message.trim()}
-                        className="w-full py-3 bg-btn-success hover:opacity-90 disabled:bg-gray-800 disabled:text-gray-600 text-white transition-all rounded-xl flex flex-col items-center justify-center gap-0.5 shadow-glow-green disabled:shadow-none"
+                        className="w-full py-3 bg-vc-fab hover:opacity-90 disabled:bg-gray-800 disabled:text-gray-600 text-white transition-all rounded-xl flex flex-col items-center justify-center gap-0.5 shadow-glow-vc disabled:shadow-none"
                       >
                         <span className="font-bold text-sm uppercase tracking-tight">
                           {recipients.length === 0 ? 'Auto Send' : `Auto Send (${recipients.length})`}
