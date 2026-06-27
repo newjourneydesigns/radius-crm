@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "today-live-updates-no-stale-cache",
+    "type": "fix",
+    "category": "Today",
+    "description": "The Today page is now truly live. Completing a card, deleting one, dragging it to a new time, or adding one from the quick-add (+) all show on the page immediately instead of snapping back or lagging behind. The Refresh button now pulls the latest state of every card on the page, not just newly added ones. (The page was reading cards through a server-side cache that kept serving the pre-change version.)",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "quick-add-natural-language",
     "type": "feature",
     "category": "Boards",

@@ -3,6 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import type { CardDigestItem, ChecklistDigestItem } from '../../../../lib/emailService';
 
 export const dynamic = 'force-dynamic';
+// Opt every fetch in this route out of Next.js's Data Cache. Without this, the
+// Supabase service client's reads are cached across requests in production
+// (Netlify), so a realtime-triggered ?fresh=1 refetch returns pre-write rows —
+// completed cards read as incomplete, deletes linger, dragged cards snap back.
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 
 export interface TodayCardsData {
   cards: { dueToday: CardDigestItem[]; overdue: CardDigestItem[] };
@@ -45,7 +51,12 @@ function getSupabaseServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('Missing Supabase credentials');
-  return createClient(url, key);
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    // Belt-and-suspenders with fetchCache above: force every PostgREST read to
+    // bypass any fetch cache so rows are always live.
+    global: { fetch: (url, opts) => fetch(url, { ...opts, cache: 'no-store' }) },
+  });
 }
 
 function getTodayDate(): string {
@@ -297,7 +308,7 @@ export async function GET(request: NextRequest) {
     const cacheKey = `cards:${userProfile.id}:${today}`;
     const cached = responseCache.get(cacheKey);
     if (!fresh && cached && Date.now() - cached.cachedAt < RESPONSE_CACHE_TTL) {
-      return NextResponse.json(cached.payload, { headers: { 'X-Cache': 'HIT' } });
+      return NextResponse.json(cached.payload, { headers: { 'X-Cache': 'HIT', 'Cache-Control': 'no-store, must-revalidate' } });
     }
 
     const user    = { id: userProfile.id, name: userProfile.name, email: userProfile.email };
@@ -306,7 +317,10 @@ export async function GET(request: NextRequest) {
     responseCache.set(cacheKey, { payload, cachedAt: Date.now() });
 
     return NextResponse.json(payload, {
-      headers: { 'X-Cache': 'MISS', 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
+      // no-store: never let the browser or any CDN/edge replay this response.
+      // Freshness for repeat callers is handled server-side by responseCache
+      // (in-memory, 60s) which ?fresh=1 bypasses on every realtime/refresh path.
+      headers: { 'X-Cache': 'MISS', 'Cache-Control': 'no-store, must-revalidate' },
     });
   } catch (err: unknown) {
     console.error('Today cards API error:', err);
