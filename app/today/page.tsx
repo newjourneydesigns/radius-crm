@@ -1546,10 +1546,16 @@ export default function TodayPage() {
 
   // Refresh immediately when any connection modal saves (FAB or leader profile),
   // so recent notes and follow-up state update without needing a manual refresh.
+  // Same for cards added via the global FAB — realtime can be slow/suspended on
+  // mobile, so we refetch on the dispatched event rather than relying on it.
   useEffect(() => {
-    const onConnectionSaved = () => fetchData({ fresh: true });
-    window.addEventListener('radius:connection-saved', onConnectionSaved);
-    return () => window.removeEventListener('radius:connection-saved', onConnectionSaved);
+    const refresh = () => fetchData({ fresh: true });
+    window.addEventListener('radius:connection-saved', refresh);
+    window.addEventListener('radius:card-saved', refresh);
+    return () => {
+      window.removeEventListener('radius:connection-saved', refresh);
+      window.removeEventListener('radius:card-saved', refresh);
+    };
   }, [fetchData]);
 
   useEffect(() => {

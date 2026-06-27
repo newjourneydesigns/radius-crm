@@ -186,10 +186,13 @@ export function useTodayData() {
     const isLatest = () => seq === fetchSeqRef.current;
     setError(null);
     setIsFetching(true);
-    // A refresh clears the session's done-marks. Completed cards still come
-    // back from the API with is_complete=true; checklist items remain filtered
-    // to open items server-side.
-    setCompleted(emptyCompleted());
+    // NOTE: we intentionally do NOT clear the session's done-marks here.
+    // A refetch can momentarily read pre-commit state (especially on mobile,
+    // where the write may still be in flight and realtime is unreliable), so
+    // wiping the marks let a just-completed card flash back to undone. Keeping
+    // them makes completion sticky: done = is_complete (server) || marked this
+    // session. Birthday/prayer marks are re-seeded from today_done_marks below;
+    // card/checklist/follow-up/encouragement marks are cleared only by Undo.
 
     // Cached data is opt-in only; the default Today path favors fresh state.
     const cached = useCache
