@@ -4,6 +4,7 @@
 import json
 import subprocess
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 5123
@@ -27,6 +28,14 @@ def send_imessage(phone: str, message: str) -> dict:
     if result.returncode != 0:
         return {'success': False, 'error': result.stderr.strip() or 'AppleScript failed'}
     return {'success': True}
+
+
+def fire_notification(sent: int, failed: int) -> None:
+    label = f"{sent} message{'s' if sent != 1 else ''} sent"
+    if failed:
+        label += f', {failed} failed'
+    script = f'display notification {json.dumps(label)} with title "RADIUS" sound name "Glass"'
+    subprocess.run(['osascript', '-e', script], capture_output=True, timeout=5)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -56,15 +65,24 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+        length = int(self.headers.get('Content-Length', 0))
+        body = json.loads(self.rfile.read(length) or b'{}')
+
+        if self.path == '/notify':
+            fire_notification(int(body.get('sent', 0)), int(body.get('failed', 0)))
+            self.send_response(200)
+            self._cors()
+            self.end_headers()
+            return
+
         if self.path != '/send':
             self.send_response(404)
             self.end_headers()
             return
 
-        length = int(self.headers.get('Content-Length', 0))
-        body = json.loads(self.rfile.read(length) or b'{}')
         phone = (body.get('phone') or '').strip()
         message = (body.get('message') or '').strip()
+        delay_ms = int(body.get('delay_ms', 0))
 
         if not phone or not message:
             resp = json.dumps({'success': False, 'error': 'phone and message required'}).encode()
@@ -76,12 +94,16 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         result = send_imessage(phone, message)
+
         resp = json.dumps(result).encode()
         self.send_response(200 if result['success'] else 500)
         self.send_header('Content-Type', 'application/json')
         self._cors()
         self.end_headers()
         self.wfile.write(resp)
+
+        if delay_ms > 0:
+            time.sleep(delay_ms / 1000)
 
 
 if __name__ == '__main__':

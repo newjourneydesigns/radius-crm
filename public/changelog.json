@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "bulk-message-auto-send-throttle-notify",
+    "type": "improvement",
+    "category": "Bulk Message",
+    "description": "Auto Send now throttles intelligently based on batch size — instant for under 25 messages, 1-second delay for 25–100, 2-second delay for 100+ — to avoid iMessage rate limits on large batches. When a batch finishes you get a native Mac notification with the sent count so you can walk away and be told when it's done.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "bulk-message-companion-setup",
     "type": "feature",
     "category": "Bulk Message",

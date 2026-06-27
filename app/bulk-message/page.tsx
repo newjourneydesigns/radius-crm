@@ -588,6 +588,8 @@ function BulkMessageContent() {
     setSendStatus(SendStatus.AUTO_SENDING);
     setLogs([]);
 
+    const delayMs = recipients.length < 25 ? 0 : recipients.length < 100 ? 1000 : 2000;
+
     (async () => {
       const live = [...entries];
       for (let i = 0; i < recipients.length; i++) {
@@ -604,7 +606,7 @@ function BulkMessageContent() {
             ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
 
-        const result = await companion.send(r.phone, resolveMessage(message, r));
+        const result = await companion.send(r.phone, resolveMessage(message, r), delayMs);
         live[i] = { ...live[i], status: result.success ? 'sent' : 'failed', error: result.error };
         setAutoEntries([...live]);
 
@@ -615,6 +617,11 @@ function BulkMessageContent() {
           status: result.success ? LogStatus.SUCCESS : LogStatus.SKIPPED,
         }, ...prev]);
       }
+
+      const sentCount = live.filter(e => e.status === 'sent').length;
+      const failedCount = live.filter(e => e.status === 'failed').length;
+      await companion.notify(sentCount, failedCount);
+
       setSendStatus(SendStatus.COMPLETED);
     })();
   };

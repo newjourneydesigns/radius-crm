@@ -28,16 +28,29 @@ export function useMacCompanion() {
   const send = useCallback(async (
     phone: string,
     message: string,
+    delayMs = 0,
   ): Promise<CompanionSendResult> => {
     try {
       const res = await fetch(`${BASE}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, message }),
+        body: JSON.stringify({ phone, message, delay_ms: delayMs }),
       });
       return await res.json();
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : 'Network error' };
+    }
+  }, []);
+
+  const notify = useCallback(async (sent: number, failed: number): Promise<void> => {
+    try {
+      await fetch(`${BASE}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sent, failed }),
+      });
+    } catch {
+      // Non-critical — ignore if companion is gone by the time batch finishes
     }
   }, []);
 
@@ -52,5 +65,5 @@ export function useMacCompanion() {
     ping().then(setAvailable);
   }, [ping]);
 
-  return { available, send, recheck };
+  return { available, send, notify, recheck };
 }
