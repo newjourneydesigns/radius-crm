@@ -1614,7 +1614,7 @@ function BulkMessageContent() {
                         <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3" />
                         </svg>
-                        {recipients.length === 0 ? 'No Recipients' : !message.trim() ? 'Write a Message First' : `Auto Send (${recipients.length})`}
+                        {recipients.length === 0 ? 'Auto Send' : `Auto Send (${recipients.length})`}
                       </button>
                     </div>
                   )}
@@ -1659,7 +1659,7 @@ function BulkMessageContent() {
                     disabled={recipients.length === 0 || !message.trim()}
                     className="w-full py-5 bg-[#0A7FF5] hover:bg-[#0A7FF5]/90 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-lg transition-all uppercase tracking-tight border-t border-[#0A7FF5]/30 disabled:border-gray-700 mt-3"
                   >
-                    {recipients.length === 0 ? 'No Recipients' : !message.trim() ? 'Write a Message First' : `Start Batch (${recipients.length})`}
+                    {recipients.length === 0 ? 'Start Batch' : `Start Batch (${recipients.length})`}
                   </button>
                 </div>
               ) : sendStatus === SendStatus.COMPLETED ? (
