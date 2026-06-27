@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "bulk-message-companion-setup",
+    "type": "feature",
+    "category": "Bulk Message",
+    "description": "The bulk message page now guides you through setting up the Mac Companion for Auto Send. When the companion isn't installed, a setup panel shows a one-line Terminal command to install it — run it once and Auto Send works automatically every time.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "campaign-filter-bar-cleanup",
     "type": "improvement",
     "category": "Campaigns",

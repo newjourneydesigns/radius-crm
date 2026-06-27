@@ -222,6 +222,7 @@ function BulkMessageContent() {
   const [savedIndex, setSavedIndex] = useState<number | null>(null);
   const [logs, setLogs] = useState<SendLog[]>([]);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [copiedInstall, setCopiedInstall] = useState(false);
 
   // Auto Send (companion) state
   const companion = useMacCompanion();
@@ -1588,13 +1589,37 @@ function BulkMessageContent() {
                     </button>
                   )}
                   {companion.available === false && (
-                    <div className="px-4 py-2 border-t border-gray-800 flex items-center justify-center gap-2">
-                      <span className="text-[10px] text-gray-600">Companion offline</span>
+                    <div className="border-t border-slate-700/50 px-4 py-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-white">Auto Send</p>
+                        <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">Not installed</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Install the Mac Companion to send the whole list automatically — no tapping through each message.
+                      </p>
+                      <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 flex items-center gap-2">
+                        <code className="text-[11px] text-emerald-400 font-mono flex-1 min-w-0 truncate">
+                          curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash
+                        </code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText('curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash');
+                            setCopiedInstall(true);
+                            setTimeout(() => setCopiedInstall(false), 2000);
+                          }}
+                          className="flex-shrink-0 text-[10px] font-medium text-slate-400 hover:text-white transition-colors"
+                        >
+                          {copiedInstall ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-500">
+                        Run this once in Terminal. macOS will ask for permission to use Messages — click Allow.
+                      </p>
                       <button
                         onClick={companion.recheck}
-                        className="text-[10px] text-gray-500 hover:text-gray-300 underline transition-colors"
+                        className="w-full text-[11px] text-slate-400 hover:text-white py-2 rounded-lg hover:bg-slate-700/50 border border-slate-700/50 hover:border-slate-600 transition-all"
                       >
-                        retry
+                        Check again after installing
                       </button>
                     </div>
                   )}
