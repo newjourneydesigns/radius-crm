@@ -1,31 +1,17 @@
-import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { getSessionLeader } from '../../../../lib/circle-leader-toolkit/session';
 import { loadLeaderEvents, loadLeaderMessages } from '../../../../lib/circle-leader-toolkit/events-data';
 import { createTimer } from '../../../../lib/circle-leader-toolkit/timing';
-import CircleTabSkeleton from '../../../../components/circle-leader-toolkit/CircleTabSkeleton';
 import EventsClient from './EventsClient';
 
 export const dynamic = 'force-dynamic';
 
-// The page returns synchronously and streams: the layout chrome + the events
-// skeleton paint immediately while the (cold-cache CCB-bound) events + messages
-// resolve inside the Suspense boundary below. This gives the page its own
-// streaming boundary instead of relying on route-level loading.tsx, so the
-// shell is never blocked on the data fetch.
-export default function CircleSummaryEventsPage() {
-  return (
-    <Suspense fallback={<CircleTabSkeleton />}>
-      <EventsContent />
-    </Suspense>
-  );
-}
-
-// Server-rendered content: the events list, the message center, and the leader
-// all resolve server-side from the shared cache (no client fetch waterfall, no
-// spinner on the common warm path). EventsClient then handles post-submit
-// invalidation and focus revalidation.
-async function EventsContent() {
+// Server-rendered first paint: the events list, the message center, and the
+// leader all resolve server-side from the shared cache (no client fetch
+// waterfall, no spinner on the common warm path). The route-level loading.tsx
+// holds the green splash solid through the whole entry while this resolves.
+// EventsClient then handles post-submit invalidation and focus revalidation.
+export default async function CircleSummaryEventsPage() {
   const timer = createTimer('events-page');
   const leader = await getSessionLeader();
   timer.mark('session');
