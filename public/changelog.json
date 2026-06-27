@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "today-shows-cards-you-created",
+    "type": "fix",
+    "category": "Today",
+    "description": "Cards you create now appear on your Today page when they're due today — even if you added them to a shared board you don't own (for example, via the global + Add a Card button). Previously Today only showed cards from boards you personally own or cards assigned to you, so a card you made on a shared board could save successfully yet never show up. The Today badge count includes them too.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "today-refresh-no-blink",
     "type": "improvement",
     "category": "Today",
