@@ -1717,14 +1717,6 @@ function ColumnAutomationsModal({
                   <option value="move_on_label">When a label is added</option>
                 </optgroup>
               </select>
-              <button
-                className="kb-btn kb-btn-primary kb-btn-sm"
-                onClick={addAction}
-                disabled={!canAdd || saving}
-                title="Add rule"
-              >
-                <Plus size={14} />
-              </button>
             </div>
 
             {/* Dynamic value input */}
@@ -1844,6 +1836,15 @@ function ColumnAutomationsModal({
                 )
               )}
             </div>
+
+            <button
+              className="kb-btn kb-btn-primary kb-auto-add-btn"
+              onClick={addAction}
+              disabled={!canAdd || saving}
+            >
+              <Plus size={14} />
+              Add rule
+            </button>
           </div>
         </div>
 

@@ -2495,6 +2495,14 @@ export const kanbanStyles = `
   .kb-auto-value-input {
     margin-top: 4px;
   }
+  .kb-auto-add-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: 4px;
+  }
   .kb-auto-chips {
     display: flex;
     flex-wrap: wrap;
