@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "campaigns-auto-send",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "The Campaigns follow-up panel now supports Auto Send. When the Mac Companion is running, select multiple people and hit Auto Send All to send personalized messages to everyone at once — same smart throttling and done notification as Bulk Message. If the companion isn't set up yet, the panel shows the one-line install command.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "bulk-message-auto-send-throttle-notify",
     "type": "improvement",
     "category": "Bulk Message",

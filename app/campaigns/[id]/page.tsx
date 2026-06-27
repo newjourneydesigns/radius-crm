@@ -10,6 +10,7 @@ import { supabase } from '../../../lib/supabase';
 import Modal from '../../../components/ui/Modal';
 import { Campaign, CampaignPerson } from '../../../hooks/useCampaigns';
 import { normalizePhone } from '../../../lib/phoneUtils';
+import { useMacCompanion } from '../../../hooks/useMacCompanion';
 import { attrValues } from '../../../lib/campaigns/parseRoster';
 import { StickyNote, ChevronDown, ChevronUp, Download, Trash2, Check, X } from 'lucide-react';
 
@@ -373,6 +374,10 @@ export default function CampaignDetailPage() {
   const [contacting, setContacting] = useState(false);
   const [contactSuccess, setContactSuccess] = useState(false);
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
+  const companion = useMacCompanion();
+  const [isAutoSending, setIsAutoSending] = useState(false);
+  const [autoProgress, setAutoProgress] = useState<{ done: number; total: number } | null>(null);
+  const [copiedInstall, setCopiedInstall] = useState(false);
   // Active column filters: { columnKey: selectedValue }. Multiple columns AND together.
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [sortCol, setSortCol] = useState<string | null>(null);
@@ -969,6 +974,33 @@ export default function CampaignDetailPage() {
     setSentIds(prev => new Set(prev).add(person.id));
     const phone = normalizePhone(bestPhone(person));
     if (phone) window.location.href = `sms:${phone}&body=${encodeURIComponent(msg)}`;
+  }
+
+  async function handleAutoSendAll() {
+    if (!selectedPeople.length || !msgTemplate.trim() || !companion.available || !campaign) return;
+    setIsAutoSending(true);
+    setAutoProgress({ done: 0, total: selectedPeople.length });
+    const delayMs = selectedPeople.length < 25 ? 0 : selectedPeople.length < 100 ? 1000 : 2000;
+    let sent = 0, failed = 0;
+    for (let i = 0; i < selectedPeople.length; i++) {
+      const p = selectedPeople[i];
+      const phone = normalizePhone(bestPhone(p));
+      if (phone) {
+        const result = await companion.send(phone, resolveMessage(msgTemplate, p, campaign), delayMs);
+        if (result.success) {
+          sent++;
+          setSentIds(prev => new Set(prev).add(p.id));
+        } else {
+          failed++;
+        }
+      } else {
+        failed++;
+      }
+      setAutoProgress({ done: i + 1, total: selectedPeople.length });
+    }
+    await companion.notify(sent, failed);
+    setIsAutoSending(false);
+    setAutoProgress(null);
   }
 
   function openEdit() {
@@ -2308,7 +2340,45 @@ export default function CampaignDetailPage() {
           {/* Multi-person list */}
           {selectedPeople.length > 1 && (
             <div>
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">All selected</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">All selected</p>
+                {companion.available === true && (
+                  <button
+                    onClick={handleAutoSendAll}
+                    disabled={isAutoSending || !msgTemplate.trim()}
+                    className="text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:text-slate-500 text-white px-3 py-1 rounded-lg transition-colors"
+                  >
+                    {isAutoSending
+                      ? `Sending ${autoProgress?.done ?? 0} / ${autoProgress?.total ?? selectedPeople.length}…`
+                      : `Auto Send All (${selectedPeople.length})`}
+                  </button>
+                )}
+              </div>
+              {companion.available === false && (
+                <div className="mb-3 bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-3 space-y-2">
+                  <p className="text-[11px] text-slate-400">
+                    Install the Mac Companion to auto-send to everyone at once.
+                  </p>
+                  <div className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
+                    <code className="text-[10px] text-emerald-400 font-mono flex-1 min-w-0 truncate">
+                      curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText('curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash');
+                        setCopiedInstall(true);
+                        setTimeout(() => setCopiedInstall(false), 2000);
+                      }}
+                      className="flex-shrink-0 text-[10px] text-slate-400 hover:text-white transition-colors"
+                    >
+                      {copiedInstall ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <button onClick={companion.recheck} className="text-[10px] text-slate-500 hover:text-slate-300 underline transition-colors">
+                    Check again after installing
+                  </button>
+                </div>
+              )}
               <div className="divide-y divide-zinc-800/70 rounded-lg border border-zinc-700 overflow-hidden">
                 {selectedPeople.map(p => (
                   <div key={p.id} className="flex items-center gap-3 px-3 py-2 bg-zinc-800/40">
