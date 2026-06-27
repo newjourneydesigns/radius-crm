@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "campaign-summary-shows-all",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "The Summary tab now always reflects the whole campaign — the top stat cards show All even when you have filters applied on another tab — and Export from Summary covers everyone. Your filters aren't cleared, so they're still in place when you switch back to the people tabs.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "campaign-summary-tab",
     "type": "feature",
     "category": "Campaigns",

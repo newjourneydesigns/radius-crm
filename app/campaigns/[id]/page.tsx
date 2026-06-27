@@ -649,7 +649,8 @@ export default function CampaignDetailPage() {
   }, [filteredPeople, sortCol, sortDir, facetSummary]);
 
   const filteredStats = useMemo(() => {
-    if (activeFilters.length === 0) return null;
+    // Summary always shows the whole campaign — ignore (but don't clear) active filters there.
+    if (activeFilters.length === 0 || activeTab === 'summary') return null;
     const base = allPeople.filter(matchesFilters);
     const submitted = base.filter(p => p.reconcile_status === 'submitted').length;
     const missing = base.filter(p => p.reconcile_status === 'missing').length;
@@ -664,7 +665,7 @@ export default function CampaignDetailPage() {
       expected,
       completion_pct: expected > 0 ? Math.round((submitted / expected) * 100) : 0,
     };
-  }, [allPeople, activeFilters, matchesFilters]);
+  }, [allPeople, activeFilters, matchesFilters, activeTab]);
 
   const allSelected = filteredPeople.length > 0 && filteredPeople.every(p => selected.has(p.id));
 
@@ -785,10 +786,8 @@ export default function CampaignDetailPage() {
   // filters. Includes all pasted columns and each person's note.
   function handleExport() {
     // Export exactly what's on screen: the current tab + active filters, in sort order.
-    // On the Summary tab (no list) fall back to the whole campaign, filtered.
-    const exportPeople = activeTab === 'summary'
-      ? (activeFilters.length ? allPeople.filter(matchesFilters) : allPeople)
-      : sortedPeople;
+    // The Summary tab always represents the whole campaign, so it exports everyone.
+    const exportPeople = activeTab === 'summary' ? allPeople : sortedPeople;
 
     // Union of every pasted-roster column, in first-seen order.
     const attrKeys: string[] = [];
@@ -1147,7 +1146,7 @@ export default function CampaignDetailPage() {
         {/* Stats */}
         {campaign.last_reconciled_at && (
           <div className="space-y-3 mb-6">
-            {activeFilters.length > 0 && (
+            {activeTab !== 'summary' && activeFilters.length > 0 && (
               <p className="text-xs text-indigo-400/70 font-medium uppercase tracking-wide">
                 Showing stats for: {activeFilters.map(([, v]) => v).join(' · ')}
               </p>
