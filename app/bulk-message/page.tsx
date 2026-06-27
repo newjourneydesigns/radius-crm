@@ -1605,16 +1605,18 @@ function BulkMessageContent() {
                     </div>
                   )}
                   {companion.available === true && (
-                    <button
-                      onClick={handleStartAutoSend}
-                      disabled={recipients.length === 0 || !message.trim()}
-                      className="w-full py-4 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-base transition-all uppercase tracking-tight border-t border-emerald-600/40 disabled:border-gray-700 flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3" />
-                      </svg>
-                      {recipients.length === 0 ? 'No Recipients' : !message.trim() ? 'Write a Message First' : `Auto Send (${recipients.length})`}
-                    </button>
+                    <div className="px-3 pt-3">
+                      <button
+                        onClick={handleStartAutoSend}
+                        disabled={recipients.length === 0 || !message.trim()}
+                        className="w-full py-3.5 bg-btn-success hover:opacity-90 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-base transition-all uppercase tracking-tight rounded-xl disabled:rounded-xl flex items-center justify-center gap-2 shadow-glow-green disabled:shadow-none"
+                      >
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3" />
+                        </svg>
+                        {recipients.length === 0 ? 'No Recipients' : !message.trim() ? 'Write a Message First' : `Auto Send (${recipients.length})`}
+                      </button>
+                    </div>
                   )}
                   {companion.available === false && (
                     <div className="border-t border-slate-700/50 px-4 py-4 space-y-3">
@@ -1655,7 +1657,7 @@ function BulkMessageContent() {
                   <button
                     onClick={handleStartBatch}
                     disabled={recipients.length === 0 || !message.trim()}
-                    className="w-full py-5 bg-[#0A7FF5] hover:bg-[#0A7FF5]/90 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-lg transition-all uppercase tracking-tight border-t border-[#0A7FF5]/30 disabled:border-gray-700"
+                    className="w-full py-5 bg-[#0A7FF5] hover:bg-[#0A7FF5]/90 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-lg transition-all uppercase tracking-tight border-t border-[#0A7FF5]/30 disabled:border-gray-700 mt-3"
                   >
                     {recipients.length === 0 ? 'No Recipients' : !message.trim() ? 'Write a Message First' : `Start Batch (${recipients.length})`}
                   </button>
