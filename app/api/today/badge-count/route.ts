@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     const boardIds       = ((boardsRaw || []) as BoardRow[]).map((b) => b.id);
     const assignedCardIds = ((assignmentRows || []) as AssignmentRow[]).map((a) => a.card_id);
 
-    const [ownedCardsRes, assignedCardsRes] = await Promise.all([
+    const [ownedCardsRes, assignedCardsRes, createdCardsRes] = await Promise.all([
       boardIds.length > 0
         ? supabase.from('board_cards').select('id')
             .in('board_id', boardIds).eq('is_archived', false).eq('is_complete', false)
@@ -103,6 +103,10 @@ export async function GET(request: NextRequest) {
             .in('id', assignedCardIds).eq('is_archived', false).eq('is_complete', false)
             .not('due_date', 'is', null).lte('due_date', today)
         : Promise.resolve({ data: [] as CardIdRow[] }),
+      // Cards the user created on any board (matches the Today list scope).
+      supabase.from('board_cards').select('id')
+        .eq('created_by', user.id).eq('is_archived', false).eq('is_complete', false)
+        .not('due_date', 'is', null).lte('due_date', today),
     ]);
 
     const assignedBoardIds = Array.from(new Set(
@@ -125,6 +129,9 @@ export async function GET(request: NextRequest) {
     }
     for (const c of (assignedCardsRes.data || []) as CardIdRow[]) {
       if (c.board_id && activeBoardIds.has(c.board_id)) cardIds.add(c.id);
+    }
+    for (const c of (createdCardsRes.data || []) as CardIdRow[]) {
+      cardIds.add(c.id);
     }
 
     // Follow-ups assigned to this user, due today/overdue (or no date set).

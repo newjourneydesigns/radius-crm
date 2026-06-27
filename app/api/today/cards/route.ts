@@ -128,7 +128,7 @@ async function buildCardsData(
   // The fourth query gets all non-complete card IDs in the user's boards
   // so we can scope the checklist items query in Phase 3.
 
-  const [ownedCardsRes, assignedCardsRes, focusCardsRes, allCardIdsRes] = await Promise.all([
+  const [ownedCardsRes, assignedCardsRes, focusCardsRes, allCardIdsRes, createdCardsRes] = await Promise.all([
     // Cards in user's own boards that are due/overdue
     boardIds.length > 0
       ? supabase.from('board_cards')
@@ -165,6 +165,17 @@ async function buildCardsData(
     boardIds.length > 0
       ? supabase.from('board_cards').select('id').in('board_id', boardIds).eq('is_archived', false).eq('is_complete', false)
       : Promise.resolve({ data: [] as CardIdRow[] }),
+
+    // Cards the user created, on ANY board (including shared/public boards they
+    // can edit but don't own), that are due/overdue. The owned-board query above
+    // misses these — e.g. a card added via the global FAB, whose board dropdown
+    // lists every board the user can edit, not just the ones they own.
+    supabase.from('board_cards')
+      .select(CARD_SELECT)
+      .eq('created_by', user.id)
+      .eq('is_archived', false)
+      .not('due_date', 'is', null)
+      .lte('due_date', today),
   ]);
 
   const assignedCards = (assignedCardsRes.data || []) as RawCard[];
@@ -207,6 +218,22 @@ async function buildCardsData(
       .map((c) => c.id);
   }
 
+  // Resolve board names for any boards the user's created cards live on but that
+  // aren't already in boardMap (e.g. shared boards they don't own). Only non-
+  // archived boards get a name; cards on archived boards are dropped below.
+  const createdCards = (createdCardsRes.data || []) as RawCard[];
+  const missingCreatedBoardIds = Array.from(new Set(
+    createdCards.map((c) => c.board_id).filter((id): id is string => Boolean(id) && !boardMap.has(id))
+  ));
+  if (missingCreatedBoardIds.length > 0) {
+    const { data: createdBoardsRaw } = await supabase
+      .from('project_boards')
+      .select('id, title')
+      .in('id', missingCreatedBoardIds)
+      .eq('is_archived', false);
+    ((createdBoardsRaw || []) as BoardRow[]).forEach((b) => boardMap.set(b.id, b.title));
+  }
+
   // ── Phase 3: checklist items (1 query) ───────────────────────────────────
   //
   // Replaces the old Phase 5 which had its own waterfall of 3–4 sub-queries.
@@ -225,10 +252,14 @@ async function buildCardsData(
 
   // ── Build results ─────────────────────────────────────────────────────────
 
-  // Owned cards first; assigned cards fill in any not already present
+  // Owned cards first; assigned cards then created cards fill in any not present.
+  // Created cards on a board we couldn't name (archived/inaccessible) are skipped.
   const cardDedupe = new Map<string, CardDigestItem>();
   for (const c of (ownedCardsRes.data || []) as RawCard[]) cardDedupe.set(c.id, mapCard(c, boardMap));
   for (const c of activeAssignedCards) if (!cardDedupe.has(c.id)) cardDedupe.set(c.id, mapCard(c, boardMap));
+  for (const c of createdCards) {
+    if (c.board_id && boardMap.has(c.board_id) && !cardDedupe.has(c.id)) cardDedupe.set(c.id, mapCard(c, boardMap));
+  }
   const allCards = Array.from(cardDedupe.values());
 
   const focusDedupe = new Map<string, CardDigestItem>();
