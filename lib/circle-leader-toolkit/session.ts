@@ -170,9 +170,16 @@ export const getSessionLeader = cache(async function getSessionLeader(): Promise
   const supabase = createServiceSupabaseClient();
   const tokenHash = hashSessionToken(token);
 
+  // Single round trip: embed the leader profile via the leader_sessions →
+  // circle_leaders foreign key instead of a sequential session-then-leader
+  // lookup. This is on the critical path of every toolkit page load, so the
+  // saved round trip matters. PostgREST returns the embedded row as `leader`
+  // (a to-one object, since the FK lives on leader_sessions).
   const { data: session, error: sessionError } = await supabase
     .from('leader_sessions')
-    .select('id, leader_id, last_seen_at')
+    .select(
+      'id, leader_id, last_seen_at, leader:circle_leaders(id, name, email, phone, campus, acpd, status, day, time, frequency, meeting_start_date, ccb_group_id, ccb_profile_link, circle_summary_access_enabled, leader_type)'
+    )
     .eq('token_hash', tokenHash)
     .is('revoked_at', null)
     .maybeSingle();
@@ -186,20 +193,10 @@ export const getSessionLeader = cache(async function getSessionLeader(): Promise
 
   if (!session?.leader_id) return null;
 
-  const { data, error: leaderError } = await supabase
-    .from('circle_leaders')
-    .select('id, name, email, phone, campus, acpd, status, day, time, frequency, meeting_start_date, ccb_group_id, ccb_profile_link, circle_summary_access_enabled, leader_type')
-    .eq('id', session.leader_id)
-    .maybeSingle();
-
-  if (leaderError) {
-    if (!isMigrationMissingError(leaderError)) {
-      console.error('[circle-summary] Failed to load session leader:', leaderError);
-    }
-    return null;
-  }
-
-  const leader = (data as SessionLeader | null) ?? null;
+  // PostgREST may type the embed as an array depending on its FK inference;
+  // normalize to a single row either way.
+  const embedded = (session as { leader?: SessionLeader | SessionLeader[] | null }).leader;
+  const leader = (Array.isArray(embedded) ? embedded[0] : embedded) ?? null;
   if (!isCircleSummaryAccessEnabled(leader)) return null;
 
   // Fire-and-forget, throttled. The response ships without waiting on this

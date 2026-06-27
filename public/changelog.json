@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "circle-toolkit-faster-load",
+    "type": "improvement",
+    "category": "Circle Leader Toolkit",
+    "description": "The Circle Leader Toolkit loads noticeably faster. Sign-in now verifies your session in a single database lookup instead of two, the event form's leader, roster, questions, attendance, and saved draft are all prepared on the server so the form is filled in and ready the moment it opens (instead of fetching four things after the page appears), the form's question list is cached so repeat opens are instant, and the events list now streams in behind a skeleton so the header and tabs appear right away. None of this changes how fresh your attendance or summary data is — those still come straight from CCB.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "campaign-summary-campus-first",
     "type": "improvement",
     "category": "Campaigns",
