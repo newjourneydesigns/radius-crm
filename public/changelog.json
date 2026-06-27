@@ -3,10 +3,20 @@
     "date": "2026-06-26",
     "date_display": "June 26, 2026",
     "date_iso": "2026-06-26",
+    "id": "campaign-1000-row-fix",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Fixed campaigns with more than 1,000 people showing the wrong totals and a truncated list. The app was only reading the first 1,000 rows, so a 1,473-person campaign reported far fewer invited. People lists and reconcile counts now page through everyone, no matter how large the campaign. Re-run Reconcile on any affected campaign to refresh its numbers.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-26",
+    "date_display": "June 26, 2026",
+    "date_iso": "2026-06-26",
     "id": "campaign-paste-list",
     "type": "feature",
     "category": "Campaigns",
-    "description": "You can now set up a campaign by pasting a spreadsheet instead of giving CCB group IDs. On the New Campaign page, switch the invite list to \"Paste a list\" and paste rows straight from a spreadsheet — any column order works. Columns are auto-matched to fields (CCB Individual ID, First, Last, Email, Phone, and a Group-by column like Campus or Team), and you can fix any that look wrong with a dropdown. A live preview shows exactly who will be added before you create the campaign. When the CCB Individual ID and Email are mapped, pasted people reconcile against your CCB form by exact ID/email; otherwise they match by phone and name.",
+    "description": "You can now set up a campaign by pasting a spreadsheet instead of giving CCB group IDs. On the New Campaign page, switch the invite list to \"Paste a list\" and paste rows straight from a spreadsheet — any column order works. The core fields (CCB Individual ID, First, Last, Email, Phone) are auto-matched and fixable with a dropdown, and every other column you paste (Campus, Team, Age, and so on) is kept too. A live preview shows exactly who will be added. When the CCB Individual ID and Email are mapped, pasted people reconcile against your CCB form by exact ID/email; otherwise they match by phone and name. Inside the campaign, a new \"Group by\" control lets you group and filter people by any pasted column — switch between Campus, Team, or anything else on the fly.",
     "page": "/campaigns/new"
   },
   {

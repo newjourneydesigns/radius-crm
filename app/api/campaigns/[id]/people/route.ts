@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient, getUserFromAuthHeader } from '../../../../../lib/server-supabase';
 import { normalizePhone } from '../../../../../lib/phoneUtils';
+import { fetchAllRows } from '../../../../../lib/campaigns/fetchAllRows';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,24 +19,31 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 
   const supabase = createServiceSupabaseClient();
-  let query = supabase
-    .from('follow_up_campaign_people')
-    .select('*')
-    .eq('campaign_id', params.id)
-    .order('last_name', { ascending: true })
-    .order('first_name', { ascending: true });
 
-  if (status === 'contacted') {
-    // Contacted = anyone we've sent a follow-up to, regardless of form status
-    query = query.not('contacted_at', 'is', null);
-  } else if (status) {
-    query = query.eq('reconcile_status', status);
+  // Paginate past the PostgREST 1000-row cap so large campaigns return everyone.
+  try {
+    const people = await fetchAllRows((from, to) => {
+      let query = supabase
+        .from('follow_up_campaign_people')
+        .select('*')
+        .eq('campaign_id', params.id)
+        .order('last_name', { ascending: true })
+        .order('first_name', { ascending: true });
+
+      if (status === 'contacted') {
+        // Contacted = anyone we've sent a follow-up to, regardless of form status
+        query = query.not('contacted_at', 'is', null);
+      } else if (status) {
+        query = query.eq('reconcile_status', status);
+      }
+
+      return query.range(from, to);
+    });
+
+    return NextResponse.json({ people });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to load people' }, { status: 500 });
   }
-
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ people: data ?? [] });
 }
 
 async function requireAdmin(req: NextRequest) {

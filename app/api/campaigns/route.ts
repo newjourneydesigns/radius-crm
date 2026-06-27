@@ -8,7 +8,19 @@ interface PastedPersonInput {
   lastName?: string;
   phone?: string;
   email?: string;
-  group?: string;
+  attributes?: Record<string, unknown>;
+}
+
+// Keep only non-empty string values, so the stored attributes stay clean.
+function cleanAttributes(attrs: Record<string, unknown> | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!attrs || typeof attrs !== 'object') return out;
+  for (const [k, v] of Object.entries(attrs)) {
+    const key = String(k).trim();
+    const val = v == null ? '' : String(v).trim();
+    if (key && val) out[key] = val;
+  }
+  return out;
 }
 
 export const dynamic = 'force-dynamic';
@@ -72,7 +84,7 @@ export async function POST(req: NextRequest) {
       lastName: (p.lastName || '').trim(),
       phone: normalizePhone(p.phone || ''),
       email: (p.email || '').trim(),
-      group: (p.group || '').trim(),
+      attributes: cleanAttributes(p.attributes),
     }))
     .filter((p) => p.firstName || p.lastName)
     // Drop duplicate CCB ids — they'd violate the per-campaign unique constraint.
@@ -112,9 +124,8 @@ export async function POST(req: NextRequest) {
   // Seed the invite list from the pasted roster. These are stored exactly like
   // CCB-search "manually added" people so reconcile() checks them against form
   // responses. When the CCB Individual ID and email are mapped, matching is by
-  // exact id/email; otherwise it falls back to phone + name. The mapped "Group by"
-  // value is stored in source_group_name so the existing per-group filter, sort,
-  // and stats in the campaign view work for pasted people with no changes.
+  // exact id/email; otherwise it falls back to phone + name. Every non-core column
+  // is stored in `attributes`, so the campaign view can group by any header.
   if (validPasted.length > 0) {
     const rows = validPasted.map((p) => ({
       campaign_id: data.id,
@@ -128,13 +139,20 @@ export async function POST(req: NextRequest) {
       in_form: false,
       manually_added: true,
       reconcile_status: 'missing',
-      source_group_name: p.group || null,
+      attributes: Object.keys(p.attributes).length ? p.attributes : null,
     }));
-    const { error: peopleError } = await supabase.from('follow_up_campaign_people').insert(rows);
-    if (peopleError) {
-      // Roll back the half-created campaign so the admin can retry cleanly
-      await supabase.from('follow_up_campaigns').delete().eq('id', data.id);
-      return NextResponse.json({ error: `Failed to add pasted people: ${peopleError.message}` }, { status: 500 });
+
+    // Insert in chunks so a large pasted roster doesn't hit request size limits.
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const { error: peopleError } = await supabase
+        .from('follow_up_campaign_people')
+        .insert(rows.slice(i, i + CHUNK));
+      if (peopleError) {
+        // Roll back the half-created campaign (cascades to any inserted people) so the admin can retry cleanly
+        await supabase.from('follow_up_campaigns').delete().eq('id', data.id);
+        return NextResponse.json({ error: `Failed to add pasted people: ${peopleError.message}` }, { status: 500 });
+      }
     }
   }
 

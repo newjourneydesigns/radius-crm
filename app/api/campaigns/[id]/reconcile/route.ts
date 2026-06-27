@@ -4,6 +4,7 @@ import { createCCBClient } from '../../../../../lib/ccb/ccb-client';
 import { createCCBv2Client } from '../../../../../lib/ccb/ccb-v2-client';
 import { getCCBRequestContext } from '../../../../../lib/ccb/ccb-api-gateway';
 import { reconcile, computeCounts } from '../../../../../lib/campaigns/reconcile';
+import { fetchAllRows } from '../../../../../lib/campaigns/fetchAllRows';
 
 export const dynamic = 'force-dynamic';
 
@@ -135,19 +136,38 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // 3c. Load manually-added individuals from DB and merge them in.
   // They join the group participant list so the reconcile function checks them
   // against form responses automatically.
-  const { data: manualPeople } = await supabase
-    .from('follow_up_campaign_people')
-    .select('ccb_individual_id, first_name, last_name, email, phone, mobile_phone, source_group_name')
-    .eq('campaign_id', params.id)
-    .eq('manually_added', true);
+  const manualPeople = await fetchAllRows<{
+    ccb_individual_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    phone: string | null;
+    mobile_phone: string | null;
+    source_group_name: string | null;
+    attributes: Record<string, unknown> | null;
+  }>((from, to) =>
+    supabase
+      .from('follow_up_campaign_people')
+      .select('ccb_individual_id, first_name, last_name, email, phone, mobile_phone, source_group_name, attributes')
+      .eq('campaign_id', params.id)
+      .eq('manually_added', true)
+      .range(from, to),
+  );
 
   // Manually-added people who have no CCB id (e.g. a pasted spreadsheet roster)
   // can't be tracked by id across reconciles. Key them by normalized name so we
   // can re-flag them manually_added and preserve their campus team below.
-  const normName = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const normName = (s: string | null | undefined) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
   const manualNullKeys = new Set<string>();
   const manualCcbIds = new Set<string>();
+  // Preserve pasted free-form attributes across reconcile (keyed by CCB id, or name when id-less).
+  const manualAttrsByCcbId = new Map<string, unknown>();
+  const manualAttrsByName = new Map<string, unknown>();
   for (const mp of manualPeople ?? []) {
+    if (mp.attributes) {
+      if (mp.ccb_individual_id) manualAttrsByCcbId.set(mp.ccb_individual_id, mp.attributes);
+      else manualAttrsByName.set(`${normName(mp.first_name)}|${normName(mp.last_name)}`, mp.attributes);
+    }
     if (mp.ccb_individual_id && seenCcbIds.has(mp.ccb_individual_id)) continue; // already in a group
     if (mp.ccb_individual_id) {
       seenCcbIds.add(mp.ccb_individual_id);
@@ -209,11 +229,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const reconciledPeople = reconcile(groupParticipants, uniqueFormRespondents);
 
   // 6. Load existing contacted rows so we can preserve their contact fields on re-reconcile
-  const { data: existingContacted } = await supabase
-    .from('follow_up_campaign_people')
-    .select('ccb_individual_id, first_name, last_name, contacted_at, contacted_by, contact_note')
-    .eq('campaign_id', params.id)
-    .not('contacted_at', 'is', null);
+  const existingContacted = await fetchAllRows<{
+    ccb_individual_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    contacted_at: string | null;
+    contacted_by: string | null;
+    contact_note: string | null;
+  }>((from, to) =>
+    supabase
+      .from('follow_up_campaign_people')
+      .select('ccb_individual_id, first_name, last_name, contacted_at, contacted_by, contact_note')
+      .eq('campaign_id', params.id)
+      .not('contacted_at', 'is', null)
+      .range(from, to),
+  );
 
   type ContactedRow = { ccb_individual_id: string | null; contacted_at: string | null; contacted_by: string | null; contact_note: string | null };
   const contactedMap = new Map<string, ContactedRow>();
@@ -235,6 +265,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       : contactedNullMap.get(nameKey);
     const isManual = p.ccbIndividualId ? manualCcbIds.has(p.ccbIndividualId) : manualNullKeys.has(nameKey);
     const v2Ph = p.ccbIndividualId ? v2PhoneMap[p.ccbIndividualId] : null;
+    const attributes = (p.ccbIndividualId ? manualAttrsByCcbId.get(p.ccbIndividualId) : manualAttrsByName.get(nameKey)) ?? null;
     return {
       campaign_id: params.id,
       ccb_individual_id: p.ccbIndividualId || null,
@@ -253,6 +284,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       match_method: p.matchMethod || null,
       source_group_id: p.sourceGroupId || null,
       source_group_name: p.sourceGroupName || null,
+      // Preserve pasted free-form attributes (Campus, Team, …) across reconcile
+      attributes,
       // Preserve contact fields so re-reconciling doesn't wipe them
       contacted_at: prevContacted?.contacted_at ?? null,
       contacted_by: prevContacted?.contacted_by ?? null,
@@ -315,13 +348,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
   }
 
-  // 8. Re-read all people to compute accurate counts (includes any pre-existing contacted rows)
-  const { data: allPeople } = await supabase
-    .from('follow_up_campaign_people')
-    .select('reconcile_status, contacted_at')
-    .eq('campaign_id', params.id);
+  // 8. Re-read all people to compute accurate counts (includes any pre-existing contacted rows).
+  // Paginate past the 1000-row cap so the aggregate counts reflect the full campaign.
+  const allPeople = await fetchAllRows<{ reconcile_status: string; contacted_at: string | null }>((from, to) =>
+    supabase
+      .from('follow_up_campaign_people')
+      .select('reconcile_status, contacted_at')
+      .eq('campaign_id', params.id)
+      .range(from, to),
+  );
 
-  const counts = computeCounts(allPeople ?? []);
+  const counts = computeCounts(allPeople);
 
   // 9. Update campaign aggregate counts
   await supabase

@@ -6,7 +6,7 @@
 // and auto-guess that mapping from the header row. Pasting from Excel/Sheets yields
 // tab-separated cells; CSV yields commas. We tolerate quoted cells and a header row.
 
-export type RosterFieldKey = 'ccbId' | 'firstName' | 'lastName' | 'phone' | 'email' | 'group';
+export type RosterFieldKey = 'ccbId' | 'firstName' | 'lastName' | 'phone' | 'email';
 
 export interface RosterField {
   key: RosterFieldKey;
@@ -15,13 +15,14 @@ export interface RosterField {
   hint?: string;
 }
 
+// The core identity fields we map to dedicated columns (used for matching).
+// Every OTHER pasted column is kept as a free-form attribute you can group by.
 export const ROSTER_FIELDS: RosterField[] = [
   { key: 'firstName', label: 'First name', required: true },
   { key: 'lastName', label: 'Last name', required: true },
   { key: 'ccbId', label: 'CCB Individual ID', hint: 'Best match to form responses' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Phone' },
-  { key: 'group', label: 'Group by', hint: 'e.g. Campus or Team' },
 ];
 
 export type RosterMapping = Record<RosterFieldKey, number | null>;
@@ -32,7 +33,6 @@ export const EMPTY_MAPPING: RosterMapping = {
   lastName: null,
   phone: null,
   email: null,
-  group: null,
 };
 
 export interface ParsedTable {
@@ -48,7 +48,9 @@ export interface PastedPerson {
   lastName: string;
   phone: string; // raw as pasted — normalized server-side
   email: string;
-  group: string; // campus / team / whatever the admin maps to "Group by"
+  // Every non-core column, keyed by its header (Campus, Team, Age, …). These are
+  // group-able dimensions in the campaign view.
+  attributes: Record<string, string>;
 }
 
 function stripCell(cell: string): string {
@@ -145,8 +147,6 @@ export function guessMapping(headers: string[]): RosterMapping {
     ccbId: find((h) => h.includes('individual id') || h === 'id' || h.includes('person id') || h.includes('ccb')),
     email: find((h) => h.includes('email') || h.includes('e mail')),
     phone: find((h) => h.includes('phone') || h.includes('mobile') || h.includes('cell')),
-    // Default the grouping column to Campus, falling back to Team — the admin can change it.
-    group: find((h) => h.includes('campus')) ?? find((h) => h.includes('team')) ?? find((h) => h.includes('ministry')),
   };
 }
 
@@ -154,19 +154,47 @@ export function applyMapping(table: ParsedTable, mapping: RosterMapping): Pasted
   const get = (row: string[], idx: number | null) =>
     idx != null && idx >= 0 ? (row[idx] ?? '').trim() : '';
 
+  // Columns claimed by a core field aren't repeated as attributes.
+  const mappedIdx = new Set<number>();
+  for (const key of Object.keys(mapping) as RosterFieldKey[]) {
+    const i = mapping[key];
+    if (i != null && i >= 0) mappedIdx.add(i);
+  }
+
   const people: PastedPerson[] = [];
   for (const row of table.rows) {
     const firstName = get(row, mapping.firstName);
     const lastName = get(row, mapping.lastName);
     if (!firstName && !lastName) continue;
+
+    const attributes: Record<string, string> = {};
+    for (let i = 0; i < table.headers.length; i++) {
+      if (mappedIdx.has(i)) continue;
+      const val = (row[i] ?? '').trim();
+      if (val) attributes[table.headers[i]] = val;
+    }
+
     people.push({
       ccbId: get(row, mapping.ccbId),
       firstName,
       lastName,
       phone: get(row, mapping.phone),
       email: get(row, mapping.email),
-      group: get(row, mapping.group),
+      attributes,
     });
   }
   return people;
+}
+
+// Distinct attribute keys (group-able dimensions) across a parsed roster,
+// preserving first-seen order.
+export function attributeKeys(people: PastedPerson[]): string[] {
+  const seen = new Set<string>();
+  const keys: string[] = [];
+  for (const p of people) {
+    for (const k of Object.keys(p.attributes)) {
+      if (!seen.has(k)) { seen.add(k); keys.push(k); }
+    }
+  }
+  return keys;
 }

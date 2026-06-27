@@ -43,6 +43,8 @@ export interface CampaignPerson {
   match_method: string | null;
   source_group_id: string | null;
   source_group_name: string | null;
+  // Free-form columns from a pasted roster (Campus, Team, Age, …) — group-able in the campaign view
+  attributes: Record<string, string> | null;
   note: string | null;
   contact_note: string | null;
   contacted_at: string | null;
@@ -87,7 +89,7 @@ export function useCampaigns() {
     due_date: string;
     message_template: string;
     // Optional pasted roster — an alternative to CCB groups for the invite list
-    people?: { ccbId: string; firstName: string; lastName: string; phone: string; email: string; group: string }[];
+    people?: { ccbId: string; firstName: string; lastName: string; phone: string; email: string; attributes: Record<string, string> }[];
   }): Promise<Campaign | null> => {
     const headers = await authHeader();
     const res = await fetch('/api/campaigns', {

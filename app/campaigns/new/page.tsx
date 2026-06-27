@@ -10,6 +10,7 @@ import {
   parseTable,
   guessMapping,
   applyMapping,
+  attributeKeys,
   ROSTER_FIELDS,
   EMPTY_MAPPING,
   type RosterMapping,
@@ -67,6 +68,7 @@ export default function NewCampaignPage() {
   }, [headerKey]);
 
   const parsedPeople = useMemo(() => applyMapping(table, mapping), [table, mapping]);
+  const groupableKeys = useMemo(() => attributeKeys(parsedPeople), [parsedPeople]);
   const namesMapped = mapping.firstName !== null && mapping.lastName !== null;
 
   const [formId, setFormId] = useState('');
@@ -277,30 +279,46 @@ export default function NewCampaignPage() {
                           </span>
                         </div>
                         {parsedPeople.length > 0 ? (
-                          <div className="max-h-56 overflow-auto">
-                            <table className="w-full text-sm">
-                              <thead className="sticky top-0 bg-zinc-800">
-                                <tr className="text-left text-xs text-slate-500 uppercase tracking-wide">
-                                  <th className="px-3 py-1.5 font-medium">Name</th>
-                                  <th className="px-3 py-1.5 font-medium">CCB ID</th>
-                                  <th className="px-3 py-1.5 font-medium">Email</th>
-                                  <th className="px-3 py-1.5 font-medium">Phone</th>
-                                  <th className="px-3 py-1.5 font-medium">Group</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-zinc-700/50">
-                                {parsedPeople.slice(0, 200).map((p, i) => (
-                                  <tr key={i} className="text-slate-200">
-                                    <td className="px-3 py-1.5 whitespace-nowrap">{`${p.firstName} ${p.lastName}`.trim()}</td>
-                                    <td className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.ccbId || '—'}</td>
-                                    <td className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.email || '—'}</td>
-                                    <td className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.phone || '—'}</td>
-                                    <td className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.group || '—'}</td>
-                                  </tr>
+                          <>
+                            {groupableKeys.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-zinc-700/50">
+                                <span className="text-xs text-slate-500">Group-able columns kept:</span>
+                                {groupableKeys.map(k => (
+                                  <span key={k} className="text-xs bg-zinc-700/60 text-slate-300 px-1.5 py-0.5 rounded">
+                                    {k}
+                                  </span>
                                 ))}
-                              </tbody>
-                            </table>
-                          </div>
+                              </div>
+                            )}
+                            <div className="max-h-56 overflow-auto">
+                              <table className="w-full text-sm">
+                                <thead className="sticky top-0 bg-zinc-800">
+                                  <tr className="text-left text-xs text-slate-500 uppercase tracking-wide">
+                                    <th className="px-3 py-1.5 font-medium">Name</th>
+                                    <th className="px-3 py-1.5 font-medium">CCB ID</th>
+                                    <th className="px-3 py-1.5 font-medium">Email</th>
+                                    <th className="px-3 py-1.5 font-medium">Phone</th>
+                                    {groupableKeys.slice(0, 2).map(k => (
+                                      <th key={k} className="px-3 py-1.5 font-medium">{k}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-700/50">
+                                  {parsedPeople.slice(0, 200).map((p, i) => (
+                                    <tr key={i} className="text-slate-200">
+                                      <td className="px-3 py-1.5 whitespace-nowrap">{`${p.firstName} ${p.lastName}`.trim()}</td>
+                                      <td className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.ccbId || '—'}</td>
+                                      <td className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.email || '—'}</td>
+                                      <td className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.phone || '—'}</td>
+                                      {groupableKeys.slice(0, 2).map(k => (
+                                        <td key={k} className="px-3 py-1.5 whitespace-nowrap text-slate-400">{p.attributes[k] || '—'}</td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </>
                         ) : (
                           <p className="px-3 py-4 text-center text-sm text-amber-400/80">
                             No people yet — map First name and Last name above.

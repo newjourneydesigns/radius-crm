@@ -26,6 +26,17 @@ const VARIABLES = ['{{first_name}}', '{{form_link}}', '{{campaign_name}}', '{{du
 
 const inputCls = 'w-full bg-zinc-700 border border-zinc-600 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors';
 
+// Sentinel dimension for the CCB source-group name (CCB-group campaigns).
+// Pasted rosters expose their own free-form columns (attributes) as dimensions.
+const SOURCE_DIM = '__source_group__';
+
+function groupValueOf(p: CampaignPerson, dim: string | null): string {
+  if (!dim) return '';
+  if (dim === SOURCE_DIM) return p.source_group_name || '';
+  const v = p.attributes?.[dim];
+  return v == null ? '' : String(v);
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function authHeader(): Promise<Record<string, string>> {
@@ -172,6 +183,7 @@ export default function CampaignDetailPage() {
   const [contactSuccess, setContactSuccess] = useState(false);
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
+  const [groupDimension, setGroupDimension] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [globalSearch, setGlobalSearch] = useState('');
@@ -310,21 +322,60 @@ export default function CampaignDetailPage() {
     return allPeople.filter(p => p.reconcile_status === tab.statusKey);
   }, [allPeople, activeTab]);
 
+  // Group-able dimensions: the CCB source group (if any) plus every pasted-roster
+  // attribute key. The admin can switch which one the list is grouped by.
+  const availableDimensions = useMemo(() => {
+    const attrKeys = new Set<string>();
+    let hasSource = false;
+    for (const p of allPeople) {
+      if (p.source_group_name) hasSource = true;
+      if (p.attributes) {
+        for (const [k, v] of Object.entries(p.attributes)) {
+          if (v != null && String(v).trim() !== '') attrKeys.add(k);
+        }
+      }
+    }
+    const dims: { key: string; label: string }[] = [];
+    if (hasSource) dims.push({ key: SOURCE_DIM, label: 'Source group' });
+    for (const k of Array.from(attrKeys)) dims.push({ key: k, label: k });
+    return dims;
+  }, [allPeople]);
+
+  // Default / repair the selected dimension when the data changes.
+  useEffect(() => {
+    if (availableDimensions.length === 0) {
+      if (groupDimension !== null) setGroupDimension(null);
+      return;
+    }
+    const keys = availableDimensions.map(d => d.key);
+    if (groupDimension && keys.includes(groupDimension)) return;
+    const preferred = keys.find(k => k.toLowerCase() === 'campus') ?? keys[0];
+    setGroupDimension(preferred);
+    setGroupFilter(null);
+  }, [availableDimensions, groupDimension]);
+
+  const dimensionLabel = useMemo(
+    () => availableDimensions.find(d => d.key === groupDimension)?.label ?? 'Group',
+    [availableDimensions, groupDimension],
+  );
+
   const uniqueGroups = useMemo(() => {
     const seen = new Set<string>();
     const groups: string[] = [];
     for (const p of allPeople) {
-      if (p.source_group_name && !seen.has(p.source_group_name)) {
-        seen.add(p.source_group_name);
-        groups.push(p.source_group_name);
+      const v = groupValueOf(p, groupDimension);
+      if (v && !seen.has(v)) {
+        seen.add(v);
+        groups.push(v);
       }
     }
+    groups.sort((a, b) => a.localeCompare(b));
     return groups;
-  }, [allPeople]);
+  }, [allPeople, groupDimension]);
 
   const filteredPeople = useMemo(
-    () => (groupFilter ? tabPeople.filter(p => p.source_group_name === groupFilter) : tabPeople),
-    [tabPeople, groupFilter],
+    () => (groupFilter ? tabPeople.filter(p => groupValueOf(p, groupDimension) === groupFilter) : tabPeople),
+    [tabPeople, groupFilter, groupDimension],
   );
 
   function onSort(col: string) {
@@ -345,7 +396,7 @@ export default function CampaignDetailPage() {
       if (sortCol === 'name')      { av = `${a.last_name} ${a.first_name}`.toLowerCase(); bv = `${b.last_name} ${b.first_name}`.toLowerCase(); }
       else if (sortCol === 'email')    { av = (a.email || '').toLowerCase(); bv = (b.email || '').toLowerCase(); }
       else if (sortCol === 'phone')    { av = bestPhone(a); bv = bestPhone(b); }
-      else if (sortCol === 'group')    { av = (a.source_group_name || '').toLowerCase(); bv = (b.source_group_name || '').toLowerCase(); }
+      else if (sortCol === 'group')    { av = groupValueOf(a, groupDimension).toLowerCase(); bv = groupValueOf(b, groupDimension).toLowerCase(); }
       else if (sortCol === 'submitted') { av = submittedAt(a); bv = submittedAt(b); }
       else if (sortCol === 'match')    { av = (a.match_method || '').toLowerCase(); bv = (b.match_method || '').toLowerCase(); }
       else if (sortCol === 'last_contacted') { av = a.contacted_at || '0000'; bv = b.contacted_at || '0000'; }
@@ -356,7 +407,7 @@ export default function CampaignDetailPage() {
 
   const filteredStats = useMemo(() => {
     if (!groupFilter) return null;
-    const base = allPeople.filter(p => p.source_group_name === groupFilter);
+    const base = allPeople.filter(p => groupValueOf(p, groupDimension) === groupFilter);
     const submitted = base.filter(p => p.reconcile_status === 'submitted').length;
     const missing = base.filter(p => p.reconcile_status === 'missing').length;
     const needsReview = base.filter(p => p.reconcile_status === 'needs_review').length;
@@ -370,7 +421,7 @@ export default function CampaignDetailPage() {
       expected,
       completion_pct: expected > 0 ? Math.round((submitted / expected) * 100) : 0,
     };
-  }, [allPeople, groupFilter]);
+  }, [allPeople, groupFilter, groupDimension]);
 
   const allSelected = filteredPeople.length > 0 && filteredPeople.every(p => selected.has(p.id));
 
@@ -734,7 +785,7 @@ export default function CampaignDetailPage() {
             <div className="border-b border-zinc-800 flex gap-1 overflow-x-auto flex-1">
               {TABS.map(t => {
                 const pool = groupFilter
-                  ? allPeople.filter(p => p.source_group_name === groupFilter)
+                  ? allPeople.filter(p => groupValueOf(p, groupDimension) === groupFilter)
                   : allPeople;
                 const count = allPeople.length > 0
                   ? pool.filter(p => p.reconcile_status === t.statusKey).length
@@ -808,7 +859,23 @@ export default function CampaignDetailPage() {
               )}
             </div>{/* end tabs row */}
 
-            {/* Group filter pills — only shown when 2+ groups */}
+            {/* Group-by dimension selector — shown when there's more than one way to group */}
+            {availableDimensions.length >= 2 && (
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs text-slate-500 uppercase tracking-wide">Group by</span>
+                <select
+                  value={groupDimension ?? ''}
+                  onChange={e => { setGroupDimension(e.target.value); setGroupFilter(null); }}
+                  className="bg-zinc-800 border border-zinc-700 text-slate-200 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                >
+                  {availableDimensions.map(d => (
+                    <option key={d.key} value={d.key}>{d.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Group filter pills — only shown when 2+ values in the current dimension */}
             {uniqueGroups.length >= 2 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 <button
@@ -819,7 +886,7 @@ export default function CampaignDetailPage() {
                   }`}
                   onClick={() => setGroupFilter(null)}
                 >
-                  All groups
+                  All
                 </button>
                 {uniqueGroups.map(g => (
                   <button
@@ -871,7 +938,7 @@ export default function CampaignDetailPage() {
                           </span>
                         } sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         {uniqueGroups.length >= 2 && (
-                          <SortTh col="group" label="Group" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+                          <SortTh col="group" label={dimensionLabel} sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         )}
                         {activeTab === 'missing' && (
                           <SortTh col="last_contacted" label="Last Contacted" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
@@ -925,7 +992,7 @@ export default function CampaignDetailPage() {
                             <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{bestPhone(p) || '—'}</td>
                             {uniqueGroups.length >= 2 && (
                               <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
-                                {p.source_group_name || '—'}
+                                {groupValueOf(p, groupDimension) || '—'}
                               </td>
                             )}
                             {activeTab === 'missing' && (
