@@ -5,6 +5,9 @@ import { useState, useCallback, useEffect } from 'react';
 const BASE = 'http://localhost:5123';
 const PING_TIMEOUT_MS = 2000;
 
+// Bump this whenever server.py changes — RADIUS will prompt users to reinstall.
+export const COMPANION_VERSION = '1.2.0';
+
 export interface CompanionSendResult {
   success: boolean;
   error?: string;
@@ -12,6 +15,7 @@ export interface CompanionSendResult {
 
 export function useMacCompanion() {
   const [available, setAvailable] = useState<boolean | null>(null);
+  const [needsUpdate, setNeedsUpdate] = useState(false);
 
   const ping = useCallback(async (): Promise<boolean> => {
     try {
@@ -22,6 +26,16 @@ export function useMacCompanion() {
       return res.ok;
     } catch {
       return false;
+    }
+  }, []);
+
+  const checkVersion = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch(`${BASE}/version`);
+      const data = await res.json();
+      setNeedsUpdate(data.version !== COMPANION_VERSION);
+    } catch {
+      setNeedsUpdate(false);
     }
   }, []);
 
@@ -56,14 +70,19 @@ export function useMacCompanion() {
 
   const recheck = useCallback(async () => {
     setAvailable(null);
+    setNeedsUpdate(false);
     const ok = await ping();
     setAvailable(ok);
-  }, [ping]);
+    if (ok) await checkVersion();
+  }, [ping, checkVersion]);
 
-  // Silent ping on mount — no UI until resolved
+  // Silent ping + version check on mount
   useEffect(() => {
-    ping().then(setAvailable);
-  }, [ping]);
+    ping().then(async ok => {
+      setAvailable(ok);
+      if (ok) await checkVersion();
+    });
+  }, [ping, checkVersion]);
 
-  return { available, send, notify, recheck };
+  return { available, needsUpdate, send, notify, recheck };
 }

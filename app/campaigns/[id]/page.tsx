@@ -2340,6 +2340,26 @@ export default function CampaignDetailPage() {
           {/* Multi-person list */}
           {selectedPeople.length > 1 && (
             <div>
+              {companion.available === true && companion.needsUpdate && (
+                <div className="mb-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2 flex items-start gap-2">
+                  <svg className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold text-amber-400">Companion update available</p>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText('curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash');
+                        setCopiedInstall(true);
+                        setTimeout(() => setCopiedInstall(false), 2000);
+                      }}
+                      className="text-[10px] text-slate-400 hover:text-white transition-colors"
+                    >
+                      {copiedInstall ? 'Copied!' : 'Copy install command'}
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">All selected</p>
                 {companion.available === true && (

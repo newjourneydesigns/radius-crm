@@ -1583,6 +1583,27 @@ function BulkMessageContent() {
                   )}
 
                   {/* Auto Send — only visible when companion is running */}
+                  {companion.available === true && companion.needsUpdate && (
+                    <div className="border-t border-amber-500/20 bg-amber-500/5 px-4 py-3 flex items-start gap-2.5">
+                      <svg className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-amber-400">Companion update available</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Run the install command in Terminal to get throttling and notifications.</p>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText('curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash');
+                            setCopiedInstall(true);
+                            setTimeout(() => setCopiedInstall(false), 2000);
+                          }}
+                          className="mt-1.5 text-[10px] font-medium text-amber-400 hover:text-amber-300 transition-colors"
+                        >
+                          {copiedInstall ? 'Copied!' : 'Copy install command'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {companion.available === true && (
                     <button
                       onClick={handleStartAutoSend}

@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "companion-version-check",
+    "type": "improvement",
+    "category": "Mac Companion",
+    "description": "RADIUS now checks your Mac Companion version automatically. When an update is available an amber banner appears in the Bulk Message and Campaigns pages with a one-click copy of the install command — no guessing whether you need to reinstall.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "campaigns-auto-send",
     "type": "feature",
     "category": "Campaigns",
