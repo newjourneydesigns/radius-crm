@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "circle-toolkit-splash-clean-cut",
+    "type": "fix",
+    "category": "Circle Leader Toolkit",
+    "description": "The green welcome splash no longer flickers as it hands off to your events. It used to fade out, which let the page flash through the half-faded splash for a moment; now it holds for a beat and switches straight to the events page in one clean cut.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "today-card-completion-no-revert",
     "type": "fix",
     "category": "Today",

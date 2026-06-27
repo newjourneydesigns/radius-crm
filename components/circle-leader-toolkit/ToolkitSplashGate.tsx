@@ -5,8 +5,12 @@ import CircleSplash from './CircleSplash';
 
 /**
  * Holds the branded green CircleSplash on screen for a purposeful beat on a
- * fresh launch, then fades to reveal the page — so the splash reads as an
- * intentional welcome instead of flashing past in a single frame.
+ * fresh launch, then removes it in a single clean cut to reveal the page — no
+ * fade. A fade-out crossfades the translucent green over the page (and over
+ * loading.tsx's own splash, whose pulse rings are desynced from this one), which
+ * reads as a flicker/flash right before the events page appears. Cutting
+ * straight from the solid splash to the ready, server-rendered page is the
+ * smoothest handoff: one frame green, the next frame the page.
  *
  * Why a gate on top of loading.tsx: the segment's loading.tsx splash is a
  * Suspense fallback that vanishes the instant the route resolves, which on a
@@ -21,13 +25,12 @@ import CircleSplash from './CircleSplash';
  * in-session reload skips the hold too.
  */
 const MIN_VISIBLE_MS = 1600; // ~ two pulse rings — purposeful, not slow
-const FADE_MS = 450;
 const SESSION_KEY = 'cs-splash-shown';
 
 export default function ToolkitSplashGate() {
   // Start visible so the splash is in the first paint, covering the launch with
   // no flash of page content behind it.
-  const [phase, setPhase] = useState<'visible' | 'leaving' | 'gone'>('visible');
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     let alreadyShown = false;
@@ -40,27 +43,18 @@ export default function ToolkitSplashGate() {
 
     // Not a fresh launch (e.g. an in-session reload) — don't replay the hold.
     if (alreadyShown) {
-      setPhase('gone');
+      setVisible(false);
       return;
     }
 
-    const hold = setTimeout(() => setPhase('leaving'), MIN_VISIBLE_MS);
+    const hold = setTimeout(() => setVisible(false), MIN_VISIBLE_MS);
     return () => clearTimeout(hold);
   }, []);
 
-  useEffect(() => {
-    if (phase !== 'leaving') return;
-    const fade = setTimeout(() => setPhase('gone'), FADE_MS);
-    return () => clearTimeout(fade);
-  }, [phase]);
-
-  if (phase === 'gone') return null;
+  if (!visible) return null;
 
   return (
-    <div
-      className={`cs-splash-gate${phase === 'leaving' ? ' cs-splash-gate--leaving' : ''}`}
-      aria-hidden={phase === 'leaving'}
-    >
+    <div className="cs-splash-gate">
       <CircleSplash />
     </div>
   );
