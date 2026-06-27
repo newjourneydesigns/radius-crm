@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "campaign-summary-campus-first",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "The Summary tab now leads with the Campus breakdown (then Team, then Leader/STM), regardless of your spreadsheet's column order, so the exec view starts where you'd expect. The filter bar follows the same order.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "campaign-summary-shows-all",
     "type": "fix",
     "category": "Campaigns",

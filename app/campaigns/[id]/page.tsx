@@ -545,6 +545,16 @@ export default function CampaignDetailPage() {
     for (const key of Array.from(valuesByKey.keys())) {
       if (key !== SOURCE_DIM) pushIf(key, key);
     }
+    // Lead with the dimensions execs care about most (Campus first), then the rest.
+    const rank = (label: string) => {
+      const l = label.toLowerCase();
+      if (l === 'source group') return 0;
+      if (l === 'campus') return 1;
+      if (l === 'team') return 2;
+      if (l.includes('leader') || l.includes('stm')) return 3;
+      return 9;
+    };
+    out.sort((a, b) => rank(a.label) - rank(b.label) || a.label.localeCompare(b.label));
     return out;
   }, [allPeople]);
 
