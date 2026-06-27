@@ -413,6 +413,16 @@
     "date": "2026-06-24",
     "date_display": "June 24, 2026",
     "date_iso": "2026-06-24",
+    "id": "prayer-page-hide-archived-leaders",
+    "type": "fix",
+    "category": "Prayer",
+    "description": "The Prayer page no longer shows leaders with Archived status. Archived leaders are now excluded from the Circle Leaders list so the prayer list stays focused on active circles.",
+    "page": "/prayer"
+  },
+  {
+    "date": "2026-06-24",
+    "date_display": "June 24, 2026",
+    "date_iso": "2026-06-24",
     "id": "leader-profile-last-connection",
     "type": "feature",
     "category": "Circle Leaders",
