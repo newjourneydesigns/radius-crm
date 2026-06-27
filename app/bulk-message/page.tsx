@@ -1609,12 +1609,12 @@ function BulkMessageContent() {
                       <button
                         onClick={handleStartAutoSend}
                         disabled={recipients.length === 0 || !message.trim()}
-                        className="w-full py-3.5 bg-btn-success hover:opacity-90 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-base transition-all uppercase tracking-tight rounded-xl disabled:rounded-xl flex items-center justify-center gap-2 shadow-glow-green disabled:shadow-none"
+                        className="w-full py-3 bg-btn-success hover:opacity-90 disabled:bg-gray-800 disabled:text-gray-600 text-white transition-all rounded-xl flex flex-col items-center justify-center gap-0.5 shadow-glow-green disabled:shadow-none"
                       >
-                        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3" />
-                        </svg>
-                        {recipients.length === 0 ? 'Auto Send' : `Auto Send (${recipients.length})`}
+                        <span className="font-bold text-sm uppercase tracking-tight">
+                          {recipients.length === 0 ? 'Auto Send' : `Auto Send (${recipients.length})`}
+                        </span>
+                        <span className="text-[10px] font-normal opacity-75">sends automatically — hands off</span>
                       </button>
                     </div>
                   )}
@@ -1654,13 +1654,24 @@ function BulkMessageContent() {
                     </div>
                   )}
 
-                  <button
-                    onClick={handleStartBatch}
-                    disabled={recipients.length === 0 || !message.trim()}
-                    className="w-full py-5 bg-[#0A7FF5] hover:bg-[#0A7FF5]/90 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-lg transition-all uppercase tracking-tight border-t border-[#0A7FF5]/30 disabled:border-gray-700 mt-3"
-                  >
-                    {recipients.length === 0 ? 'Start Batch' : `Start Batch (${recipients.length})`}
-                  </button>
+                  <div className="flex items-center gap-3 px-4 mt-3">
+                    <div className="flex-1 h-px bg-slate-700" />
+                    <span className="text-[10px] text-slate-500 uppercase tracking-widest">or</span>
+                    <div className="flex-1 h-px bg-slate-700" />
+                  </div>
+
+                  <div className="px-3 pb-3 pt-2">
+                    <button
+                      onClick={handleStartBatch}
+                      disabled={recipients.length === 0 || !message.trim()}
+                      className="w-full py-3 bg-[#0A7FF5] hover:bg-[#0A7FF5]/90 disabled:bg-gray-800 disabled:text-gray-600 text-white transition-all rounded-xl flex flex-col items-center justify-center gap-0.5"
+                    >
+                      <span className="font-bold text-sm uppercase tracking-tight">
+                        {recipients.length === 0 ? 'Start Batch' : `Start Batch (${recipients.length})`}
+                      </span>
+                      <span className="text-[10px] font-normal opacity-75">opens Messages one at a time</span>
+                    </button>
+                  </div>
                 </div>
               ) : sendStatus === SendStatus.COMPLETED ? (
                 <div className="border-t border-gray-800 p-6 text-center space-y-3">
