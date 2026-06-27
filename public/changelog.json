@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "today-card-completion-no-revert",
+    "type": "fix",
+    "category": "Today",
+    "description": "Marking a card (or any item) Done on the Today page now sticks. Previously the page could briefly flash and snap the item back to undone even though it had actually saved — a background refresh that started before you tapped was landing late and overwriting your action with its older view. Today now ignores those stale, out-of-order refreshes so your completion stays put.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "campaigns-mobile-friendly",
     "type": "improvement",
     "category": "Campaigns",

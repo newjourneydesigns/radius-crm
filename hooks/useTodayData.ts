@@ -162,6 +162,12 @@ export function useTodayData() {
   const [completed, setCompleted] = useState<TodayCompleted>(emptyCompleted);
   const dataRef = useRef<TodayData | null>(null);
   const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Monotonic id for each fetchData call. The page fires fetches from several
+  // triggers (mount, focus/visibility, realtime refetch, view-date effects), and
+  // on slow connections a fetch issued *before* a mutation can resolve *after* it.
+  // Only the latest fetch may apply its results, so a stale in-flight response
+  // can't clobber freshly-completed state (e.g. revert a just-marked card to undone).
+  const fetchSeqRef = useRef(0);
 
   useEffect(() => {
     dataRef.current = data;
@@ -174,6 +180,10 @@ export function useTodayData() {
   const fetchData = useCallback(async (opts?: FetchTodayOptions) => {
     const fresh = opts?.fresh ?? true;
     const useCache = opts?.useCache ?? false;
+    // Claim this fetch's slot. Any later fetchData call bumps the counter, which
+    // marks this one stale so its (possibly out-of-order) response is ignored.
+    const seq = ++fetchSeqRef.current;
+    const isLatest = () => seq === fetchSeqRef.current;
     setError(null);
     setIsFetching(true);
     // A refresh clears the session's done-marks. Completed cards still come
@@ -196,6 +206,7 @@ export function useTodayData() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!isLatest()) return;
       if (!session?.access_token) {
         setError('Not authenticated');
         setIsLoading(false);
@@ -220,7 +231,7 @@ export function useTodayData() {
           if (m.item_type === 'birthday') birthdays.add(Number(m.item_key));
           else if (m.item_type === 'prayer') prayers.add(m.item_key);
         }
-        setCompleted(prev => ({ ...prev, birthdays, prayers }));
+        if (isLatest()) setCompleted(prev => ({ ...prev, birthdays, prayers }));
       })();
 
       // Closure vars so both callbacks can read the latest value from the other
@@ -228,6 +239,7 @@ export function useTodayData() {
       let freshCards: TodayCardsData | null = null;
 
       const applyData = () => {
+        if (!isLatest()) return;
         if (freshCore) setData({ ...freshCore, ...(freshCards || EMPTY_CARDS) });
       };
 
@@ -235,6 +247,8 @@ export function useTodayData() {
       const corePromise = (async () => {
         try {
           const res = await fetch(fresh ? '/api/today/core?fresh=1' : '/api/today/core', { headers, cache: 'no-store' });
+          // A newer fetch superseded us — drop this response so it can't overwrite fresher state.
+          if (!isLatest()) return;
           if (!res.ok) {
             const body = await res.json();
             setError(body.error || 'Failed to load today data');
@@ -242,10 +256,12 @@ export function useTodayData() {
             return;
           }
           freshCore = await res.json();
+          if (!isLatest()) return;
           setIsLoading(false);
           applyData();
           try { localStorage.setItem(CORE_CACHE_KEY, JSON.stringify({ data: freshCore, timestamp: Date.now() })); } catch {}
         } catch (err: unknown) {
+          if (!isLatest()) return;
           setIsLoading(false);
           setError(getErrorMessage(err));
         }
@@ -255,24 +271,35 @@ export function useTodayData() {
         try {
           const cardsUrl = fresh ? '/api/today/cards?fresh=1' : '/api/today/cards';
           const res = await fetch(cardsUrl, { headers, cache: 'no-store' });
+          if (!isLatest()) return;
           if (!res.ok) { setIsCardsLoading(false); return; }
           freshCards = normalizeTodayCardsData(await res.json());
+          if (!isLatest()) return;
           setIsCardsLoading(false);
           applyData();
           try { localStorage.setItem(CARDS_CACHE_KEY, JSON.stringify({ data: freshCards, timestamp: Date.now() })); } catch {}
         } catch {
-          setIsCardsLoading(false);
+          if (isLatest()) setIsCardsLoading(false);
         }
       })();
 
       await Promise.allSettled([corePromise, cardsPromise]);
     } catch (err: unknown) {
+      if (!isLatest()) return;
       setError(getErrorMessage(err));
       setIsLoading(false);
       setIsCardsLoading(false);
     } finally {
-      setIsFetching(false);
+      if (isLatest()) setIsFetching(false);
     }
+  }, []);
+
+  // Invalidate any fetch that's currently in flight. Called at the start of every
+  // optimistic mutation so a response that was already on the wire — reflecting
+  // pre-mutation state — can't land afterwards and revert what the user just did.
+  // Only a fetch issued *after* the write (which reads the committed value) wins.
+  const invalidateInFlightFetches = useCallback(() => {
+    fetchSeqRef.current += 1;
   }, []);
 
   const scheduleRealtimeRefresh = useCallback(() => {
@@ -332,15 +359,17 @@ export function useTodayData() {
 
   // Encouragement: planned ⇄ sent
   const markEncouragementSent = useCallback((id: number) => {
+    invalidateInFlightFetches();
     setCompleted(prev => ({ ...prev, encouragements: new Set(prev.encouragements).add(id) }));
     fetch(`/api/acpd-tracking?type=encourage&id=${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message_type: 'sent' }),
     }).catch(err => console.error('Failed to mark encouragement sent:', err));
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   const undoEncouragementSent = useCallback((id: number) => {
+    invalidateInFlightFetches();
     setCompleted(prev => {
       const next = new Set(prev.encouragements);
       next.delete(id);
@@ -351,19 +380,21 @@ export function useTodayData() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message_type: 'planned' }),
     }).catch(err => console.error('Failed to undo encouragement:', err));
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   // Follow-up: follow_up_required false (cleared) ⇄ true
   const clearFollowUp = useCallback(async (leaderId: number) => {
+    invalidateInFlightFetches();
     setCompleted(prev => ({ ...prev, followUps: new Set(prev.followUps).add(leaderId) }));
     try {
       await supabase.from('circle_leaders').update({ follow_up_required: false }).eq('id', leaderId);
     } catch (err) {
       console.error('Failed to clear follow-up:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   const undoFollowUp = useCallback(async (leaderId: number) => {
+    invalidateInFlightFetches();
     setCompleted(prev => {
       const next = new Set(prev.followUps);
       next.delete(leaderId);
@@ -374,10 +405,11 @@ export function useTodayData() {
     } catch (err) {
       console.error('Failed to undo follow-up:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   // Board card: is_complete ⇄
   const markCardComplete = useCallback(async (cardId: string) => {
+    invalidateInFlightFetches();
     setCompleted(prev => ({ ...prev, cards: new Set(prev.cards).add(cardId) }));
     setData(prev => prev ? setCardCompleteFlag(prev, cardId, true) : prev);
     try {
@@ -385,9 +417,10 @@ export function useTodayData() {
     } catch (err) {
       console.error('Failed to mark card complete:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   const undoCardComplete = useCallback(async (cardId: string) => {
+    invalidateInFlightFetches();
     setCompleted(prev => {
       const next = new Set(prev.cards);
       next.delete(cardId);
@@ -399,19 +432,21 @@ export function useTodayData() {
     } catch (err) {
       console.error('Failed to undo card:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   // Checklist item: is_completed ⇄
   const markChecklistDone = useCallback(async (itemId: string) => {
+    invalidateInFlightFetches();
     setCompleted(prev => ({ ...prev, checklists: new Set(prev.checklists).add(itemId) }));
     try {
       await supabase.from('card_checklists').update({ is_completed: true }).eq('id', itemId);
     } catch (err) {
       console.error('Failed to mark checklist item done:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   const undoChecklistDone = useCallback(async (itemId: string) => {
+    invalidateInFlightFetches();
     setCompleted(prev => {
       const next = new Set(prev.checklists);
       next.delete(itemId);
@@ -422,10 +457,11 @@ export function useTodayData() {
     } catch (err) {
       console.error('Failed to undo checklist item:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   // Birthday: persisted per-day in today_done_marks (no field of its own).
   const markBirthdayDone = useCallback(async (leaderId: number) => {
+    invalidateInFlightFetches();
     setCompleted(prev => ({ ...prev, birthdays: new Set(prev.birthdays).add(leaderId) }));
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -436,9 +472,10 @@ export function useTodayData() {
     } catch (err) {
       console.error('Failed to mark birthday done:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   const undoBirthdayDone = useCallback(async (leaderId: number) => {
+    invalidateInFlightFetches();
     setCompleted(prev => {
       const next = new Set(prev.birthdays);
       next.delete(leaderId);
@@ -453,11 +490,12 @@ export function useTodayData() {
     } catch (err) {
       console.error('Failed to undo birthday:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   // Prayer: persisted per-day in today_done_marks, keyed by `${kind}:${id}`.
   const markPrayerDone = useCallback(async (id: number, isGeneral: boolean) => {
     const key = prayerKey(id, isGeneral);
+    invalidateInFlightFetches();
     setCompleted(prev => ({ ...prev, prayers: new Set(prev.prayers).add(key) }));
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -468,10 +506,11 @@ export function useTodayData() {
     } catch (err) {
       console.error('Failed to mark prayer done:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   const undoPrayerDone = useCallback(async (id: number, isGeneral: boolean) => {
     const key = prayerKey(id, isGeneral);
+    invalidateInFlightFetches();
     setCompleted(prev => {
       const next = new Set(prev.prayers);
       next.delete(key);
@@ -486,12 +525,13 @@ export function useTodayData() {
     } catch (err) {
       console.error('Failed to undo prayer:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   // Schedule (or reschedule) a board card — sets due_date + due_time.
   // `cardInfo` lets callers schedule cards that aren't in today's lists yet
   // (e.g. a Big 3 card with no due date dragged onto the timeline).
   const scheduleCard = useCallback(async (cardId: string, dueDate: string, dueTime: string | null, cardInfo?: CardDigestItem) => {
+    invalidateInFlightFetches();
     setData(prev => {
       if (!prev) return prev;
       const existing =
@@ -519,10 +559,11 @@ export function useTodayData() {
     } catch (err) {
       console.error('Failed to schedule card:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   // Schedule (or reschedule) a follow-up — sets follow_up_date + follow_up_time.
   const scheduleFollowUp = useCallback(async (leaderId: number, date: string, time: string | null) => {
+    invalidateInFlightFetches();
     setData(prev => {
       if (!prev) return prev;
       const existing =
@@ -545,7 +586,7 @@ export function useTodayData() {
     } catch (err) {
       console.error('Failed to schedule follow-up:', err);
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   // Create a card directly from the timeline (click an empty slot), appended
   // to the selected board list.
@@ -589,6 +630,7 @@ export function useTodayData() {
         .single();
       if (cardError) throw cardError;
 
+      invalidateInFlightFetches();
       setData(prev => {
         if (!prev || dueDate !== prev.today) return prev;
         const item: CardDigestItem = {
@@ -613,7 +655,7 @@ export function useTodayData() {
       console.error('Failed to quick-add card:', err);
       return false;
     }
-  }, []);
+  }, [invalidateInFlightFetches]);
 
   return {
     data,
