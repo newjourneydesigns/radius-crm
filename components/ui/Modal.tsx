@@ -45,11 +45,14 @@ export default function Modal({
     };
   }, [isOpen, onClose]);
 
-  // Focus management - focus the modal container itself for keyboard a11y
-  // without triggering visible focus rings on child elements
+  // Focus the first enabled form field on open so the keyboard appears on mobile;
+  // fall back to the container for keyboard a11y (Escape key uses a document listener).
   useEffect(() => {
     if (isOpen && modalRef.current) {
-      modalRef.current.focus();
+      const first = modalRef.current.querySelector<HTMLElement>(
+        'input:not([disabled]), textarea:not([disabled]), select:not([disabled])'
+      );
+      (first ?? modalRef.current).focus();
     }
   }, [isOpen]);
 

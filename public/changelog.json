@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "modal-autofocus",
+    "type": "improvement",
+    "category": "Mobile",
+    "description": "Tapping the FAB or Quick Add on mobile now automatically focuses the first field and brings up the keyboard — no extra tap needed.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "reschedule-flip",
     "type": "fix",
     "category": "Today",
