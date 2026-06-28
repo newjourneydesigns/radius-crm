@@ -12,6 +12,7 @@ import AlertModal from '../../components/ui/AlertModal';
 import ServiceWorkerUtils from '../../components/ServiceWorkerUtils';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { haptic, isHapticsEnabled, setHapticsEnabled } from '../../lib/haptics';
+import { useMacCompanion } from '../../hooks/useMacCompanion';
 
 interface Director {
   id: number;
@@ -54,6 +55,15 @@ export default function SettingsPage() {
   const [digestLoading, setDigestLoading] = useState(false);
   const [digestUserId, setDigestUserId] = useState<string | null>(null);
   const [digestFrequencyHours, setDigestFrequencyHours] = useState<number>(24);
+
+  const companion = useMacCompanion();
+  const [copiedInstall, setCopiedInstall] = useState(false);
+
+  const handleCopyInstall = () => {
+    navigator.clipboard.writeText('curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash');
+    setCopiedInstall(true);
+    setTimeout(() => setCopiedInstall(false), 2000);
+  };
 
   // Haptic feedback (PWA) — client-side preference only, stored in localStorage.
   const [hapticsOn, setHapticsOn] = useState(true);
@@ -1491,6 +1501,57 @@ export default function SettingsPage() {
                           hapticsOn ? 'translate-x-5' : 'translate-x-0'
                         }`}
                       />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {/* Mac Companion */}
+              <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
+                <h3 className="inline-flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white mb-1">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  Mac Companion
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  A small background helper that lets RADIUS auto-send iMessages from your Mac. Required for Auto Send on Bulk Message and Campaigns.
+                </p>
+
+                <div className="flex items-center gap-3 mb-4">
+                  {companion.available === null ? (
+                    <span className="text-xs text-gray-400 dark:text-gray-500">Checking status...</span>
+                  ) : companion.available ? (
+                    <>
+                      <span className="flex items-center gap-1.5 text-xs text-green-500">
+                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                        {companion.needsUpdate ? 'Running — update available' : 'Running — up to date'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                      <span className="w-2 h-2 rounded-full bg-gray-400" />
+                      Not running
+                    </span>
+                  )}
+                  <button
+                    onClick={companion.recheck}
+                    className="text-xs text-blue-500 hover:text-blue-400 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                  >
+                    Recheck
+                  </button>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-5 py-4">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Install or update — run this in Terminal on your Mac</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs font-mono text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg truncate">
+                      curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash
+                    </code>
+                    <button
+                      onClick={handleCopyInstall}
+                      className="shrink-0 text-xs px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      {copiedInstall ? 'Copied!' : 'Copy'}
                     </button>
                   </div>
                 </div>

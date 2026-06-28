@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "companion-settings",
+    "type": "improvement",
+    "category": "Mac Companion",
+    "description": "Mac Companion install command is now in Settings → App Management. See live status (running / not running / update available) and copy the install command without hunting through Bulk Message.",
+    "page": "/settings"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "companion-emoji-fix",
     "type": "fix",
     "category": "Mac Companion",
