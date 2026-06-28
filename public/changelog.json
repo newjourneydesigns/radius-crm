@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "reschedule-flip",
+    "type": "fix",
+    "category": "Today",
+    "description": "Reschedule dropdown no longer hides behind other elements when the card is at the bottom of the list — it now flips upward automatically when there isn't enough space below.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "companion-settings",
     "type": "improvement",
     "category": "Mac Companion",
