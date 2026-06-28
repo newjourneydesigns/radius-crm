@@ -8,19 +8,21 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 5123
-VERSION = '1.2.1'
+VERSION = '1.2.2'
 
 
 def send_imessage(phone: str, message: str) -> dict:
-    # json.dumps handles all quoting/escaping for AppleScript string literals
+    # Pass phone/message as argv so emoji and special chars never touch AppleScript source
     script = (
-        'tell application "Messages"\n'
-        '  set svc to 1st service whose service type = iMessage\n'
-        f'  send {json.dumps(message, ensure_ascii=False)} to buddy {json.dumps(phone)} of svc\n'
-        'end tell'
+        'on run argv\n'
+        '  tell application "Messages"\n'
+        '    set svc to 1st service whose service type = iMessage\n'
+        '    send (item 2 of argv) to buddy (item 1 of argv) of svc\n'
+        '  end tell\n'
+        'end run'
     )
     result = subprocess.run(
-        ['osascript'],
+        ['osascript', '-', phone, message],
         input=script,
         capture_output=True,
         text=True,
