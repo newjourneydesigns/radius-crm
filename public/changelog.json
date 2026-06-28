@@ -3,6 +3,16 @@
     "date": "2026-06-27",
     "date_display": "June 27, 2026",
     "date_iso": "2026-06-27",
+    "id": "companion-emoji-fix",
+    "type": "fix",
+    "category": "Mac Companion",
+    "description": "Fixed a bug where messages containing emoji (👍, 😊, etc.) would fail to send via Auto Send. Companion updated to v1.2.1 — reinstall to get the fix.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-06-27",
+    "date_display": "June 27, 2026",
+    "date_iso": "2026-06-27",
     "id": "companion-version-check",
     "type": "improvement",
     "category": "Mac Companion",

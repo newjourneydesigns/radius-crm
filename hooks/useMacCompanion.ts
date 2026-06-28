@@ -6,7 +6,7 @@ const BASE = 'http://localhost:5123';
 const PING_TIMEOUT_MS = 2000;
 
 // Bump this whenever server.py changes — RADIUS will prompt users to reinstall.
-export const COMPANION_VERSION = '1.2.0';
+export const COMPANION_VERSION = '1.2.1';
 
 export interface CompanionSendResult {
   success: boolean;

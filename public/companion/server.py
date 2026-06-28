@@ -8,7 +8,7 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 5123
-VERSION = '1.2.0'
+VERSION = '1.2.1'
 
 
 def send_imessage(phone: str, message: str) -> dict:
@@ -16,7 +16,7 @@ def send_imessage(phone: str, message: str) -> dict:
     script = (
         'tell application "Messages"\n'
         '  set svc to 1st service whose service type = iMessage\n'
-        f'  send {json.dumps(message)} to buddy {json.dumps(phone)} of svc\n'
+        f'  send {json.dumps(message, ensure_ascii=False)} to buddy {json.dumps(phone)} of svc\n'
         'end tell'
     )
     result = subprocess.run(
