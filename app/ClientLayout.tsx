@@ -20,6 +20,7 @@ import { useOpenAlertCount } from "../hooks/useOpenAlertCount";
 import { useAcpdUnreadCount } from "../hooks/useAcpdUnreadCount";
 import { useInboxUnreadCount } from "../hooks/useInboxUnreadCount";
 import { MESSAGES_ENABLED } from "../lib/features";
+import { saveLastVisitedPage } from "../lib/lastVisitedPage";
 
 function useUpdateLogBadge() {
   const [showUpdateLogBadge, setShowUpdateLogBadge] = useState(false);
@@ -125,6 +126,11 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/f/');
   const isBoardDetailPage = /^\/boards\/[^/]+/.test(pathname);
   const isNotebookPage = pathname.startsWith('/notebook');
+
+  // Remember the last page so the installed PWA can reopen to it (see app/page.tsx).
+  useEffect(() => {
+    saveLastVisitedPage(pathname);
+  }, [pathname]);
 
   // Immersive, full-screen routes: messaging and the inbox take over the whole
   // viewport (no app nav, footer, or FAB) and provide their own back button.
