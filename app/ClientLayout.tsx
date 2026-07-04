@@ -15,6 +15,7 @@ import NavigationProgress from "../components/layout/NavigationProgress";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HapticsProvider from "../components/HapticsProvider";
 import UpdateToast from "../components/ui/UpdateToast";
+import ToastProvider from "../components/ui/ToastProvider";
 import { isToolkitHostName } from "../lib/circle-leader-toolkit/paths";
 import { isTeamsToolkitHostName } from "../lib/teams-toolkit/paths";
 import { useOpenAlertCount } from "../hooks/useOpenAlertCount";
@@ -178,9 +179,11 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <QuickActionsProvider>
-        <LayoutInner>{children}</LayoutInner>
-      </QuickActionsProvider>
+      <ToastProvider>
+        <QuickActionsProvider>
+          <LayoutInner>{children}</LayoutInner>
+        </QuickActionsProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 }

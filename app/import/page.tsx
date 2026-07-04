@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Link from 'next/link';
+import { useToast } from '../../components/ui/ToastProvider';
 
 interface CSVRow {
   [key: string]: string;
@@ -49,6 +50,7 @@ interface ReferenceData {
 }
 
 export default function ImportPage() {
+  const toast = useToast();
   const [csvData, setCsvData] = useState<CSVRow[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
@@ -189,7 +191,7 @@ export default function ImportPage() {
   const parseCSV = (csvText: string) => {
     const lines = csvText.split('\n').filter(line => line.trim());
     if (lines.length < 2) {
-      alert('CSV file must have at least a header row and one data row');
+      toast('CSV file must have at least a header row and one data row', 'error');
       return;
     }
 
@@ -474,7 +476,7 @@ export default function ImportPage() {
       
     } catch (error) {
       console.error('Import failed:', error);
-      alert('Import failed. Please try again.');
+      toast('Import failed. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }

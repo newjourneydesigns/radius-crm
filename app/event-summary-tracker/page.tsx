@@ -7,6 +7,7 @@ import { AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { CircleLeader, EventSummaryState } from '../../lib/supabase';
 import { apiFetch } from '../../lib/apiClient';
+import { useToast } from '../../components/ui/ToastProvider';
 import { doesMeetingFrequencyIncludeDate, isBiWeeklyFrequency } from '../../lib/meetingFrequency';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/ui/Modal';
@@ -446,6 +447,7 @@ export default function EventSummaryTrackerPage() {
   const [occurrences, setOccurrences] = useState<OccurrenceRow[]>([]);
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
   const [tracker, setTracker] = useState<TrackerData | null>(null);
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -660,7 +662,7 @@ export default function EventSummaryTrackerPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/weekly-ai-summary?week=${weekStart}&userId=${user.id}`);
+        const res = await apiFetch(`/api/weekly-ai-summary?week=${weekStart}`);
         if (cancelled) return;
         if (!res.ok) {
           setAiSummary(null);
@@ -1001,7 +1003,7 @@ export default function EventSummaryTrackerPage() {
       await loadAll({ preferCache: false });
     } catch (err) {
       console.error(err);
-      alert((err as Error).message);
+      toast((err as Error).message, 'error');
     } finally {
       setSyncing(false);
     }
@@ -1031,7 +1033,7 @@ export default function EventSummaryTrackerPage() {
         setJustUnreviewed(prev => { const n = new Set(prev); n.delete(leaderId); return n; });
       }
       const j = await res.json().catch(() => ({}));
-      alert(j?.error || 'Action failed');
+      toast(j?.error || 'Action failed', 'error');
       return;
     }
     await loadAll({ preferCache: false });
@@ -1061,9 +1063,9 @@ export default function EventSummaryTrackerPage() {
       msgs.push(`Marked ${totalMarked} reviewed`);
       if (json.backfilled_and_marked > 0) msgs.push(`(${json.backfilled_and_marked} backfilled from CCB)`);
       if (skipped > 0) msgs.push(`${skipped} skipped — no matching CCB event`);
-      alert(msgs.join(' · '));
+      toast(msgs.join(' · '), 'error');
     } catch (err) {
-      alert((err as Error).message);
+      toast((err as Error).message, 'error');
     } finally {
       setBulkBusy(false);
     }
@@ -1152,7 +1154,7 @@ export default function EventSummaryTrackerPage() {
       setAiSummarySaved(false);
       setAiOpen(true);
     } catch (err) {
-      alert((err as Error).message);
+      toast((err as Error).message, 'error');
     } finally {
       setAiBusy(false);
     }
@@ -1180,7 +1182,7 @@ export default function EventSummaryTrackerPage() {
       setAiSummaryAt(saveJson.summary?.generated_at ?? new Date().toISOString());
       setAiSummarySaved(true);
     } catch (err) {
-      alert((err as Error).message);
+      toast((err as Error).message, 'error');
     } finally {
       setAiSaving(false);
     }

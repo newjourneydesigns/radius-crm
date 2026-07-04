@@ -6,6 +6,7 @@ import { Cake, PartyPopper } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiFetch } from '../../lib/apiClient';
+import { useToast } from '../../components/ui/ToastProvider';
 
 interface LeaderBirthday {
   id: number;
@@ -102,6 +103,7 @@ function daysUntilBirthday(raw: string | undefined | null): number {
 type SortKey = 'name' | 'birthday' | 'campus' | 'role';
 
 export default function BirthdayListPage() {
+  const toast = useToast();
   const { isAuthenticated, isAdmin } = useAuth();
   const [leaders, setLeaders] = useState<LeaderBirthday[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -268,7 +270,7 @@ export default function BirthdayListPage() {
       setEditBirthdayValue('');
     } catch (err) {
       console.error('Failed to save birthday:', err);
-      alert('Failed to save birthday. Please try again.');
+      toast('Failed to save birthday. Please try again.', 'error');
     } finally {
       setSavingKey(null);
     }
@@ -288,7 +290,7 @@ export default function BirthdayListPage() {
         prev.map(l => l.uniqueKey === leader.uniqueKey ? { ...l, birthday: json.birthday } : l)
       );
     } catch (err: any) {
-      alert(err.message || 'Failed to fetch birthday from CCB');
+      toast(err.message || 'Failed to fetch birthday from CCB', 'error');
     } finally {
       setFetchingCCBKey(null);
     }

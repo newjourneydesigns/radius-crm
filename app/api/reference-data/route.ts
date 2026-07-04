@@ -174,7 +174,10 @@ export async function GET() {
     }
 
     return NextResponse.json(referenceData, {
-      headers: { 'Cache-Control': 'no-store' }
+      // Campuses/statuses/types/frequencies change rarely, but every page that
+      // needs them re-fetched with no-store. Let the browser hold it briefly and
+      // revalidate in the background — negligible staleness, far fewer round trips.
+      headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' },
     });
   } catch (error) {
     console.error('Error loading reference data:', error);

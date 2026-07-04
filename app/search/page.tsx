@@ -165,9 +165,17 @@ export default function SearchPage() {
 
         const leadersQuery = supabase.from('circle_leaders') as unknown as CircleLeadersSearchQuery;
 
-        const { data: allDataRaw, error: allError } = await leadersQuery
-          .select(selectFields)
-          .order('name');
+        // Public visitors only ever see active circles — filter on the server so
+        // inactive/removed rows never cross the wire to signed-out users. Signed-in
+        // RADIUS users get everything and filter by status client-side.
+        // `ilike` matches the client's case-insensitive `active` check; status
+        // values come from a controlled reference table, so no rows are missed.
+        let builder = leadersQuery.select(selectFields) as any;
+        if (!signedIn) {
+          builder = builder.ilike('status', 'active');
+        }
+
+        const { data: allDataRaw, error: allError } = await builder.order('name');
 
         if (allError) {
           throw allError;
@@ -175,7 +183,7 @@ export default function SearchPage() {
 
         const allData = allDataRaw || [];
 
-        // Public visitors only see active circles. Signed-in RADIUS users can filter by status.
+        // Backstop the server filter (trims stray whitespace the DB filter can't).
         const activeCircles = allData.filter(circle => normalizeStatus(circle.status) === 'active');
         const visibleCircles = signedIn ? allData : activeCircles;
 

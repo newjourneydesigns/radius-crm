@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Link from 'next/link';
+import { useToast } from '../../components/ui/ToastProvider';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -90,6 +91,7 @@ function Detail({ label, value }: { label: string; value?: string | null }) {
 }
 
 export default function ImportCirclesPage() {
+  const toast = useToast();
   // Tab state
   const [activeTab, setActiveTab] = useState<'ccb' | 'mass-update'>('ccb');
 
@@ -259,7 +261,7 @@ export default function ImportCirclesPage() {
       );
       setEditingLeaderId(null);
     } catch (err: any) {
-      alert(err.message || 'Failed to save');
+      toast(err.message || 'Failed to save', 'error');
     } finally {
       setIsSavingEdit(false);
     }
