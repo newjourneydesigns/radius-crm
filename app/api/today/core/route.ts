@@ -127,16 +127,7 @@ export async function GET(request: NextRequest) {
     const monthEnd   = getDateOffset(today, 30);
     const afterWeek  = getDateOffset(today, 8);
 
-    const [
-      { data: visitsRaw },
-      { data: upcomingVisitsRaw },
-      { data: encsRaw },
-      { data: followUpsRaw },
-      { data: birthdayLeaders },
-      { data: notesRaw },
-      { data: leaderPrayersRaw },
-      { data: generalPrayersRaw },
-    ] = await Promise.all([
+    const queryResults = await Promise.all([
       supabase.from('circle_visits')
         .select('id, visit_date, leader_id, previsit_note, circle_leaders!inner(name, campus, time)')
         .eq('scheduled_by', user.id).eq('status', 'scheduled')
@@ -190,6 +181,26 @@ export async function GET(request: NextRequest) {
         .lte('pray_date', today)
         .order('pray_date', { ascending: true }),
     ]);
+
+    // If any section failed, surface a 500 instead of silently returning empty
+    // sections — an empty payload would otherwise be cached and shown to the
+    // user as "nothing due today".
+    const failed = queryResults.find((r) => r.error);
+    if (failed?.error) {
+      console.error('Today core API query failed:', failed.error);
+      return NextResponse.json({ error: 'Failed to load Today data.' }, { status: 500 });
+    }
+
+    const [
+      { data: visitsRaw },
+      { data: upcomingVisitsRaw },
+      { data: encsRaw },
+      { data: followUpsRaw },
+      { data: birthdayLeaders },
+      { data: notesRaw },
+      { data: leaderPrayersRaw },
+      { data: generalPrayersRaw },
+    ] = queryResults;
 
     const visits = (visitsRaw || []) as VisitRow[];
     const upcomingVisits = (upcomingVisitsRaw || []) as VisitRow[];

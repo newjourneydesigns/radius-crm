@@ -447,6 +447,7 @@ export default function EventSummaryTrackerPage() {
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
   const [tracker, setTracker] = useState<TrackerData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -577,6 +578,7 @@ export default function EventSummaryTrackerPage() {
       setLoading(true);
     }
 
+    setLoadError(null);
     try {
       // Load every circle status so status filtering can inspect the full tracker population.
       const leadersPromise = supabase
@@ -635,6 +637,10 @@ export default function EventSummaryTrackerPage() {
       applyPayload(payload);
     } catch (err) {
       console.error('[tracker] loadAll failed:', err);
+      // Surface the failure instead of silently leaving stale/empty data on screen.
+      if (loadIdRef.current === myId) {
+        setLoadError('Could not load the tracker. Check your connection and try again.');
+      }
     } finally {
       if (loadIdRef.current === myId) setLoading(false);
     }
@@ -1439,6 +1445,19 @@ export default function EventSummaryTrackerPage() {
             </div>
           )}
         </div>
+
+        {loadError && !loading && (
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <span>{loadError}</span>
+            <button
+              type="button"
+              onClick={() => loadAll()}
+              className="rounded-md bg-red-500/20 px-3 py-1 font-medium text-red-200 hover:bg-red-500/30"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-12 text-slate-400 text-sm">

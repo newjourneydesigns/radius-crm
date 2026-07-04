@@ -1,0 +1,26 @@
+name: No duplicate files
+
+# Rejects macOS Finder-style copy artifacts (e.g. "route 2.ts", "feature-flag 2.ts").
+# These slip in when a file is duplicated in Finder and then committed; the copy
+# can't be imported (the space breaks the module path) and silently diverges from
+# the real file. Fail the build so they never land on a branch again.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject " 2." duplicate filenames
+        run: |
+          matches=$(git ls-files | grep -E ' [0-9]+\.[^/]+$' || true)
+          if [ -n "$matches" ]; then
+            echo "::error::Found macOS duplicate-copy files (rename or delete them):"
+            echo "$matches"
+            exit 1
+          fi
+          echo "No duplicate-copy files found."

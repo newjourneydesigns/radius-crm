@@ -116,13 +116,21 @@ async function buildCardsData(
 ): Promise<TodayCardsData> {
 
   // ── Phase 1: user's boards + assigned card IDs (2 parallel queries) ───────
-  const [{ data: boardsRaw }, { data: assignmentRows }] = await Promise.all([
+  const [boardsRes, assignmentsRes] = await Promise.all([
     supabase.from('project_boards').select('id, title').eq('user_id', user.id).eq('is_archived', false),
     supabase.from('card_assignments').select('card_id').eq('user_id', user.id),
   ]);
 
-  const boards = (boardsRaw || []) as BoardRow[];
-  const assignments = (assignmentRows || []) as AssignmentRow[];
+  // Throw on query failure so the GET handler returns 500 and doesn't cache an
+  // empty payload (which would render as "nothing due today").
+  if (boardsRes.error || assignmentsRes.error) {
+    throw new Error(
+      `Today cards boards/assignments query failed: ${(boardsRes.error || assignmentsRes.error)?.message}`
+    );
+  }
+
+  const boards = (boardsRes.data || []) as BoardRow[];
+  const assignments = (assignmentsRes.data || []) as AssignmentRow[];
   const boardIds = boards.map((b) => b.id);
   const boardMap = new Map<string, string>(boards.map((b) => [b.id, b.title]));
   const assignedCardIds = assignments.map((a) => a.card_id);
@@ -188,6 +196,13 @@ async function buildCardsData(
       .not('due_date', 'is', null)
       .lte('due_date', today),
   ]);
+
+  const phase2Error = [ownedCardsRes, assignedCardsRes, focusCardsRes, allCardIdsRes, createdCardsRes]
+    .map((r) => (r as { error?: { message?: string } }).error)
+    .find(Boolean);
+  if (phase2Error) {
+    throw new Error(`Today cards query failed: ${phase2Error.message}`);
+  }
 
   const assignedCards = (assignedCardsRes.data || []) as RawCard[];
   const assignedBoardIds = Array.from(new Set(assignedCards.map((c) => c.board_id).filter((id): id is string => Boolean(id))));

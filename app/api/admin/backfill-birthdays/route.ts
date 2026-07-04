@@ -43,10 +43,7 @@ export async function POST(request: NextRequest) {
     authenticated = true;
   }
 
-  if (!authenticated && !cronSecret) {
-    authenticated = true;
-  }
-
+  // Fail closed: a missing CRON_SECRET must never auto-authenticate the caller.
   if (!authenticated) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

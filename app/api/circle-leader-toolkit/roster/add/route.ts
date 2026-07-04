@@ -39,13 +39,26 @@ export async function POST(req: Request) {
   try {
     const result = await ccb.addIndividualToGroup(individualId, leader.ccb_group_id, 'add');
 
-    // Fetch the profile so the cache row has names + contact info populated.
-    // If this fails we still succeed — the next /refresh call will fill it in.
+    // Fetch the profile to vet the person (name/contact + active status). If we
+    // can't verify them, roll the group add back rather than leaving an unvetted
+    // member with empty details and an unknown status in the Circle.
     let profile: any = null;
     try {
       profile = await ccb.getIndividualProfile(String(individualId));
     } catch {
-      // ignore
+      // handled below
+    }
+
+    if (!profile) {
+      try {
+        await ccb.removeIndividualFromGroup(individualId, leader.ccb_group_id);
+      } catch {
+        // Best-effort rollback.
+      }
+      return NextResponse.json(
+        { ok: false, error: "Couldn't verify that person right now. Please try again." },
+        { status: 502 }
+      );
     }
 
     if (profile?.isActive === false) {

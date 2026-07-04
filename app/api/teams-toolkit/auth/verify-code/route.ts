@@ -29,6 +29,7 @@ export async function POST(req: Request) {
   const supabase = createServiceSupabaseClient();
 
   // Deterministic ordering so request-code and verify-code pick the same leader
+  const lastTen = isEmail ? null : normalizePhone(identifier);
   let leaderQuery = supabase
     .from('circle_leaders')
     .select('id, name, email, phone, status, leader_type, circle_summary_access_enabled, ccb_category_id')
@@ -38,10 +39,15 @@ export async function POST(req: Request) {
   if (isEmail) {
     leaderQuery = leaderQuery.ilike('email', normalizeEmail(identifier));
   } else {
-    leaderQuery = leaderQuery.like('phone', `%${normalizePhone(identifier)}%`);
+    leaderQuery = leaderQuery.like('phone', `%${lastTen}%`);
   }
   const { data: leaders } = await leaderQuery;
-  const eligibleLeaders = (leaders || []).filter((l) => isTeamsToolkitAccessEnabled(l));
+  // Require an exact last-10 match for phone lookups (the LIKE is coarse).
+  const eligibleLeaders = (leaders || []).filter(
+    (l) =>
+      isTeamsToolkitAccessEnabled(l) &&
+      (!lastTen || normalizePhone(l.phone || '') === lastTen)
+  );
   if (eligibleLeaders.length === 0) {
     return NextResponse.json({ error: 'Code is invalid or expired.' }, { status: 401 });
   }
@@ -65,14 +71,21 @@ export async function POST(req: Request) {
   const match = otps.find((o) => o.code_hash === submittedHash && o.attempts < OTP_MAX_ATTEMPTS);
 
   if (!match) {
-    await Promise.all(
-      otps.map((o) =>
-        supabase
-          .from('leader_otp_codes')
-          .update({ attempts: o.attempts + 1 })
-          .eq('id', o.id)
-      )
-    );
+    // Atomic increment so concurrent guesses can't race past the attempt cap;
+    // fall back to a per-row update if the migration hasn't been applied yet.
+    const { error: incErr } = await supabase.rpc('increment_otp_attempts', {
+      p_ids: otps.map((o) => o.id),
+    });
+    if (incErr) {
+      await Promise.all(
+        otps.map((o) =>
+          supabase
+            .from('leader_otp_codes')
+            .update({ attempts: o.attempts + 1 })
+            .eq('id', o.id)
+        )
+      );
+    }
     return NextResponse.json({ error: 'Code is invalid or expired.' }, { status: 401 });
   }
 

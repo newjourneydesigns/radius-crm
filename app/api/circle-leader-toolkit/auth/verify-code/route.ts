@@ -29,6 +29,7 @@ export async function POST(req: Request) {
   const supabase = createServiceSupabaseClient();
 
   // Deterministic ordering so request-code and verify-code pick the same leader
+  const lastTen = isEmail ? null : normalizePhone(identifier);
   let leaderQuery = supabase
     .from('circle_leaders')
     .select('id, name, email, phone, status, circle_summary_access_enabled, ccb_group_id')
@@ -37,10 +38,16 @@ export async function POST(req: Request) {
   if (isEmail) {
     leaderQuery = leaderQuery.ilike('email', normalizeEmail(identifier));
   } else {
-    leaderQuery = leaderQuery.like('phone', `%${normalizePhone(identifier)}%`);
+    leaderQuery = leaderQuery.like('phone', `%${lastTen}%`);
   }
   const { data: leaders } = await leaderQuery;
-  const eligibleLeaders = (leaders || []).filter((l) => isCircleSummaryAccessEnabled(l));
+  // Require an exact last-10 match for phone lookups (the LIKE is coarse), and
+  // keep only leaders with Circle Summary access.
+  const eligibleLeaders = (leaders || []).filter(
+    (l) =>
+      isCircleSummaryAccessEnabled(l) &&
+      (!lastTen || normalizePhone(l.phone || '') === lastTen)
+  );
   if (eligibleLeaders.length === 0) {
     return NextResponse.json({ error: 'Code is invalid or expired.' }, { status: 401 });
   }
@@ -69,15 +76,22 @@ export async function POST(req: Request) {
 
   if (!match) {
     // No match — bump the attempt counter on every outstanding row for these
-    // leaders so we still enforce the per-code attempt limit.
-    await Promise.all(
-      otps.map((o) =>
-        supabase
-          .from('leader_otp_codes')
-          .update({ attempts: o.attempts + 1 })
-          .eq('id', o.id)
-      )
-    );
+    // leaders so the per-code attempt limit holds. Use the atomic increment RPC
+    // so concurrent guesses can't race the counter; fall back to a per-row
+    // update if the migration hasn't been applied yet.
+    const { error: incErr } = await supabase.rpc('increment_otp_attempts', {
+      p_ids: otps.map((o) => o.id),
+    });
+    if (incErr) {
+      await Promise.all(
+        otps.map((o) =>
+          supabase
+            .from('leader_otp_codes')
+            .update({ attempts: o.attempts + 1 })
+            .eq('id', o.id)
+        )
+      );
+    }
     return NextResponse.json({ error: 'Code is invalid or expired.' }, { status: 401 });
   }
 

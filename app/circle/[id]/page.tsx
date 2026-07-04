@@ -338,21 +338,13 @@ export default function CircleLeaderProfilePage() {
               });
           }
         } else {
-          setLeader({
-            id: leaderId,
-            name: 'John Smith',
-            email: 'john.smith@email.com',
-            phone: '(555) 123-4567',
-            campus: 'Downtown',
-            acpd: 'Jane Doe',
-            status: 'active',
-            day: 'Tuesday',
-            time: '19:00',
-            frequency: 'Weekly',
-            circle_type: "Men's",
-            event_summary_received: true,
-            event_summary_skipped: false
-          });
+          // Leave leader null so the "Leader Not Found" state renders. Never
+          // fabricate a placeholder record — it would mask an RLS/connectivity
+          // failure behind plausible-looking wrong data.
+          if (leaderResult.error) {
+            console.error('Failed to load Circle Leader:', leaderResult.error);
+          }
+          setLeader(null);
         }
 
         // Process directors
@@ -362,13 +354,8 @@ export default function CircleLeaderProfilePage() {
         if (directorsResult.data && !directorsResult.error) {
           setDirectors(directorsResult.data);
         } else {
-          setDirectors([
-            { id: 1, name: 'Jane Doe' },
-            { id: 2, name: 'John Smith' },
-            { id: 3, name: 'Trip Ochenski' },
-            { id: 4, name: 'Sarah Johnson' },
-            { id: 5, name: 'Mike Wilson' }
-          ]);
+          // No fabricated directors — an empty list is honest when the query fails.
+          setDirectors([]);
         }
 
         // Process reference data

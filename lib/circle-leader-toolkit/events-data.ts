@@ -16,6 +16,7 @@ import { createCCBClient } from '../ccb/ccb-client';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { computeLastAttended, storeDerivedLastAttended } from './roster-data';
 import { createTimer } from './timing';
+import { isDidNotMeetEvent } from './did-not-meet-reasons';
 import { doesMeetingFrequencyIncludeDate } from '../meetingFrequency';
 
 export type CircleEventRow = {
@@ -91,7 +92,6 @@ const CCB_CAL_TTL_MS = 5 * 60_000; // 5 minutes
 const CCB_ATTENDANCE_TTL_MS = 60_000; // 1 minute
 const ccbCalCache = new Map<string, CacheEntry<CalendarEvent[]>>();
 const ccbAttendanceCache = new Map<string, CacheEntry<unknown>>();
-const DID_NOT_MEET_REASON_PREFIX_RE = /^reason\s+we\s+did(?:n['’]t| not)\s+meet:\s*/i;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -413,9 +413,7 @@ export async function loadLeaderEvents(
 
         const occurDate = occurrence.slice(0, 10); // "YYYY-MM-DD"
         const notes = textVal(ev?.notes);
-        const dnm =
-          String(ev?.did_not_meet ?? '').toLowerCase() === 'true' ||
-          DID_NOT_MEET_REASON_PREFIX_RE.test(notes.trim());
+        const dnm = isDidNotMeetEvent({ didNotMeet: ev?.did_not_meet, notes });
         // Prefer the explicit head_count; fall back to counting attendee rows.
         const rawHeadCount = Number(textVal(ev?.head_count));
         const attendees = asRecord(ev.attendees);

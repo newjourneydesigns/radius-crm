@@ -3,6 +3,26 @@
     "date": "2026-07-04",
     "date_display": "July 4, 2026",
     "date_iso": "2026-07-04",
+    "id": "clear-error-states",
+    "type": "fix",
+    "category": "Reliability",
+    "description": "When a page can't load its data, Today, the Event Summary Tracker, and Circle Leader profiles now show a clear error with a Retry button instead of a blank list, a stale week, or placeholder info — so you can tell the difference between \"nothing here\" and \"it failed to load\".",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-07-04",
+    "date_display": "July 4, 2026",
+    "date_iso": "2026-07-04",
+    "id": "signin-hardening",
+    "type": "improvement",
+    "category": "Security",
+    "description": "Hardened the leader sign-in code flow (added per-device rate limiting and a stricter phone match) and closed off internal sync endpoints so they can't run without proper authorization.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-07-04",
+    "date_display": "July 4, 2026",
+    "date_iso": "2026-07-04",
     "id": "update-prompt",
     "type": "improvement",
     "category": "Mobile",

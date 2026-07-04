@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient, type LinkRow } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -170,13 +171,16 @@ const SEMESTER_START = '2026-01-18';
 // ════════════════════════════════════════════════════════════════════
 
 export async function POST(request: NextRequest) {
-  // Auth
+  // Auth — fail closed. Called only by the Netlify scheduled function, which
+  // sends `Bearer ${CRON_SECRET}`. If the secret is unconfigured we must reject,
+  // not run the sync unauthenticated.
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
+  }
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const supabase = getServiceClient();
@@ -454,6 +458,12 @@ export async function POST(request: NextRequest) {
 // ════════════════════════════════════════════════════════════════════
 
 export async function GET(request: NextRequest) {
+  // Requires a signed-in staff session (service-role read, RLS bypassed).
+  const user = await getUserFromAuthHeader(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+  }
+
   const supabase = getServiceClient();
 
   // Optional: get stats for a specific leader
