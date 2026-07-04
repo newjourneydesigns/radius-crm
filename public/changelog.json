@@ -3,6 +3,16 @@
     "date": "2026-07-04",
     "date_display": "July 4, 2026",
     "date_iso": "2026-07-04",
+    "id": "toasts-and-loading",
+    "type": "improvement",
+    "category": "Reliability",
+    "description": "Replaced blocking pop-up alerts with tidy in-app notifications that don't interrupt what you're doing, and added loading screens on heavier pages (boards, Today, the Event Summary Tracker, campaigns) so navigation feels faster.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-07-04",
+    "date_display": "July 4, 2026",
+    "date_iso": "2026-07-04",
     "id": "error-pages-and-search",
     "type": "improvement",
     "category": "Reliability",
