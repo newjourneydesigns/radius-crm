@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react';
 import changelog from '../../public/changelog.json';
 
-const APP_VERSION = (changelog[0] as { version: string }).version;
+// Show the newest changelog entry that carries a version tag. Reading
+// changelog[0] directly blanked out the footer whenever the latest entries had
+// no `version` field (most don't), so walk to the first tagged release instead.
+const APP_VERSION =
+  (changelog as Array<{ version?: string }>).find((e) => e.version)?.version ?? '';
 
 export default function Footer() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -30,7 +34,7 @@ export default function Footer() {
             >
               NewJourneyDesigns.co
             </a>
-            {' '}· v{APP_VERSION}
+            {APP_VERSION ? <>{' '}· v{APP_VERSION}</> : null}
           </p>
 
           {/* Center: Mission (hidden on small screens) */}
