@@ -8,6 +8,7 @@ import EventSummaryFollowUpModal from '../../components/modals/EventSummaryFollo
 import CircleSummaryModal from '../../components/modals/CircleSummaryModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { apiFetch } from '../../lib/apiClient';
 
 interface EventData {
   eventId: string;
@@ -142,7 +143,7 @@ export default function CCBExplorerPage() {
         setProgress(`Fetching day ${i + 1} of ${dates.length}...`);
 
         try {
-          const response = await fetch('/api/ccb/event-attendance', {
+          const response = await apiFetch('/api/ccb/event-attendance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ date: dates[i], groupName }),
@@ -260,7 +261,7 @@ export default function CCBExplorerPage() {
     setSummaryModalOpen(true);
 
     try {
-      const response = await fetch('/api/ccb/summarize', {
+      const response = await apiFetch('/api/ccb/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

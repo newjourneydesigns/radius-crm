@@ -10,6 +10,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Cake, Lightbulb } from 'lucide-react';
 import { supabase, type CircleLeader } from '../../../lib/supabase';
+import { apiFetch } from '../../../lib/apiClient';
 import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
@@ -474,7 +475,7 @@ export default function CircleLeaderProfilePage() {
         const fourWeeksAgo = new Date(today);
         fourWeeksAgo.setDate(today.getDate() - 28);
 
-        const res = await fetch('/api/ccb/event-attendance/', {
+        const res = await apiFetch('/api/ccb/event-attendance/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

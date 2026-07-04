@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { DateTime } from 'luxon';
 import type { BlogArticle } from '../../lib/supabase';
+import { apiFetch } from '../../lib/apiClient';
 
 const RichTextEditor = dynamic(() => import('../notes/RichTextEditor'), { ssr: false });
 
@@ -50,7 +51,7 @@ export default function BlogManager() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch('/api/blog?admin=true')
+    apiFetch('/api/blog?admin=true')
       .then(r => r.json())
       .then(data => { setArticles(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => setLoading(false));
@@ -104,13 +105,13 @@ export default function BlogManager() {
     try {
       let res: Response;
       if (modal === 'create') {
-        res = await fetch('/api/blog', {
+        res = await apiFetch('/api/blog', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         });
       } else {
-        res = await fetch(`/api/blog/${editTarget!.id}`, {
+        res = await apiFetch(`/api/blog/${editTarget!.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
@@ -134,7 +135,7 @@ export default function BlogManager() {
   async function handleDelete(article: BlogArticle) {
     setDeleting(article.id);
     try {
-      await fetch(`/api/blog/${article.id}`, { method: 'DELETE' });
+      await apiFetch(`/api/blog/${article.id}`, { method: 'DELETE' });
       setConfirmDelete(null);
       load();
     } finally {

@@ -493,3 +493,26 @@ export async function loadLeaderEvents(
     ...(ccbAttendanceDegraded ? { ccbAttendanceDegraded } : {}),
   };
 }
+
+/**
+ * Ownership guard for the submit / draft endpoints. `eventId` and `occurrence`
+ * arrive from the request body, so without this check a signed-in leader could
+ * pass another Circle's eventId and read or overwrite that Circle's attendance
+ * (CCB's create_event_attendance *overwrites*). Validates against the same
+ * cached 12-week calendar the leader's own events list is built from.
+ *
+ * Fails closed: if the event isn't on the leader's calendar — or the calendar
+ * can't be loaded — ownership is denied.
+ */
+export async function leaderOwnsEvent(
+  leader: SessionLeader,
+  eventId: string | undefined | null,
+  occurrence: string | undefined | null
+): Promise<boolean> {
+  if (!eventId || !occurrence) return false;
+  const occurrenceDate = String(occurrence).slice(0, 10);
+  const { events } = await loadLeaderEvents(leader);
+  return events.some(
+    (e) => String(e.eventId) === String(eventId) && e.occurrenceDate === occurrenceDate
+  );
+}

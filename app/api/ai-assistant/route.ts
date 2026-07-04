@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getUserFromAuthHeader } from '../../../lib/server-supabase';
 import { buildSystemPrompt } from '../../../lib/ai-assistant-prompt';
 import {
   executeTool,
@@ -33,9 +34,9 @@ interface ConversationMessage {
 interface RequestBody {
   message?: string;
   conversationId?: string;
-  userId: string;
-  userName: string;
-  userRole: string;
+  // Identity/role come from the verified session, not the body. userName/
+  // userCampus are cosmetic personalization for the system prompt only.
+  userName?: string;
   userCampus?: string;
   confirmTool?: { name: string; args: Record<string, unknown> };
 }
@@ -309,16 +310,30 @@ export async function POST(request: NextRequest) {
     }
 
     const body: RequestBody = await request.json();
-    const { message, conversationId, userId, userName, userRole, userCampus } = body;
+    const { message, conversationId, userName, userCampus } = body;
 
     if (!body.confirmTool && !message?.trim()) {
       return NextResponse.json({ error: 'No message provided.' }, { status: 400 });
     }
-    if (!userId) {
-      return NextResponse.json({ error: 'No user ID provided.' }, { status: 400 });
+
+    // Identity and role are derived from the verified Supabase session — never
+    // from the request body. The write-tool guard in executeTool() keys off
+    // `userRole`, so trusting a body-supplied role would let any caller claim
+    // ACPD and run privileged writes.
+    const authedUser = await getUserFromAuthHeader(request);
+    if (!authedUser) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
     }
+    const userId = authedUser.id;
 
     const supabase = getServiceClient();
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+    const userRole = profile?.role ?? 'viewer';
 
     // Load or start conversation
     const convId = conversationId || crypto.randomUUID();

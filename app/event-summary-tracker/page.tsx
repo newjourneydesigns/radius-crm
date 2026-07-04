@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import { AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { CircleLeader, EventSummaryState } from '../../lib/supabase';
+import { apiFetch } from '../../lib/apiClient';
 import { doesMeetingFrequencyIncludeDate, isBiWeeklyFrequency } from '../../lib/meetingFrequency';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/ui/Modal';
@@ -594,7 +595,7 @@ export default function EventSummaryTrackerPage() {
         .gte('occurrence', `${weekStart}T00:00:00Z`)
         .lte('occurrence', `${weekEnd}T23:59:59Z`);
 
-      const trackerPromise = fetch(`/api/event-summary-tracker?week_start_date=${weekStart}`, { cache: 'no-store' })
+      const trackerPromise = apiFetch(`/api/event-summary-tracker?week_start_date=${weekStart}`, { cache: 'no-store' })
         .then(async (res) => {
           const json = await res.json();
           if (!res.ok) {
@@ -698,7 +699,8 @@ export default function EventSummaryTrackerPage() {
     (async () => {
       try {
         const res = await fetch(
-          `/api/circle-leader-toolkit/leader-week-summary?leader_id=${reviewRow.leader.id}&week_start=${weekStart}&peek=1&force=1`
+          `/api/circle-leader-toolkit/leader-week-summary?leader_id=${reviewRow.leader.id}&week_start=${weekStart}&peek=1&force=1`,
+          { headers: await authHeader() }
         );
         if (!res.ok) throw new Error('peek failed');
         const json = await res.json();
@@ -744,7 +746,7 @@ export default function EventSummaryTrackerPage() {
       try {
         const res = await fetch('/api/ccb/event-attendance', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
           body: JSON.stringify({ date: weekStart, endDate: weekEnd, groupName }),
         });
         const json = await res.json();

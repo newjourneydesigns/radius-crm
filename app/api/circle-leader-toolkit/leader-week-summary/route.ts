@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { DateTime } from 'luxon';
 import { createCCBClient, CCBCircuitBreakerError } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
 import type { EventSummaryState } from '../../../../lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -15,18 +16,6 @@ function getServiceClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
-}
-
-async function getAuthUserId(request: NextRequest): Promise<string | null> {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '');
-  if (!token) return null;
-  const anon = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false } }
-  );
-  const { data: { user } } = await anon.auth.getUser(token);
-  return user?.id ?? null;
 }
 
 function weekEndOf(weekStart: string): string {
@@ -244,6 +233,14 @@ function expectedMeetingDate(dayName: string, weekStartISO: string): string | nu
  */
 export async function GET(request: NextRequest) {
   try {
+    // Admin-only: this route exposes any leader's submitted notes, prayer
+    // requests, and attendance, and can trigger live CCB calls. It lives under
+    // the toolkit API prefix but is called only by the ACPD dashboard.
+    const { isAdmin, error: adminError } = await verifyAdminAccessDemo(request);
+    if (!isAdmin) {
+      return NextResponse.json({ error: adminError || 'Admin access required' }, { status: 403 });
+    }
+
     const url = new URL(request.url);
     const leaderIdParam = url.searchParams.get('leader_id');
     const weekStart = url.searchParams.get('week_start');
@@ -384,6 +381,12 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Admin-only: mutates review state and can override event_summary_state.
+    const { isAdmin, user: adminUser, error: adminError } = await verifyAdminAccessDemo(request);
+    if (!isAdmin) {
+      return NextResponse.json({ error: adminError || 'Admin access required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { action, leader_id, week_start_date } = body as {
       action: 'mark_reviewed' | 'unmark_reviewed' | 'override_with_ccb' | 'dismiss_conflict';
@@ -401,7 +404,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getServiceClient();
-    const userId = await getAuthUserId(request);
+    const userId = adminUser?.id ?? null;
     const weekEnd = weekEndOf(week_start_date);
 
     if (action === 'mark_reviewed' || action === 'unmark_reviewed') {

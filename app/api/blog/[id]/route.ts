@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
 
 function serviceClient() {
   return createClient(
@@ -36,6 +37,11 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const { isAdmin, error: adminError } = await verifyAdminAccessDemo(req);
+  if (!isAdmin) {
+    return NextResponse.json({ error: adminError || 'Admin access required' }, { status: 403 });
+  }
+
   const supabase = serviceClient();
   const body = await req.json();
   const { title, description, youtube_url, posted_at, published, slug } = body;
@@ -61,9 +67,14 @@ export async function PUT(
 
 // DELETE /api/blog/[id] — delete article
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const { isAdmin, error: adminError } = await verifyAdminAccessDemo(req);
+  if (!isAdmin) {
+    return NextResponse.json({ error: adminError || 'Admin access required' }, { status: 403 });
+  }
+
   const supabase = serviceClient();
   const { error } = await supabase
     .from('blog_articles')

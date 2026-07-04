@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getUserFromAuthHeader } from '../../../lib/server-supabase';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export async function GET(request: Request) {
+  // Requires a signed-in staff session — returns leader roster + status data
+  // via the service-role client (RLS bypassed).
+  const user = await getUserFromAuthHeader(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+  }
+
   const supabase = createClient(supabaseUrl, serviceKey || anonKey!);
 
   const { searchParams } = new URL(request.url);

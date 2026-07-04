@@ -32,6 +32,7 @@
 import { NextResponse } from 'next/server';
 import { DateTime } from 'luxon';
 import { getSessionLeader, unauthorized } from '../../../../lib/circle-leader-toolkit/session';
+import { leaderOwnsEvent } from '../../../../lib/circle-leader-toolkit/events-data';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
@@ -170,6 +171,17 @@ export async function POST(req: Request) {
         unlockAt: occurrenceStart.toISO(),
       },
       { status: 409 }
+    );
+  }
+
+  // eventId/occurrence come from the request body — confirm this meeting is on
+  // the signed-in leader's own Circle calendar before touching CCB. Without it,
+  // leader A could submit against leader B's eventId and overwrite B's
+  // attendance (CCB's create_event_attendance overwrites, not appends).
+  if (!(await leaderOwnsEvent(leader, eventId, occurrence))) {
+    return NextResponse.json(
+      { error: 'That meeting is not on your Circle calendar.' },
+      { status: 403 }
     );
   }
 

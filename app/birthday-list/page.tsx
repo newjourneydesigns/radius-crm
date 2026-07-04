@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Cake, PartyPopper } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { apiFetch } from '../../lib/apiClient';
 
 interface LeaderBirthday {
   id: number;
@@ -276,7 +277,7 @@ export default function BirthdayListPage() {
   const fetchBirthdayFromCCB = async (leader: LeaderBirthday) => {
     setFetchingCCBKey(leader.uniqueKey);
     try {
-      const res = await fetch('/api/ccb/individual-birthday', {
+      const res = await apiFetch('/api/ccb/individual-birthday', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ circle_leader_id: leader.circleLeaderId, role: leader.role }),
@@ -310,7 +311,7 @@ export default function BirthdayListPage() {
       setBulkState(prev => prev ? { ...prev, current: i + 1 } : null);
 
       try {
-        const res = await fetch('/api/ccb/individual-birthday', {
+        const res = await apiFetch('/api/ccb/individual-birthday', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ circle_leader_id: leader.circleLeaderId, role: leader.role }),

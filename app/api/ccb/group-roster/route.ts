@@ -3,9 +3,15 @@ import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { ccbApiVersion } from '../../../../lib/ccb/ccb-v2-config';
 import { createCCBv2Client } from '../../../../lib/ccb/ccb-v2-client';
+import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { groupId } = body;
 

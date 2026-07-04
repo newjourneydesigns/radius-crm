@@ -7,6 +7,7 @@ import { useNotebookContext } from '../../contexts/NotebookContext';
 import type { NotebookPageCard, CardChecklist, CardComment } from '../../lib/supabase';
 import { buildTimeOptions15Min } from '../../lib/timeUtils';
 import RichTextEditor from '../notes/RichTextEditor';
+import { apiFetch } from '../../lib/apiClient';
 
 interface ChecklistSuggestion {
   text: string;
@@ -250,7 +251,7 @@ export default function CardDetailDrawer({ link, onClose }: CardDetailDrawerProp
     setSelectedChecklistSuggestions(new Set());
 
     try {
-      const response = await fetch('/api/notebook/checklist-suggestions', {
+      const response = await apiFetch('/api/notebook/checklist-suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: noteText }),

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { apiFetch } from '../../lib/apiClient';
 
 interface Big4Scores {
   reach: number | null;
@@ -119,7 +120,7 @@ Any concerns, red flags, or patterns worth monitoring (attendance drops, long ga
 Be warm, practical, and specific. Use the leader's name. Reference actual data points and note content. This is for a pastoral coaching conversation, not a corporate review.`;
 
     try {
-      const response = await fetch('/api/ai-summarize', {
+      const response = await apiFetch('/api/ai-summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: prompt, mode: 'meeting-prep' }),

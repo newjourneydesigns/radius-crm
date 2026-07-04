@@ -9,6 +9,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { apiFetch } from '../lib/apiClient';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -130,15 +131,13 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
       abortControllerRef.current = controller;
 
       try {
-        const res = await fetch('/api/ai-assistant', {
+        const res = await apiFetch('/api/ai-assistant', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: text.trim(),
             conversationId,
-            userId: user.id,
             userName: user.name || user.email || 'User',
-            userRole: user.role || 'Viewer',
             userCampus: undefined,
           }),
           signal: controller.signal,
@@ -221,7 +220,7 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
     setError(null);
 
     try {
-      const res = await fetch('/api/ai-assistant', {
+      const res = await apiFetch('/api/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -230,9 +229,7 @@ export function useRadiusAssistant(): UseRadiusAssistantReturn {
             args: pendingToolCall.args,
           },
           conversationId,
-          userId: user.id,
           userName: user.name || user.email || 'User',
-          userRole: user.role || 'Viewer',
         }),
       });
 

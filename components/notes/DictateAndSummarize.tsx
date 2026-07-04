@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
+import { apiFetch } from '../../lib/apiClient';
 
 interface DictateAndSummarizeProps {
   text: string;
@@ -139,7 +140,7 @@ export default function DictateAndSummarize({ text, onTextChange, disabled }: Di
     try {
       const payload = { text: text.trim() };
       console.log('[DictateAndSummarize] Sending to /api/ai-summarize:', payload);
-      const response = await fetch('/api/ai-summarize', {
+      const response = await apiFetch('/api/ai-summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
