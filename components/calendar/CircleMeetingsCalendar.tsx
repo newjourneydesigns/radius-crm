@@ -721,7 +721,7 @@ export default function CircleMeetingsCalendar({
     setGeneratedSummary(null);
     setShowAiSummary(false);
 
-    fetch(`/api/weekly-ai-summary?week=${encodeURIComponent(visibleWeekSundayISO)}&userId=${encodeURIComponent(user?.id ?? '')}`)
+    apiFetch(`/api/weekly-ai-summary?week=${encodeURIComponent(visibleWeekSundayISO)}`)
       .then(r => r.json())
       .then(({ summary }) => {
         if (!cancelled && summary) {
@@ -766,7 +766,7 @@ export default function CircleMeetingsCalendar({
     });
 
     try {
-      const res = await fetch('/api/weekly-ai-summary', {
+      const res = await apiFetch('/api/weekly-ai-summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ weekStartDate: visibleWeekSundayISO, weekLabel, leaders: leaderPayload, filterLabel: activeFilterLabel }),
@@ -788,14 +788,13 @@ export default function CircleMeetingsCalendar({
     if (!generatedSummary || !visibleWeekSundayISO || !user?.id) return;
     setIsSavingSummary(true);
     try {
-      const res = await fetch('/api/weekly-ai-summary', {
+      const res = await apiFetch('/api/weekly-ai-summary', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           weekStartDate: visibleWeekSundayISO,
           summaryText: generatedSummary,
           filterLabel: activeFilterLabel,
-          generatedBy: user.id,
         }),
       });
       const data = await res.json();

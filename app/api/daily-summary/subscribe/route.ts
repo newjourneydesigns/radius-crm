@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 
 function getSupabaseServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,14 +12,15 @@ function getSupabaseServiceClient() {
 /**
  * GET /api/daily-summary/subscribe
  * Returns whether the current user is subscribed to the daily digest.
- * Requires X-User-Id header (set by middleware or client).
+ * Identity comes from the verified session, never a client-supplied header.
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Missing user id' }, { status: 400 });
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
     }
+    const userId = user.id;
 
     const supabase = getSupabaseServiceClient();
     const { data, error } = await supabase
@@ -39,14 +41,15 @@ export async function GET(request: NextRequest) {
  * POST /api/daily-summary/subscribe
  * Toggle or explicitly set the daily digest subscription for the current user.
  * Body: { subscribed: boolean }  — or omit to toggle
- * Requires X-User-Id header.
+ * Identity comes from the verified session, never a client-supplied header.
  */
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Missing user id' }, { status: 400 });
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
     }
+    const userId = user.id;
 
     const supabase = getSupabaseServiceClient();
     const body = await request.json().catch(() => ({}));

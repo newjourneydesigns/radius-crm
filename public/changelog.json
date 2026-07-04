@@ -3,6 +3,16 @@
     "date": "2026-07-04",
     "date_display": "July 4, 2026",
     "date_iso": "2026-07-04",
+    "id": "data-access-tightening",
+    "type": "improvement",
+    "category": "Security",
+    "description": "Tightened who can read profile and notes data at the database level, and made the weekly AI summary endpoints verify your session instead of trusting an ID passed in the request.",
+    "page": "/settings"
+  },
+  {
+    "date": "2026-07-04",
+    "date_display": "July 4, 2026",
+    "date_iso": "2026-07-04",
     "id": "clear-error-states",
     "type": "fix",
     "category": "Reliability",

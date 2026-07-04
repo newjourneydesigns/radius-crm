@@ -660,7 +660,7 @@ export default function EventSummaryTrackerPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/weekly-ai-summary?week=${weekStart}&userId=${user.id}`);
+        const res = await apiFetch(`/api/weekly-ai-summary?week=${weekStart}`);
         if (cancelled) return;
         if (!res.ok) {
           setAiSummary(null);

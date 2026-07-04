@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../lib/ccb/ccb-api-gateway';
+import { getUserFromAuthHeader } from '../../../lib/server-supabase';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -141,15 +142,16 @@ Important instructions:
 
 // --- Route handlers ---
 
-// GET /api/weekly-ai-summary?week=YYYY-MM-DD&userId=UUID
+// GET /api/weekly-ai-summary?week=YYYY-MM-DD  (identity from session)
 export async function GET(request: NextRequest) {
+  const user = await getUserFromAuthHeader(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+  }
+  const userId = user.id;
   const week = request.nextUrl.searchParams.get('week');
-  const userId = request.nextUrl.searchParams.get('userId');
   if (!week) {
     return NextResponse.json({ error: 'week parameter required' }, { status: 400 });
-  }
-  if (!userId) {
-    return NextResponse.json({ error: 'userId parameter required' }, { status: 400 });
   }
 
   try {
@@ -172,6 +174,11 @@ export async function GET(request: NextRequest) {
 
 // POST /api/weekly-ai-summary — generate (does not save)
 export async function POST(request: NextRequest) {
+  const user = await getUserFromAuthHeader(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+  }
+
   const geminiKey = process.env.GEMINI_API_KEY;
 
   if (!geminiKey) {
@@ -341,16 +348,21 @@ export async function POST(request: NextRequest) {
 // PUT /api/weekly-ai-summary — save (upsert)
 export async function PUT(request: NextRequest) {
   try {
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+    const generatedBy = user.id;
+
     const body = await request.json();
-    const { weekStartDate, summaryText, filterLabel, generatedBy } = body as {
+    const { weekStartDate, summaryText, filterLabel } = body as {
       weekStartDate: string;
       summaryText: string;
       filterLabel: string;
-      generatedBy: string;
     };
 
-    if (!weekStartDate || !summaryText || !generatedBy) {
-      return NextResponse.json({ error: 'weekStartDate, summaryText, and generatedBy are required.' }, { status: 400 });
+    if (!weekStartDate || !summaryText) {
+      return NextResponse.json({ error: 'weekStartDate and summaryText are required.' }, { status: 400 });
     }
 
     const db = getServiceClient();
