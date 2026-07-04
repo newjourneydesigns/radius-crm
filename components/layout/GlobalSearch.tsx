@@ -1,11 +1,24 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Fuse from 'fuse.js';
 import Image from 'next/image';
 import { supabase, CircleLeader } from '../../lib/supabase';
+
+// Static Fuse tuning — hoisted so the memoized indexes below don't rebuild just
+// because the component re-rendered.
+const FUSE_OPTIONS = {
+  includeScore: true,
+  includeMatches: true,
+  threshold: 0.3,
+  minMatchCharLength: 2,
+  location: 0,
+  distance: 1000,
+  findAllMatches: true,
+  ignoreLocation: true,
+};
 
 interface BoardResult {
   id: string;
@@ -61,23 +74,31 @@ export default function GlobalSearch() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Fuse.js configuration
-  const fuseOptions = {
-    includeScore: true,
-    includeMatches: true,
-    threshold: 0.3,
-    minMatchCharLength: 2,
-    location: 0,
-    distance: 1000,
-    findAllMatches: true,
-    ignoreLocation: true,
-    keys: [
-      { name: 'name', weight: 2 },
-      { name: 'email', weight: 1 },
-      { name: 'campus', weight: 1 },
-      { name: 'acpd', weight: 1 },
-    ]
-  };
+  // Build each Fuse index once per dataset change — NOT on every keystroke.
+  const leadersFuse = useMemo(
+    () =>
+      new Fuse(searchData.leaders, {
+        ...FUSE_OPTIONS,
+        keys: [
+          { name: 'circle_name', weight: 3 },
+          { name: 'team_name', weight: 3 },
+          { name: 'name', weight: 2 },
+          { name: 'additional_leader_name', weight: 2 },
+          { name: 'email', weight: 1 },
+          { name: 'campus', weight: 1 },
+          { name: 'acpd', weight: 1 },
+        ],
+      }),
+    [searchData.leaders]
+  );
+  const boardsFuse = useMemo(
+    () => new Fuse(searchData.boards, { ...FUSE_OPTIONS, keys: ['title', 'description'] }),
+    [searchData.boards]
+  );
+  const cardsFuse = useMemo(
+    () => new Fuse(searchData.cards, { ...FUSE_OPTIONS, keys: ['title', 'description', 'board_title'] }),
+    [searchData.cards]
+  );
 
   // Load search data
   const loadSearchData = useCallback(async () => {
@@ -137,29 +158,6 @@ export default function GlobalSearch() {
     setIsLoading(true);
 
     try {
-      const leadersFuse = new Fuse(searchData.leaders, {
-        ...fuseOptions,
-        keys: [
-          { name: 'circle_name', weight: 3 },
-          { name: 'team_name', weight: 3 },
-          { name: 'name', weight: 2 },
-          { name: 'additional_leader_name', weight: 2 },
-          { name: 'email', weight: 1 },
-          { name: 'campus', weight: 1 },
-          { name: 'acpd', weight: 1 },
-        ]
-      });
-
-      const boardsFuse = new Fuse(searchData.boards, {
-        ...fuseOptions,
-        keys: ['title', 'description'],
-      });
-
-      const cardsFuse = new Fuse(searchData.cards, {
-        ...fuseOptions,
-        keys: ['title', 'description', 'board_title'],
-      });
-
       const combined: SearchResult[] = [
         ...leadersFuse.search(query).slice(0, 5).map(r => ({
           type: 'leader' as const,

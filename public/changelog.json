@@ -3,6 +3,26 @@
     "date": "2026-07-04",
     "date_display": "July 4, 2026",
     "date_iso": "2026-07-04",
+    "id": "error-pages-and-search",
+    "type": "improvement",
+    "category": "Reliability",
+    "description": "Added friendly \"something went wrong\" and \"page not found\" screens (with a way back to your dashboard) instead of a blank browser error, and made global search noticeably faster when typing.",
+    "page": "/"
+  },
+  {
+    "date": "2026-07-04",
+    "date_display": "July 4, 2026",
+    "date_iso": "2026-07-04",
+    "id": "push-routing-fix",
+    "type": "fix",
+    "category": "Mobile",
+    "description": "Tapping a Radius push notification now opens the right page instead of occasionally jumping to the Circle Leader Toolkit.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-07-04",
+    "date_display": "July 4, 2026",
+    "date_iso": "2026-07-04",
     "id": "data-access-tightening",
     "type": "improvement",
     "category": "Security",

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'radius-v2.2.0';
-const STATIC_CACHE = 'radius-static-v2.2.0';
+const CACHE_NAME = 'radius-v2.3.0';
+const STATIC_CACHE = 'radius-static-v2.3.0';
 
 // Essential files to cache - only truly static assets that won't fail
 const STATIC_FILES = [
@@ -145,13 +145,16 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || 'Radius';
-  const url = data.url || '/circle-leader-toolkit';
+  // Neutral app defaults — the notification's own url/icon come from the sender
+  // (Today reminders, inbox, toolkit). These fallbacks only apply if a payload
+  // omits them, so they must not assume the toolkit.
+  const url = data.url || '/';
   const options = {
     body: data.body || 'You have a new update.',
-    tag: data.tag || 'radius-circle-summary',
+    tag: data.tag || 'radius-notification',
     data: { url },
-    icon: data.icon || '/circle-summary-icon-192.png',
-    badge: '/circle-summary-icon-192-maskable.png',
+    icon: data.icon || '/apple-touch-icon.png',
+    badge: '/apple-touch-icon.png',
     renotify: true,
   };
 
@@ -171,10 +174,10 @@ self.addEventListener('push', (event) => {
 // Focus an existing Radius window when possible; otherwise open the route.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const fallbackUrl = new URL('/circle-leader-toolkit', self.location.origin).href;
+  const fallbackUrl = new URL('/', self.location.origin).href;
   let targetUrl = fallbackUrl;
   try {
-    targetUrl = new URL(event.notification.data?.url || '/circle-leader-toolkit', self.location.origin).href;
+    targetUrl = new URL(event.notification.data?.url || '/', self.location.origin).href;
   } catch {}
 
   event.waitUntil(
