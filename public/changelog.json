@@ -1,6 +1,7 @@
 [
   {
     "date": "2026-07-04",
+    "version": "2.45.0",
     "date_display": "July 4, 2026",
     "date_iso": "2026-07-04",
     "id": "toasts-and-loading",
