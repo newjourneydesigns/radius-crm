@@ -588,3 +588,188 @@ export async function sendPersonalDigestEmail(
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
+
+// ── Weekly Circle Report (executive summary email) ──────────────────────────
+
+export interface WeeklyCircleReportWeek {
+  expected: number;
+  met: number;
+  didNotMeet: number;
+  noSummary: number;
+  compliancePct: number;
+  totalAttendance: number;
+  averageCircleSize: number;
+}
+
+export interface WeeklyCircleReportData {
+  /** Sunday that started the reported (last completed) week, YYYY-MM-DD. */
+  weekStart: string;
+  /** Saturday that ended it, YYYY-MM-DD. */
+  weekEnd: string;
+  appUrl: string;
+  week: WeeklyCircleReportWeek;
+  prevWeek: WeeklyCircleReportWeek | null;
+  campuses: Array<{ name: string; expected: number; met: number; compliancePct: number }>;
+  attention: Array<{ leader_name: string; circle_name: string; campus: string; missedCount: number }>;
+  attentionTotal: number;
+}
+
+function reportDate(value: string): string {
+  return new Date(`${value}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function deltaBadge(delta: number, suffix = '', goodWhenUp = true): string {
+  const rounded = Math.round(delta * 10) / 10;
+  if (rounded === 0) return '<span style="color:#64748b;font-size:12px;">no change</span>';
+  const up = rounded > 0;
+  const good = goodWhenUp ? up : !up;
+  const color = good ? '#059669' : '#e11d48';
+  const arrow = up ? '▲' : '▼';
+  return `<span style="color:${color};font-size:12px;font-weight:600;">${arrow} ${up ? '+' : ''}${rounded}${suffix} vs prior wk</span>`;
+}
+
+function kpiCell(label: string, value: string, deltaHtml: string): string {
+  return `
+    <td style="padding:12px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;vertical-align:top;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;font-weight:600;">${label}</div>
+      <div style="font-size:26px;font-weight:700;color:#0f172a;margin-top:4px;">${value}</div>
+      <div style="margin-top:4px;">${deltaHtml}</div>
+    </td>`;
+}
+
+export function generateWeeklyCircleReportHTML(data: WeeklyCircleReportData): string {
+  const { week, prevWeek } = data;
+  const d = (selector: (w: WeeklyCircleReportWeek) => number, suffix = '', goodWhenUp = true) =>
+    prevWeek ? deltaBadge(selector(week) - selector(prevWeek), suffix, goodWhenUp) : '<span style="color:#94a3b8;font-size:12px;">no prior week</span>';
+
+  const campusRows = data.campuses
+    .map(
+      (campus) => `
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#0f172a;font-size:14px;">${campus.name}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:14px;text-align:right;">${campus.met}/${campus.expected}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;text-align:right;font-weight:600;color:${
+            campus.compliancePct >= 85 ? '#059669' : campus.compliancePct >= 70 ? '#d97706' : '#e11d48'
+          };">${campus.compliancePct}%</td>
+        </tr>`
+    )
+    .join('');
+
+  const attentionRows = data.attention
+    .map(
+      (entry) => `
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#0f172a;font-size:14px;">${entry.leader_name}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:14px;">${entry.circle_name}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:14px;">${entry.campus}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#e11d48;font-size:14px;text-align:right;font-weight:600;">${entry.missedCount} in a row</td>
+        </tr>`
+    )
+    .join('');
+
+  const attentionSection =
+    data.attention.length === 0
+      ? '<p style="color:#059669;font-size:14px;margin:8px 0 0;">Every circle has reported its most recent expected meeting.</p>'
+      : `
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:8px;">
+          <tr>
+            <th style="padding:8px 12px;border-bottom:2px solid #cbd5e1;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;text-align:left;">Leader</th>
+            <th style="padding:8px 12px;border-bottom:2px solid #cbd5e1;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;text-align:left;">Circle</th>
+            <th style="padding:8px 12px;border-bottom:2px solid #cbd5e1;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;text-align:left;">Campus</th>
+            <th style="padding:8px 12px;border-bottom:2px solid #cbd5e1;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;text-align:right;">Missed</th>
+          </tr>
+          ${attentionRows}
+        </table>
+        ${
+          data.attentionTotal > data.attention.length
+            ? `<p style="color:#64748b;font-size:12px;margin:8px 0 0;">+ ${data.attentionTotal - data.attention.length} more on the dashboard</p>`
+            : ''
+        }`;
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:640px;margin:0 auto;padding:24px 16px;">
+    <div style="background:#0f172a;border-radius:12px 12px 0 0;padding:24px;">
+      <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.16em;color:#34d399;font-weight:600;">Adult Circles</p>
+      <h1 style="margin:6px 0 0;font-size:22px;color:#ffffff;">Weekly Circle Report</h1>
+      <p style="margin:6px 0 0;font-size:13px;color:#94a3b8;">Week of ${reportDate(data.weekStart)} – ${reportDate(data.weekEnd)}</p>
+    </div>
+    <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;padding:24px;">
+
+      <table role="presentation" cellpadding="0" cellspacing="6" style="width:100%;border-collapse:separate;">
+        <tr>
+          ${kpiCell('Compliance', `${week.compliancePct}%`, d((w) => w.compliancePct, ' pts'))}
+          ${kpiCell('Attendance', week.totalAttendance.toLocaleString(), d((w) => w.totalAttendance))}
+          ${kpiCell('Avg size', String(week.averageCircleSize), d((w) => w.averageCircleSize))}
+        </tr>
+        <tr>
+          ${kpiCell('Expected', week.expected.toLocaleString(), d((w) => w.expected))}
+          ${kpiCell('Did not meet', String(week.didNotMeet), d((w) => w.didNotMeet, '', false))}
+          ${kpiCell('No summary', String(week.noSummary), d((w) => w.noSummary, '', false))}
+        </tr>
+      </table>
+
+      <h2 style="font-size:15px;color:#0f172a;margin:24px 0 4px;">By campus</h2>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
+        <tr>
+          <th style="padding:8px 12px;border-bottom:2px solid #cbd5e1;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;text-align:left;">Campus</th>
+          <th style="padding:8px 12px;border-bottom:2px solid #cbd5e1;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;text-align:right;">Met / expected</th>
+          <th style="padding:8px 12px;border-bottom:2px solid #cbd5e1;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;text-align:right;">Compliance</th>
+        </tr>
+        ${campusRows}
+      </table>
+
+      <h2 style="font-size:15px;color:#0f172a;margin:24px 0 4px;">Needs attention</h2>
+      <p style="color:#64748b;font-size:12px;margin:0;">Circles missing summaries for 2+ consecutive expected meetings</p>
+      ${attentionSection}
+
+      <div style="text-align:center;margin-top:28px;">
+        <a href="${data.appUrl}/circle-reporting" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 22px;border-radius:8px;">Open the full dashboard</a>
+      </div>
+    </div>
+    <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px;">Sent by RADIUS every Monday morning · reflects the last completed Sunday–Saturday week</p>
+  </div>
+</body>
+</html>`;
+}
+
+/** Send the weekly circle executive report to a single recipient. */
+export async function sendWeeklyCircleReportEmail(
+  to: string,
+  data: WeeklyCircleReportData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is not configured');
+    }
+
+    const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+    const fromName = process.env.EMAIL_FROM_NAME || 'Radius CRM';
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `${fromName} <${fromEmail}>`,
+        to: [to],
+        subject: `Weekly Circle Report – Week of ${reportDate(data.weekStart)}`,
+        html: generateWeeklyCircleReportHTML(data),
+      }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      console.error('Resend API error (weekly circle report):', result);
+      return { success: false, error: result.message || result.name || 'Unknown error' };
+    }
+    return { success: true };
+  } catch (error: unknown) {
+    console.error('Error sending weekly circle report:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}

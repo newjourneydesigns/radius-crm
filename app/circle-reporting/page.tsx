@@ -1,12 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   Building2,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   ChevronsUpDown,
   Download,
   FileText,
@@ -34,6 +37,7 @@ import {
 import { Bar, Line } from 'react-chartjs-2';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { apiFetch } from '../../lib/apiClient';
+import { useAuth } from '../../contexts/AuthContext';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Tooltip, Legend);
 
@@ -47,6 +51,9 @@ type Summary = {
   compliancePct: number;
   totalAttendance: number;
   averageCircleSize: number;
+  distinctCircles: number;
+  metWithAttendance: number;
+  attendanceCoveragePct: number;
 };
 
 type WeeklyEvent = {
@@ -84,25 +91,32 @@ type ReasonInsight = {
   category: 'valid' | 'coaching' | 'other';
 };
 
+type AttentionEntry = {
+  leader_id: number;
+  leader_name: string;
+  circle_name: string;
+  campus: string;
+  acpd: string;
+  frequency: string;
+  missedCount: number;
+  lastMissedDate: string;
+  lastReportedDate: string | null;
+  lastReportedLabel: string | null;
+};
+
 type ReportingData = {
   filters: {
     rangePreset: string;
     startDate: string;
     endDate: string;
     selectedWeek: string;
-    previousWeek: string;
+    lastCompletedWeek: string;
     campuses: string[];
     acpds: string[];
     circleTypes: string[];
     statuses: string[];
   };
   summary: Summary;
-  selectedWeekSummary: Summary;
-  wowTrend: {
-    complianceDelta: number;
-    attendanceDelta: number;
-    expectedDelta: number;
-  };
   weeklyEvents: WeeklyEvent[];
   weeklyTrend: TrendPoint[];
   reasonTrend: Array<{ week_start_date: string; valid: number; coaching: number; other: number }>;
@@ -117,7 +131,7 @@ type ReportingData = {
     notSpecified: number;
     notSpecifiedBySource: { radius: number; ccb: number; snapshot: number };
   };
-  csvRows: Record<string, string | number>[];
+  attentionList: AttentionEntry[];
 };
 
 type ReferenceData = {
@@ -149,6 +163,12 @@ function startOfWeekSunday(value: string): string {
 // calendar advances.
 function endOfLastWeekISO(): string {
   return addDays(startOfWeekSunday(todayISO()), -1);
+}
+
+// The Sunday that started the most recently completed week — the latest week
+// the report can show (the API never includes the in-progress week).
+function lastCompletedWeekISO(): string {
+  return startOfWeekSunday(endOfLastWeekISO());
 }
 
 function semesterStartISO(): string {
@@ -193,24 +213,19 @@ function rowsToCSV(rows: Record<string, unknown>[]): string {
 const PREFS_KEY = 'circle-reporting-prefs';
 
 // ── KPI card ───────────────────────────────────────────────────────────────
-// One headline number with an optional week-over-week delta. `invert` flips the
-// good/bad coloring for metrics where "up" is bad (Did Not Meet, No Summary).
+// One headline number (a range aggregate) with a footer line that stays
+// coherent with it: either the latest completed week's value + its
+// week-over-week movement, or a Range A vs Range B delta when comparing.
 function KpiCard({
   label,
   value,
-  delta,
-  deltaSuffix = '',
-  deltaLabel = 'vs prior wk',
-  invert = false,
+  footer,
   accent = 'slate',
   icon: Icon,
 }: {
   label: string;
   value: string | number;
-  delta?: number | null;
-  deltaSuffix?: string;
-  deltaLabel?: string;
-  invert?: boolean;
+  footer?: React.ReactNode;
   accent?: 'slate' | 'emerald' | 'sky' | 'amber' | 'rose' | 'violet';
   icon: typeof Users;
 }) {
@@ -230,14 +245,45 @@ function KpiCard({
         <Icon className={`h-4 w-4 ${accents[accent]}`} />
       </div>
       <p className="mt-3 text-4xl font-semibold leading-none tracking-tight text-white tabular-nums">{value}</p>
-      <div className="mt-3 h-5">
-        {typeof delta === 'number' ? (
-          <DeltaPill value={delta} suffix={deltaSuffix} invert={invert} label={deltaLabel} />
-        ) : (
-          <span className="text-xs text-slate-600">No comparison</span>
-        )}
+      <div className="mt-3 min-h-5">
+        {footer ?? <span className="text-xs text-slate-600">No comparison</span>}
       </div>
     </div>
+  );
+}
+
+// Footer line for a KPI card: the latest completed week's value with its
+// week-over-week movement, so the weekly delta is never read against the
+// range-total headline above it.
+function LastWeekLine({
+  value,
+  delta,
+  suffix = '',
+  invert = false,
+}: {
+  value: string | number;
+  delta: number;
+  suffix?: string;
+  invert?: boolean;
+}) {
+  const rounded = Math.round(delta * 10) / 10;
+  const positive = rounded > 0;
+  const negative = rounded < 0;
+  const good = invert ? negative : positive;
+  const bad = invert ? positive : negative;
+  const Icon = positive ? ArrowUpRight : negative ? ArrowDownRight : Minus;
+  const tone = good ? 'text-emerald-400' : bad ? 'text-rose-400' : 'text-slate-500';
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-1 text-xs">
+      <span className="text-slate-500">Last wk</span>
+      <span className="font-medium text-slate-300 tabular-nums">{value}</span>
+      <span className={`inline-flex items-center font-medium ${tone}`}>
+        <Icon className="h-3.5 w-3.5" />
+        {positive ? '+' : ''}
+        {rounded}
+        {suffix}
+      </span>
+    </span>
   );
 }
 
@@ -298,7 +344,17 @@ function SectionHeading({ eyebrow, title, hint }: { eyebrow: string; title: stri
   );
 }
 
-function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function ChartCard({
+  title,
+  subtitle,
+  footer,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5">
       <div className="flex items-baseline justify-between">
@@ -306,6 +362,7 @@ function ChartCard({ title, subtitle, children }: { title: string; subtitle?: st
         {subtitle && <span className="text-xs text-slate-500">{subtitle}</span>}
       </div>
       <div className="mt-4 h-60">{children}</div>
+      {footer && <div className="mt-3 text-xs text-slate-500">{footer}</div>}
     </div>
   );
 }
@@ -355,8 +412,8 @@ function BreakdownCard({
                 <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-800">
                   <div
                     className={`h-full rounded-full ${complianceTone(row.compliancePct)}`}
-                    style={{ width: `${Math.min(100, Math.max(2, (row.expected / maxExpected) * 100 * (row.compliancePct / 100)))}%` }}
-                    title={`${row.compliancePct}% compliance across ${row.expected} expected`}
+                    style={{ width: `${Math.min(100, Math.max(2, (row.expected / maxExpected) * 100))}%` }}
+                    title={`${row.expected} expected meetings · ${row.compliancePct}% compliance`}
                   />
                 </div>
               </div>
@@ -372,7 +429,10 @@ type SortKey = 'leader_name' | 'campus' | 'scheduled_date' | 'status' | 'attenda
 type StatusFilter = 'all' | 'no_summary' | 'did_not_meet' | 'met';
 
 function CircleReportingContent() {
-  const [weekStart, setWeekStart] = useState(startOfWeekSunday(todayISO()));
+  const { isAdmin } = useAuth();
+  // Default to the last *completed* week — the API never reports on the
+  // in-progress week, so defaulting to the current week would always be empty.
+  const [weekStart, setWeekStart] = useState(lastCompletedWeekISO());
   const [startDate, setStartDate] = useState(addDays(endOfLastWeekISO(), -83));
   const [endDate, setEndDate] = useState(endOfLastWeekISO());
   const [rollForwardEnd, setRollForwardEnd] = useState(true);
@@ -420,7 +480,12 @@ function CircleReportingContent() {
         if (typeof prefs.startDate === 'string') setStartDate(prefs.startDate);
         setRollForwardEnd(roll);
         setEndDate(roll ? endOfLastWeekISO() : prefs.endDate || endOfLastWeekISO());
-        if (typeof prefs.weekStart === 'string') setWeekStart(prefs.weekStart);
+        // The weekly-events week re-pins to the latest completed week whenever
+        // roll-forward is on (same freshness rule as the end date); a saved
+        // week is only restored on a fixed range, and never a future week.
+        if (!roll && typeof prefs.weekStart === 'string' && prefs.weekStart <= lastCompletedWeekISO()) {
+          setWeekStart(prefs.weekStart);
+        }
         if (typeof prefs.campus === 'string') setCampus(prefs.campus);
         if (typeof prefs.acpd === 'string') setAcpd(prefs.acpd);
         if (typeof prefs.circleType === 'string') setCircleType(prefs.circleType);
@@ -564,31 +629,35 @@ function CircleReportingContent() {
   const typeOptions = refData?.circleTypes?.map((item) => item.value).filter(Boolean) ?? data?.filters.circleTypes ?? [];
   const statusOptions = refData?.statuses?.map((item) => item.value).filter(Boolean) ?? data?.filters.statuses ?? [];
 
-  // Week-over-week deltas for the KPI row, derived from the existing weekly
-  // trend series (latest completed week vs the one before it). No server change.
-  const kpiDeltas = useMemo(() => {
+  // Latest completed week + its week-over-week movement, for the KPI footers.
+  // The headline stays a range aggregate; this line keeps the weekly delta
+  // attached to a weekly value so the two are never conflated.
+  const lastWeekStats = useMemo(() => {
     const trend = data?.weeklyTrend ?? [];
     if (trend.length < 2) return null;
     const last = trend[trend.length - 1];
     const prev = trend[trend.length - 2];
     return {
-      totalAttendance: last.totalAttendance - prev.totalAttendance,
-      expected: last.expected - prev.expected,
-      averageCircleSize: Math.round((last.averageCircleSize - prev.averageCircleSize) * 10) / 10,
-      compliancePct: Math.round((last.compliancePct - prev.compliancePct) * 10) / 10,
-      didNotMeet: last.didNotMeet - prev.didNotMeet,
-      noSummary: last.noSummary - prev.noSummary,
+      last,
+      delta: {
+        totalAttendance: last.totalAttendance - prev.totalAttendance,
+        averageCircleSize: Math.round((last.averageCircleSize - prev.averageCircleSize) * 10) / 10,
+        compliancePct: Math.round((last.compliancePct - prev.compliancePct) * 10) / 10,
+        didNotMeet: last.didNotMeet - prev.didNotMeet,
+        noSummary: last.noSummary - prev.noSummary,
+      },
     };
   }, [data?.weeklyTrend]);
 
-  // Range A vs Range B deltas for the KPI row when comparison is on.
+  // Range A vs Range B deltas for the KPI row when comparison is on. Both
+  // sides are range aggregates, so these read coherently against the headline.
   const compareDeltas = useMemo(() => {
     if (!data || !compareData) return null;
     const a = data.summary;
     const b = compareData.summary;
     return {
       totalAttendance: a.totalAttendance - b.totalAttendance,
-      expected: a.expected - b.expected,
+      distinctCircles: a.distinctCircles - b.distinctCircles,
       averageCircleSize: Math.round((a.averageCircleSize - b.averageCircleSize) * 10) / 10,
       compliancePct: Math.round((a.compliancePct - b.compliancePct) * 10) / 10,
       didNotMeet: a.didNotMeet - b.didNotMeet,
@@ -597,8 +666,29 @@ function CircleReportingContent() {
   }, [data, compareData]);
 
   const comparing = compareMode && !!compareData;
-  const kpiDelta = comparing ? compareDeltas : kpiDeltas;
-  const kpiDeltaLabel = comparing ? 'vs Range B' : 'vs prior wk';
+
+  // Footer for a KPI card: Range A vs B when comparing, else last completed
+  // week's value with its week-over-week movement.
+  const kpiFooter = useCallback(
+    (metric: 'totalAttendance' | 'averageCircleSize' | 'compliancePct' | 'didNotMeet' | 'noSummary', opts?: { suffix?: string; invert?: boolean; format?: (v: number) => string | number }) => {
+      if (comparing) {
+        return compareDeltas ? (
+          <DeltaPill value={compareDeltas[metric]} suffix={opts?.suffix ?? ''} invert={opts?.invert} label="vs Range B" />
+        ) : undefined;
+      }
+      if (!lastWeekStats) return undefined;
+      const raw = lastWeekStats.last[metric];
+      return (
+        <LastWeekLine
+          value={opts?.format ? opts.format(raw) : raw.toLocaleString()}
+          delta={lastWeekStats.delta[metric]}
+          suffix={opts?.suffix ?? ''}
+          invert={opts?.invert}
+        />
+      );
+    },
+    [comparing, compareDeltas, lastWeekStats]
+  );
 
   const rangeLabel = data ? `${formatShortDate(data.filters.startDate)} – ${formatDate(data.filters.endDate)}` : '';
   const compareRangeLabel = compareData ? `${formatShortDate(compareData.filters.startDate)} – ${formatDate(compareData.filters.endDate)}` : '';
@@ -723,6 +813,32 @@ function CircleReportingContent() {
     [lineOptions]
   );
 
+  const stackedOptions = useMemo(
+    () => ({
+      ...legendOptions,
+      scales: {
+        x: { ...legendOptions.scales.x, stacked: true },
+        y: { ...legendOptions.scales.y, stacked: true },
+      },
+    }),
+    [legendOptions]
+  );
+
+  // Weekly did-not-meet reasons by category: "valid" breaks (holiday, weather)
+  // vs "coaching" signals (low attendance, leader away) vs other/unattributed.
+  const reasonTrendChartData = useMemo(() => {
+    if (!data?.reasonTrend?.length) return null;
+    if (!data.reasonTrend.some((point) => point.valid + point.coaching + point.other > 0)) return null;
+    return {
+      labels: data.reasonTrend.map((point) => formatShortDate(point.week_start_date)),
+      datasets: [
+        { label: 'Valid', data: data.reasonTrend.map((point) => point.valid), backgroundColor: 'rgba(52, 211, 153, 0.7)', borderRadius: 3 },
+        { label: 'Coaching', data: data.reasonTrend.map((point) => point.coaching), backgroundColor: 'rgba(251, 191, 36, 0.75)', borderRadius: 3 },
+        { label: 'Other / not specified', data: data.reasonTrend.map((point) => point.other), backgroundColor: 'rgba(148, 163, 184, 0.45)', borderRadius: 3 },
+      ],
+    };
+  }, [data?.reasonTrend]);
+
   // Weekly Events table: filter (search + status) then sort, client-side.
   const visibleEvents = useMemo(() => {
     const rows = data?.weeklyEvents ?? [];
@@ -787,24 +903,30 @@ function CircleReportingContent() {
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-            <button
-              type="button"
-              disabled={exporting !== null}
-              onClick={() => handleExport('json')}
-              className="inline-flex items-center gap-2 rounded-lg border border-emerald-700/70 bg-emerald-900/30 px-3 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-900/60 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              {exporting === 'json' ? 'Exporting…' : 'Export JSON (AI)'}
-            </button>
-            <button
-              type="button"
-              disabled={exporting !== null}
-              onClick={() => handleExport('csv')}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              {exporting === 'csv' ? 'Exporting…' : 'Export CSV'}
-            </button>
+            {/* Exports carry full notes and prayer requests, so they're admin-only
+                (the API enforces this too). */}
+            {isAdmin() && (
+              <>
+                <button
+                  type="button"
+                  disabled={exporting !== null}
+                  onClick={() => handleExport('json')}
+                  className="inline-flex items-center gap-2 rounded-lg border border-emerald-700/70 bg-emerald-900/30 px-3 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-900/60 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Download className="h-4 w-4" />
+                  {exporting === 'json' ? 'Exporting…' : 'Export JSON (AI)'}
+                </button>
+                <button
+                  type="button"
+                  disabled={exporting !== null}
+                  onClick={() => handleExport('csv')}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Download className="h-4 w-4" />
+                  {exporting === 'csv' ? 'Exporting…' : 'Export CSV'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -1019,20 +1141,141 @@ function CircleReportingContent() {
                 </div>
               )}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                <KpiCard icon={Users} accent="sky" label="Total Attendance" value={data.summary.totalAttendance.toLocaleString()} delta={kpiDelta?.totalAttendance} deltaLabel={kpiDeltaLabel} />
-                <KpiCard icon={CalendarDays} accent="violet" label="Total Circles" value={data.summary.expected.toLocaleString()} delta={kpiDelta?.expected} deltaLabel={kpiDeltaLabel} />
-                <KpiCard icon={Users} accent="emerald" label="Avg Circle Size" value={data.summary.averageCircleSize} delta={kpiDelta?.averageCircleSize} deltaLabel={kpiDeltaLabel} />
-                <KpiCard icon={FileText} accent={data.summary.compliancePct >= 85 ? 'emerald' : data.summary.compliancePct >= 70 ? 'amber' : 'rose'} label="Compliance" value={`${data.summary.compliancePct}%`} delta={kpiDelta?.compliancePct} deltaSuffix=" pts" deltaLabel={kpiDeltaLabel} />
-                <KpiCard icon={AlertTriangle} accent="amber" label="Did Not Meet" value={data.summary.didNotMeet} delta={kpiDelta?.didNotMeet} invert deltaLabel={kpiDeltaLabel} />
-                <KpiCard icon={FileText} accent="rose" label="No Summary" value={data.summary.noSummary} delta={kpiDelta?.noSummary} invert deltaLabel={kpiDeltaLabel} />
+                <KpiCard
+                  icon={Users}
+                  accent="sky"
+                  label="Total Attendance"
+                  value={data.summary.totalAttendance.toLocaleString()}
+                  footer={kpiFooter('totalAttendance')}
+                />
+                <KpiCard
+                  icon={CalendarDays}
+                  accent="violet"
+                  label="Circles"
+                  value={data.summary.distinctCircles.toLocaleString()}
+                  footer={
+                    comparing && compareDeltas ? (
+                      <DeltaPill value={compareDeltas.distinctCircles} label="vs Range B" />
+                    ) : (
+                      <span className="text-xs text-slate-500">
+                        <span className="font-medium text-slate-300 tabular-nums">{data.summary.expected.toLocaleString()}</span> expected meetings
+                      </span>
+                    )
+                  }
+                />
+                <KpiCard
+                  icon={Users}
+                  accent="emerald"
+                  label="Avg Circle Size"
+                  value={data.summary.averageCircleSize}
+                  footer={kpiFooter('averageCircleSize', { format: (v) => v })}
+                />
+                <KpiCard
+                  icon={FileText}
+                  accent={data.summary.compliancePct >= 85 ? 'emerald' : data.summary.compliancePct >= 70 ? 'amber' : 'rose'}
+                  label="Compliance"
+                  value={`${data.summary.compliancePct}%`}
+                  footer={kpiFooter('compliancePct', { suffix: ' pts', format: (v) => `${v}%` })}
+                />
+                <KpiCard
+                  icon={AlertTriangle}
+                  accent="amber"
+                  label="Did Not Meet"
+                  value={data.summary.didNotMeet}
+                  footer={kpiFooter('didNotMeet', { invert: true })}
+                />
+                <KpiCard
+                  icon={FileText}
+                  accent="rose"
+                  label="No Summary"
+                  value={data.summary.noSummary}
+                  footer={kpiFooter('noSummary', { invert: true })}
+                />
               </div>
             </section>
 
-            {/* Row 2 — Trends */}
+            {/* Row 2 — Needs attention */}
+            <section className="mt-9">
+              <SectionHeading
+                eyebrow="Follow up"
+                title="Needs attention"
+                hint="Circles missing summaries for 2+ consecutive expected meetings"
+              />
+              {data.attentionList.length === 0 ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-emerald-800/50 bg-emerald-950/20 px-5 py-4 text-sm text-emerald-200">
+                  <FileText className="h-4 w-4 shrink-0 text-emerald-400" />
+                  Every circle has reported its most recent expected meeting.
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60">
+                  <div className="max-h-80 overflow-y-auto overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-800 text-sm">
+                      <thead className="sticky top-0 bg-slate-950/90 text-left text-xs uppercase tracking-wide text-slate-400 backdrop-blur">
+                        <tr>
+                          <th className="px-4 py-3 font-medium">Leader</th>
+                          <th className="px-4 py-3 font-medium">Circle</th>
+                          <th className="px-4 py-3 font-medium">Campus</th>
+                          <th className="px-4 py-3 font-medium">ACPD</th>
+                          <th className="px-4 py-3 font-medium">Missed in a row</th>
+                          <th className="px-4 py-3 font-medium">Last reported</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {data.attentionList.map((entry) => (
+                          <tr key={entry.leader_id} className="hover:bg-slate-800/40">
+                            <td className="px-4 py-3 font-medium text-white">
+                              <Link href={`/circle/${entry.leader_id}`} className="transition hover:text-emerald-300 hover:underline">
+                                {entry.leader_name}
+                              </Link>
+                            </td>
+                            <td className="px-4 py-3 text-slate-300">{entry.circle_name}</td>
+                            <td className="px-4 py-3 text-slate-300">{entry.campus}</td>
+                            <td className="px-4 py-3 text-slate-400">{entry.acpd}</td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium tabular-nums ${
+                                  entry.missedCount >= 3
+                                    ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+                                    : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                                }`}
+                              >
+                                {entry.missedCount} meetings
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-slate-400">
+                              {entry.lastReportedDate
+                                ? `${formatShortDate(entry.lastReportedDate)} · ${entry.lastReportedLabel}`
+                                : 'Not in this range'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="border-t border-slate-800 px-4 py-2.5 text-xs text-slate-500">
+                    {data.attentionList.length} circle{data.attentionList.length === 1 ? '' : 's'} currently missing summaries · sorted by longest streak
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* Row 3 — Trends */}
             <section className="mt-9">
               <SectionHeading eyebrow="Trends" title="How the story is moving" hint="By week" />
               <div className="grid gap-3 lg:grid-cols-2">
-                <ChartCard title="Attendance over time" subtitle="Total headcount">
+                <ChartCard
+                  title="Attendance over time"
+                  subtitle="Total headcount"
+                  footer={
+                    data.summary.met > 0 && data.summary.attendanceCoveragePct < 100 ? (
+                      <>
+                        Headcount recorded for{' '}
+                        <span className="font-medium text-slate-300">{data.summary.attendanceCoveragePct}%</span> of met circles —
+                        totals undercount weeks synced without attendance.
+                      </>
+                    ) : undefined
+                  }
+                >
                   {attendanceChartData ? <Bar data={attendanceChartData} options={(comparing ? legendOptions : lineOptions) as any} /> : <EmptyState />}
                 </ChartCard>
                 <ChartCard title="Compliance over time" subtitle="% met or reported">
@@ -1047,7 +1290,7 @@ function CircleReportingContent() {
               </div>
             </section>
 
-            {/* Row 3 — Breakdowns */}
+            {/* Row 4 — Breakdowns */}
             <section className="mt-9">
               <SectionHeading eyebrow="Breakdowns" title="Where it's happening" hint="Bar length = volume · color = compliance" />
               <div className="grid gap-3 lg:grid-cols-3">
@@ -1057,7 +1300,7 @@ function CircleReportingContent() {
               </div>
             </section>
 
-            {/* Row 4 — Operational tables */}
+            {/* Row 5 — Operational tables */}
             <section className="mt-9">
               <SectionHeading eyebrow="Operations" title="Weekly events" hint={`Week of ${formatDate(data.filters.selectedWeek)}`} />
               <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60">
@@ -1089,13 +1332,37 @@ function CircleReportingContent() {
                         className="w-full rounded-lg border border-slate-700 bg-slate-950 py-2 pl-8 pr-3 text-sm text-white placeholder:text-slate-500 sm:w-64"
                       />
                     </label>
-                    <input
-                      type="date"
-                      value={weekStart}
-                      onChange={(event) => setWeekStart(startOfWeekSunday(event.target.value))}
-                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-                      title="Pick the week shown in this table"
-                    />
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setWeekStart(addDays(weekStart, -7))}
+                        disabled={weekStart <= data.filters.startDate}
+                        className="rounded-lg border border-slate-700 bg-slate-950 p-2 text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                        title="Previous week"
+                        aria-label="Previous week"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <input
+                        type="date"
+                        value={weekStart}
+                        min={data.filters.startDate}
+                        max={data.filters.lastCompletedWeek}
+                        onChange={(event) => setWeekStart(startOfWeekSunday(event.target.value))}
+                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                        title="Pick the week shown in this table"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setWeekStart(addDays(weekStart, 7))}
+                        disabled={weekStart >= data.filters.lastCompletedWeek}
+                        className="rounded-lg border border-slate-700 bg-slate-950 p-2 text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                        title="Next week"
+                        aria-label="Next week"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1119,7 +1386,11 @@ function CircleReportingContent() {
                       <tbody className="divide-y divide-slate-800">
                         {visibleEvents.map((event) => (
                           <tr key={`${event.leader_id}-${event.week_start_date}`} className="hover:bg-slate-800/40">
-                            <td className="px-4 py-3 font-medium text-white">{event.leader_name}</td>
+                            <td className="px-4 py-3 font-medium text-white">
+                              <Link href={`/circle/${event.leader_id}`} className="transition hover:text-emerald-300 hover:underline">
+                                {event.leader_name}
+                              </Link>
+                            </td>
                             <td className="px-4 py-3 text-slate-300">{event.circle_name}</td>
                             <td className="px-4 py-3 text-slate-300">{event.campus}</td>
                             <td className="px-4 py-3 text-slate-400">{formatShortDate(event.scheduled_date)} {event.scheduled_time}</td>
@@ -1153,6 +1424,13 @@ function CircleReportingContent() {
                     )}
                     . Only misses leaders log in Radius include a reason.
                   </span>
+                </div>
+              )}
+              {reasonTrendChartData && (
+                <div className="mb-3">
+                  <ChartCard title="Reasons over time" subtitle="Weekly did-not-meet reasons by category">
+                    <Bar data={reasonTrendChartData} options={stackedOptions as any} />
+                  </ChartCard>
                 </div>
               )}
               <div className="grid gap-3 lg:grid-cols-3">

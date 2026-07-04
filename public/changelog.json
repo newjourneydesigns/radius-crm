@@ -3,6 +3,56 @@
     "date": "2026-07-04",
     "date_display": "July 4, 2026",
     "date_iso": "2026-07-04",
+    "id": "circle-reporting-needs-attention",
+    "type": "feature",
+    "category": "Reporting",
+    "description": "Circle Reporting now opens with a \"Needs attention\" list — every circle that has missed summaries for 2+ consecutive expected meetings, sorted by longest streak, with a link straight to the leader's profile. The weekly events table also links each leader to their profile and has previous/next week arrows.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-07-04",
+    "date_display": "July 4, 2026",
+    "date_iso": "2026-07-04",
+    "id": "weekly-circle-report-email",
+    "type": "feature",
+    "category": "Reporting",
+    "description": "ACPDs now receive a Weekly Circle Report email every Monday morning: last week's compliance, attendance, and campus breakdown with week-over-week movement, plus the circles that need a follow-up conversation.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-07-04",
+    "date_display": "July 4, 2026",
+    "date_iso": "2026-07-04",
+    "id": "circle-reporting-kpi-accuracy",
+    "type": "improvement",
+    "category": "Reporting",
+    "description": "Circle Reporting's key metrics are now unambiguous: the \"Circles\" card counts distinct circles (with expected meetings shown separately), each card's week-over-week change is shown against last week's own value instead of the range total, a new chart tracks did-not-meet reasons by category over time, and the attendance chart notes when headcount coverage is incomplete.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-07-04",
+    "date_display": "July 4, 2026",
+    "date_iso": "2026-07-04",
+    "id": "circle-reporting-data-fixes",
+    "type": "fix",
+    "category": "Reporting",
+    "description": "Fixed several Circle Reporting data issues: the weekly events table no longer defaults to the in-progress week (which always showed empty), long ranges like Year to Date no longer silently truncate at 20,000 rows, the status filter now respects each week's point-in-time leader status, \"every 2 weeks\" cadences are no longer misread as monthly, and a submitted summary with no attendees recorded now counts as met.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-07-04",
+    "date_display": "July 4, 2026",
+    "date_iso": "2026-07-04",
+    "id": "circle-reporting-export-admin",
+    "type": "improvement",
+    "category": "Security",
+    "description": "Circle Reporting exports (which include full notes and prayer requests) are now limited to ACPD admins; viewers keep full access to the on-screen dashboard.",
+    "page": "/circle-reporting"
+  },
+  {
+    "date": "2026-07-04",
+    "date_display": "July 4, 2026",
+    "date_iso": "2026-07-04",
     "id": "clear-error-states",
     "type": "fix",
     "category": "Reliability",
