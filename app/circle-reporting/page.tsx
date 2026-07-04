@@ -33,6 +33,7 @@ import {
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { apiFetch } from '../../lib/apiClient';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Tooltip, Legend);
 
@@ -462,7 +463,7 @@ function CircleReportingContent() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/circle-reporting?${buildParams().toString()}`, { cache: 'no-store' });
+      const res = await apiFetch(`/api/circle-reporting?${buildParams().toString()}`, { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error || 'Failed to load dashboard');
       setData(json);
@@ -494,7 +495,7 @@ function CircleReportingContent() {
 
     let cancelled = false;
     setCompareLoading(true);
-    fetch(`/api/circle-reporting?${params.toString()}`, { cache: 'no-store' })
+    apiFetch(`/api/circle-reporting?${params.toString()}`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((json) => {
         if (cancelled) return;
@@ -526,7 +527,7 @@ function CircleReportingContent() {
         const params = buildParams();
         params.delete('week_start_date');
         params.set('export', '1');
-        const res = await fetch(`/api/circle-reporting?${params.toString()}`, { cache: 'no-store' });
+        const res = await apiFetch(`/api/circle-reporting?${params.toString()}`, { cache: 'no-store' });
         const json = await res.json();
         if (!res.ok || json.error) throw new Error(json.error || 'Export failed');
         const base = `circle-event-summaries-${startDate}_to_${endDate}`;

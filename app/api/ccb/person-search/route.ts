@@ -1,9 +1,17 @@
 import { NextResponse } from 'next/server';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 
 export async function POST(request: Request) {
   try {
+    // Requires a signed-in staff session — this proxies the church directory
+    // (names/phones/emails) and consumes the finite CCB API budget.
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
     const { query } = await request.json();
 
     if (!query || typeof query !== 'string' || query.trim().length < 2) {

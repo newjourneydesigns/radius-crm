@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Modal from '../ui/Modal';
+import { apiFetch } from '../../lib/apiClient';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -235,7 +236,7 @@ export default function WeeklySummaryChatModal({
     setIsChatLoading(true);
 
     try {
-      const response = await fetch('/api/ccb/chat', {
+      const response = await apiFetch('/api/ccb/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: updatedMessages, summary }),

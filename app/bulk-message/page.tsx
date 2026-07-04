@@ -8,6 +8,7 @@ import { supabase, CircleLeader } from '../../lib/supabase';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
 import { useMacCompanion } from '../../hooks/useMacCompanion';
+import { apiFetch } from '../../lib/apiClient';
 
 // ─── Types ────────────────────────────────────────────────────
 enum SendStatus { IDLE = 'IDLE', SENDING = 'SENDING', AUTO_SENDING = 'AUTO_SENDING', COMPLETED = 'COMPLETED' }
@@ -667,7 +668,7 @@ function BulkMessageContent() {
     setRosterLoadingId(leader.id);
 
     try {
-      const res = await fetch('/api/ccb/group-roster', {
+      const res = await apiFetch('/api/ccb/group-roster', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId: leader.ccb_group_id }),

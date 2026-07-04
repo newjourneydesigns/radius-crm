@@ -695,7 +695,8 @@ function buildDemoDigest(user: { id: string; name: string; email: string }, toda
 function isAuthorized(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return true; // No secret configured - allow all (dev mode)
+  // Fail closed: a missing CRON_SECRET must never authorize the caller.
+  if (!cronSecret) return false;
   return authHeader === `Bearer ${cronSecret}`;
 }
 

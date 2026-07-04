@@ -10,6 +10,7 @@ import {
   X, ChevronDown, Clock, User, Flag, Pencil, FolderKanban, Check, Copy,
   LinkIcon, ExternalLink, Repeat2, Circle, Star, ArrowUpRight, Camera, ImageIcon,
 } from '../icons/BoardIcons';
+import { apiFetch } from '../../lib/apiClient';
 import { supabase } from '../../lib/supabase';
 import { buildRepeatLabel, type TodoRepeatRule } from '../../lib/todoRecurrence';
 import { buildTimeOptions15Min } from '../../lib/timeUtils';
@@ -685,7 +686,7 @@ export function CardDetailModal({
     setSuggestions([]);
     setSelectedSuggestions(new Set());
     try {
-      const res = await fetch('/api/notebook/checklist-suggestions', {
+      const res = await apiFetch('/api/notebook/checklist-suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: sourceText }),

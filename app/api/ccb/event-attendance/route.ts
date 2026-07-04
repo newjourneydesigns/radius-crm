@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,11 @@ function setCachedResponse(cacheKey: string, data: any): void {
 
 export async function POST(request: Request) {
   try {
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
     // Parse request body
     const body = await request.json();
     const { date, endDate, groupName } = body;
@@ -446,6 +452,11 @@ function findLeaderForEvent(
 // Optional: GET endpoint to test API connection
 export async function GET(request: Request) {
   try {
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
     const ccbClient = createCCBClient(await getCCBRequestContext(request, {
       module: 'Profile Page',
       action: 'Test Attendance Connection',

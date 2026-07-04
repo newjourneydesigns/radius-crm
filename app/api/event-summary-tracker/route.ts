@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { DateTime } from 'luxon';
+import { getUserFromAuthHeader } from '../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -33,6 +34,13 @@ function getDB() {
  */
 export async function GET(request: NextRequest) {
   try {
+    // Requires a signed-in staff session — returns per-leader event-summary
+    // state via the service-role client (RLS bypassed).
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
     const weekStart = request.nextUrl.searchParams.get('week_start_date');
     if (!weekStart || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
       return NextResponse.json(

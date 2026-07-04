@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import Modal from '../ui/Modal';
 import LogTouchpointModal from './LogTouchpointModal';
+import { apiFetch } from '../../lib/apiClient';
 
 // ── Day-of-week helpers ────────────────────────────────────────
 
@@ -208,7 +209,7 @@ export default function EventExplorerModal({
         payload.endDate = endDate;
       }
 
-      const response = await fetch('/api/ccb/event-attendance', {
+      const response = await apiFetch('/api/ccb/event-attendance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

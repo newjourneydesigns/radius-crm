@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getUserFromAuthHeader } from '../../../lib/server-supabase';
 import { categorizeDidNotMeetReason } from '../../../lib/circle-leader-toolkit/did-not-meet-reasons';
 
 export const dynamic = 'force-dynamic';
@@ -502,6 +503,13 @@ function buildExportRecord(expected: ExpectedEvent, indexes: ReturnType<typeof b
 
 export async function GET(request: Request) {
   try {
+    // Requires a signed-in staff session — reads leader attendance/reporting
+    // data via the service-role client (RLS bypassed).
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
     const db = getDB();
     const { searchParams } = new URL(request.url);
 

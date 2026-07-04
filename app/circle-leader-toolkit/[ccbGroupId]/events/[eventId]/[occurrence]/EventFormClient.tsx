@@ -235,6 +235,11 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
   const eventId = params?.eventId ?? '';
   const occurrence = decodeURIComponent(params?.occurrence ?? '');
 
+  // Local mirror of the draft so a leader on a flaky/offline connection never
+  // loses typed answers if the 800ms server autosave doesn't reach the server
+  // before the tab closes. Keyed per group+event+occurrence.
+  const draftStorageKey = `cst-draft:${urlGroupId}:${eventId}:${occurrence}`;
+
   const [leader, setLeader] = useState<Leader | null>(initial?.leader ?? null);
   const [participants, setParticipants] = useState<Participant[]>(initial?.participants ?? []);
   const [lastAttended, setLastAttended] = useState<Record<string, string>>(initial?.lastAttended ?? {});
@@ -345,6 +350,48 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
       if (d.infoUpdateDay || d.infoUpdateTime || d.infoUpdateLocation) setShowInfoUpdate(true);
     };
 
+    // If a locally-mirrored draft exists and is at least as fresh as the server
+    // copy, apply it over the server draft — this is the leader's own typing
+    // that may not have reached the server on a flaky connection. Never
+    // overrides an already-submitted summary.
+    const maybeApplyLocalDraft = (
+      serverDraftData: {
+        draft?: Record<string, unknown> | null;
+        source?: string | null;
+        updatedAt?: string | null;
+      } | null,
+      loadedQuestions: DynamicQuestion[]
+    ) => {
+      let stored: { payload?: Record<string, unknown>; savedAt?: number } | null = null;
+      try {
+        const raw = localStorage.getItem(draftStorageKey);
+        stored = raw ? JSON.parse(raw) : null;
+      } catch {
+        return;
+      }
+      if (!stored?.payload) return;
+
+      const serverSource = serverDraftData?.source ?? null;
+      if (serverSource === 'submitted') return; // already submitted — leave it
+
+      const serverUpdatedMs = serverDraftData?.updatedAt ? Date.parse(serverDraftData.updatedAt) : 0;
+      const localMs = stored.savedAt ?? 0;
+      // Prefer local for a CCB prefill or empty server draft (real typing beats
+      // a prefill), or when the local copy is newer than the saved server draft.
+      const preferLocal = serverSource !== 'draft' || localMs > serverUpdatedMs;
+      if (!preferLocal) return;
+
+      applyDraft(
+        {
+          // Keep the server's reference notes (not part of the local payload).
+          draft: { ...stored.payload, referenceNotes: serverDraftData?.draft?.referenceNotes },
+          source: 'draft',
+          updatedAt: null,
+        },
+        loadedQuestions
+      );
+    };
+
     // Server-rendered path: leader, roster, questions, and draft are already
     // seeded from props. Apply the draft once and skip the client fetch
     // waterfall entirely (no /me, /roster, /dynamic-questions, /draft round
@@ -355,6 +402,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
         response_key: responseKeyForQuestion(q),
       }));
       applyDraft(initial.draft, loadedQuestions);
+      maybeApplyLocalDraft(initial.draft, loadedQuestions);
       return;
     }
 
@@ -408,6 +456,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
           return;
         }
         applyDraft(draftData, loadedQuestions);
+        maybeApplyLocalDraft(draftData, loadedQuestions);
       } catch (error: unknown) {
         if (!cancelled) setLoadError(getErrorMessage(error, 'Failed to load form.'));
       } finally {
@@ -417,7 +466,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
     return () => {
       cancelled = true;
     };
-  }, [eventId, occurrence, router, urlGroupId, initial]);
+  }, [eventId, occurrence, router, urlGroupId, initial, draftStorageKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -514,6 +563,33 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [draftPayload, eventId, occurrence, loading]);
+
+  // Mirror every change to localStorage immediately (no debounce) so nothing is
+  // lost if the network drops or the tab is closed before the server autosave
+  // fires. `pagehide`/`visibilitychange` flush the very last edit on kill.
+  const draftPayloadRef = useRef(draftPayload);
+  draftPayloadRef.current = draftPayload;
+  useEffect(() => {
+    if (loading) return;
+    const write = () => {
+      try {
+        localStorage.setItem(
+          draftStorageKey,
+          JSON.stringify({ payload: draftPayloadRef.current, savedAt: Date.now() })
+        );
+      } catch {
+        // localStorage can throw (private mode / quota) — non-fatal.
+      }
+    };
+    write();
+    const onHide = () => write();
+    window.addEventListener('pagehide', onHide);
+    window.addEventListener('visibilitychange', onHide);
+    return () => {
+      window.removeEventListener('pagehide', onHide);
+      window.removeEventListener('visibilitychange', onHide);
+    };
+  }, [draftPayload, draftStorageKey, loading]);
 
   function toggleAll(check: boolean) {
     setSelectedCcbIds(check ? new Set(participants.map((p) => p.id)) : new Set());
@@ -870,6 +946,9 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
       try {
         sessionStorage.setItem(`cs:events:${urlGroupId}:invalidated`, '1');
         localStorage.removeItem(`cs:events:${urlGroupId}`);
+        // Submission succeeded — drop the local draft mirror so it can't later
+        // shadow the submitted state.
+        localStorage.removeItem(draftStorageKey);
         window.dispatchEvent(new CustomEvent('circle-summary-alerts-updated'));
         fetch('/api/circle-leader-toolkit/alerts/', { cache: 'no-store' })
           .then((response) => (response.ok ? response.json() : null))

@@ -14,6 +14,7 @@ import { QuickActionsProvider } from "../contexts/QuickActionsContext";
 import NavigationProgress from "../components/layout/NavigationProgress";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HapticsProvider from "../components/HapticsProvider";
+import UpdateToast from "../components/ui/UpdateToast";
 import { isToolkitHostName } from "../lib/circle-leader-toolkit/paths";
 import { isTeamsToolkitHostName } from "../lib/teams-toolkit/paths";
 import { useOpenAlertCount } from "../hooks/useOpenAlertCount";
@@ -145,6 +146,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col">
       {/* App-wide haptic feedback (PWA) */}
       <HapticsProvider />
+
+      {/* Non-blocking "new version ready" prompt (replaces auto-reload on deploy) */}
+      <UpdateToast />
 
       {/* Route transition progress bar */}
       <NavigationProgress />

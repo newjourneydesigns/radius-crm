@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,13 @@ function getServiceClient() {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Requires a signed-in staff session — hits CCB (quota) and writes
+    // attendance via the service-role client.
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
     const body = await request.json();
     const leaderId = Number(body.leaderId);
 

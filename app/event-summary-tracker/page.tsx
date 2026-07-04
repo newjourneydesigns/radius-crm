@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import { AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { CircleLeader, EventSummaryState } from '../../lib/supabase';
+import { apiFetch } from '../../lib/apiClient';
 import { doesMeetingFrequencyIncludeDate, isBiWeeklyFrequency } from '../../lib/meetingFrequency';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/ui/Modal';
@@ -446,6 +447,7 @@ export default function EventSummaryTrackerPage() {
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
   const [tracker, setTracker] = useState<TrackerData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -576,6 +578,7 @@ export default function EventSummaryTrackerPage() {
       setLoading(true);
     }
 
+    setLoadError(null);
     try {
       // Load every circle status so status filtering can inspect the full tracker population.
       const leadersPromise = supabase
@@ -594,7 +597,7 @@ export default function EventSummaryTrackerPage() {
         .gte('occurrence', `${weekStart}T00:00:00Z`)
         .lte('occurrence', `${weekEnd}T23:59:59Z`);
 
-      const trackerPromise = fetch(`/api/event-summary-tracker?week_start_date=${weekStart}`, { cache: 'no-store' })
+      const trackerPromise = apiFetch(`/api/event-summary-tracker?week_start_date=${weekStart}`, { cache: 'no-store' })
         .then(async (res) => {
           const json = await res.json();
           if (!res.ok) {
@@ -634,6 +637,10 @@ export default function EventSummaryTrackerPage() {
       applyPayload(payload);
     } catch (err) {
       console.error('[tracker] loadAll failed:', err);
+      // Surface the failure instead of silently leaving stale/empty data on screen.
+      if (loadIdRef.current === myId) {
+        setLoadError('Could not load the tracker. Check your connection and try again.');
+      }
     } finally {
       if (loadIdRef.current === myId) setLoading(false);
     }
@@ -698,7 +705,8 @@ export default function EventSummaryTrackerPage() {
     (async () => {
       try {
         const res = await fetch(
-          `/api/circle-leader-toolkit/leader-week-summary?leader_id=${reviewRow.leader.id}&week_start=${weekStart}&peek=1&force=1`
+          `/api/circle-leader-toolkit/leader-week-summary?leader_id=${reviewRow.leader.id}&week_start=${weekStart}&peek=1&force=1`,
+          { headers: await authHeader() }
         );
         if (!res.ok) throw new Error('peek failed');
         const json = await res.json();
@@ -744,7 +752,7 @@ export default function EventSummaryTrackerPage() {
       try {
         const res = await fetch('/api/ccb/event-attendance', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
           body: JSON.stringify({ date: weekStart, endDate: weekEnd, groupName }),
         });
         const json = await res.json();
@@ -1437,6 +1445,19 @@ export default function EventSummaryTrackerPage() {
             </div>
           )}
         </div>
+
+        {loadError && !loading && (
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <span>{loadError}</span>
+            <button
+              type="button"
+              onClick={() => loadAll()}
+              className="rounded-md bg-red-500/20 px-3 py-1 font-medium text-red-200 hover:bg-red-500/30"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-12 text-slate-400 text-sm">

@@ -15,6 +15,7 @@ import EventSummaryReminderModal from '../modals/EventSummaryReminderModal';
 import WeeklySummaryChatModal from '../modals/WeeklySummaryChatModal';
 import EventSummaryModal from './EventSummaryModal';
 import { supabase } from '../../lib/supabase';
+import { apiFetch } from '../../lib/apiClient';
 import { useAuth } from '../../contexts/AuthContext';
 
 const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false });
@@ -617,7 +618,7 @@ export default function CircleMeetingsCalendar({
     const windowStart = DateTime.fromISO(visibleWeekSundayISO).minus({ weeks: 3 }).toISODate()!;
     const url = `/api/event-summary-snapshots?week_start_date=${encodeURIComponent(visibleWeekSundayISO)}&from_date=${encodeURIComponent(windowStart)}`;
 
-    fetch(url)
+    apiFetch(url)
       .then(r => r.json())
       .then(({ snapshots }: { snapshots: Array<{ circle_leader_id: number; event_summary_state: EventSummaryState; ccb_report_available?: boolean; week_start_date: string }> }) => {
         if (cancelled) return;
@@ -955,7 +956,7 @@ export default function CircleMeetingsCalendar({
     if (!visibleWeekSundayISO) return;
     setSnapshotSavingLeaderIds(prev => { const next = new Set(prev); next.add(leaderId); return next; });
     try {
-      const res = await fetch('/api/event-summary-snapshots', {
+      const res = await apiFetch('/api/event-summary-snapshots', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ week_start_date: visibleWeekSundayISO, circle_leader_id: leaderId, event_summary_state: state }),
@@ -1058,7 +1059,7 @@ export default function CircleMeetingsCalendar({
 
       // Refresh snapshot map after applying updates for past weeks.
       if (isViewingSnapshot && json.updated > 0) {
-        const refreshRes = await fetch(`/api/event-summary-snapshots?week_start_date=${encodeURIComponent(visibleWeekSundayISO)}`);
+        const refreshRes = await apiFetch(`/api/event-summary-snapshots?week_start_date=${encodeURIComponent(visibleWeekSundayISO)}`);
         const { snapshots } = await refreshRes.json();
         const stateMap = new Map<number, EventSummaryState>();
         const reportMap = new Map<number, boolean>();

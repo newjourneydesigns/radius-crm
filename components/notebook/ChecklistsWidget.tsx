@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNotebookContext } from '../../contexts/NotebookContext';
 import type { NotebookChecklist, NotebookChecklistItem } from '../../lib/supabase';
+import { apiFetch } from '../../lib/apiClient';
 
 interface ChecklistSuggestion {
   text: string;
@@ -186,7 +187,7 @@ export default function ChecklistsWidget() {
     setSelectedSuggestions(new Set());
 
     try {
-      const response = await fetch('/api/notebook/checklist-suggestions', {
+      const response = await apiFetch('/api/notebook/checklist-suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: noteText }),

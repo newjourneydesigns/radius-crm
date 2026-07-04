@@ -56,11 +56,7 @@ export async function POST(request: NextRequest) {
     authenticated = true;
   }
 
-  // If no CRON_SECRET is set and no valid user token, allow (dev mode)
-  if (!authenticated && !cronSecret) {
-    authenticated = true;
-  }
-
+  // Fail closed: a missing CRON_SECRET must never auto-authenticate the caller.
   if (!authenticated) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

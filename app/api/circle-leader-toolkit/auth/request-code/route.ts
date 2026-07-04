@@ -14,6 +14,14 @@ export const dynamic = 'force-dynamic';
 
 // Rate limit: 5 codes per leader per hour, 10 per IP per hour
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const RATE_LIMIT_MAX_PER_LEADER = 5;
+const RATE_LIMIT_MAX_PER_IP = 10;
+
+function getRequestIp(req: Request): string | null {
+  const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const candidate = forwarded || req.headers.get('x-real-ip') || '';
+  return /^[0-9a-fA-F:.]+$/.test(candidate) ? candidate : null;
+}
 
 export async function POST(req: Request) {
   let body: { identifier?: string } = {};
@@ -31,6 +39,25 @@ export async function POST(req: Request) {
   const isEmail = raw.includes('@');
   const supabase = createServiceSupabaseClient();
 
+  // Per-IP limit — enforced BEFORE the leader lookup so identifier probing
+  // (email/phone enumeration) is throttled even when no leader matches.
+  const requestIp = getRequestIp(req);
+  const rateWindowSince = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+  if (requestIp) {
+    const { count: ipCount } = await supabase
+      .from('leader_otp_codes')
+      .select('id', { count: 'exact', head: true })
+      .eq('request_ip', requestIp)
+      .gt('created_at', rateWindowSince);
+    if ((ipCount || 0) >= RATE_LIMIT_MAX_PER_IP) {
+      return NextResponse.json(
+        { error: 'Too many codes requested. Please wait a bit and try again.' },
+        { status: 429 }
+      );
+    }
+  }
+
+  const lastTen = isEmail ? null : normalizePhone(raw);
   let leaderQuery = supabase
     .from('circle_leaders')
     .select('id, name, email, phone, status, circle_summary_access_enabled')
@@ -40,18 +67,24 @@ export async function POST(req: Request) {
   if (isEmail) {
     leaderQuery = leaderQuery.ilike('email', normalizeEmail(raw));
   } else {
-    const lastTen = normalizePhone(raw);
-    if (lastTen.length < 7) {
+    if (!lastTen || lastTen.length < 7) {
       return NextResponse.json({ error: 'Please enter a valid phone number.' }, { status: 400 });
     }
     leaderQuery = leaderQuery.like('phone', `%${lastTen}%`);
   }
 
-  const { data: leaders, error: lookupError } = await leaderQuery;
+  const { data: leadersRaw, error: lookupError } = await leaderQuery;
   if (lookupError) {
     console.error('[circle-summary] Leader lookup failed:', lookupError);
     return NextResponse.json({ error: 'Lookup failed. Try again.' }, { status: 500 });
   }
+
+  // The phone LIKE is a coarse prefilter — require an exact last-10 match so a
+  // code is never sent to a different person whose number merely contains
+  // those digits somewhere.
+  const leaders = lastTen
+    ? (leadersRaw || []).filter((l) => normalizePhone(l.phone || '') === lastTen)
+    : leadersRaw;
 
   // Always respond with the same shape so we don't leak whether a leader exists.
   const genericOk = NextResponse.json({
@@ -80,14 +113,13 @@ export async function POST(req: Request) {
   }
 
   // Rate limit by leader
-  const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
   const { count } = await supabase
     .from('leader_otp_codes')
     .select('id', { count: 'exact', head: true })
     .eq('leader_id', leader.id)
-    .gt('created_at', since);
+    .gt('created_at', rateWindowSince);
 
-  if ((count || 0) >= 5) {
+  if ((count || 0) >= RATE_LIMIT_MAX_PER_LEADER) {
     return NextResponse.json(
       { error: 'Too many codes requested. Please wait a bit and try again.' },
       { status: 429 }
@@ -97,10 +129,6 @@ export async function POST(req: Request) {
   const code = generateOtpCode();
   const codeHash = hashOtpCode(code);
   const expiresAt = new Date(Date.now() + OTP_TTL_MS).toISOString();
-  const requestIp =
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip') ||
-    null;
 
   const { error: insertError } = await supabase.from('leader_otp_codes').insert({
     leader_id: leader.id,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,11 @@ function nameMatchScore(a: string, b: string): number {
 
 export async function POST(request: Request) {
   try {
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
     const { circle_leader_id, role } = await request.json();
 
     if (!circle_leader_id) {

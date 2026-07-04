@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { EventSummaryState } from '../../../lib/supabase';
+import { getUserFromAuthHeader } from '../../../lib/server-supabase';
+import { verifyAdminAccessDemo } from '../../../lib/auth-middleware';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -14,6 +16,12 @@ function getDB() {
 // Returns snapshots for a single week, or a range when from_date is supplied.
 // Range response includes week_start_date on each row.
 export async function GET(request: NextRequest) {
+  // Requires a signed-in staff session (RLS bypassed by the service client).
+  const user = await getUserFromAuthHeader(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const weekStartDate = searchParams.get('week_start_date');
   const fromDate = searchParams.get('from_date');
@@ -53,6 +61,12 @@ export async function GET(request: NextRequest) {
 // Upserts all provided leaders for that week (preserves existing rows not included)
 export async function POST(request: NextRequest) {
   try {
+    // Admin-only: writes event-summary snapshot rows that drive reporting.
+    const { isAdmin, error: adminError } = await verifyAdminAccessDemo(request);
+    if (!isAdmin) {
+      return NextResponse.json({ error: adminError || 'Admin access required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { week_start_date, week_end_date, snapshots, captured_by } = body as {
       week_start_date: string;
@@ -110,6 +124,12 @@ export async function POST(request: NextRequest) {
 // Updates a single leader's state in an existing snapshot
 export async function PATCH(request: NextRequest) {
   try {
+    // Admin-only: overrides a single leader's snapshot state.
+    const { isAdmin, error: adminError } = await verifyAdminAccessDemo(request);
+    if (!isAdmin) {
+      return NextResponse.json({ error: adminError || 'Admin access required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { week_start_date, circle_leader_id, event_summary_state } = body as {
       week_start_date: string;

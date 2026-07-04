@@ -19,6 +19,7 @@ import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Link from 'next/link';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { apiFetch } from '../../lib/apiClient';
 
 ChartJS.register(
   CategoryScale,
@@ -245,7 +246,7 @@ function CircleDashboardContent() {
       if (filters.time !== 'all') params.set('time', filters.time);
       params.set('months', filters.months.toString());
 
-      const res = await fetch(`/api/circle-dashboard?${params}`);
+      const res = await apiFetch(`/api/circle-dashboard?${params}`);
       if (!res.ok) throw new Error('Failed to load data');
       const json = await res.json();
       if (json.error) throw new Error(json.error);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { apiFetch } from '../../lib/apiClient';
 
 export interface CCBPerson {
   id: string;
@@ -67,7 +68,7 @@ export default function CCBPersonLookup({
     setSearchError('');
 
     try {
-      const res = await fetch('/api/ccb/person-search', {
+      const res = await apiFetch('/api/ccb/person-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: query.trim() }),

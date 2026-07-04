@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server';
 import { getSessionLeader, unauthorized } from '../../../../lib/circle-leader-toolkit/session';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { isIgnoredEvent, isPayloadEmpty, loadEventDraft } from '../../../../lib/circle-leader-toolkit/draft-data';
+import { leaderOwnsEvent } from '../../../../lib/circle-leader-toolkit/events-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,16 @@ export async function GET(req: Request) {
   const occurrence = url.searchParams.get('occurrence');
   if (!eventId || !occurrence) {
     return NextResponse.json({ error: 'event_id and occurrence are required.' }, { status: 400 });
+  }
+
+  // Draft prefill pulls this event's notes/prayer requests live from CCB, so
+  // the event must belong to the signed-in leader's own Circle — otherwise a
+  // leader could read another Circle's data by passing its event_id.
+  if (!(await leaderOwnsEvent(leader, eventId, occurrence))) {
+    return NextResponse.json(
+      { error: 'That meeting is not on your Circle calendar.' },
+      { status: 403 }
+    );
   }
 
   const result = await loadEventDraft(leader, eventId, occurrence);

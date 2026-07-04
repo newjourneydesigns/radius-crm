@@ -18,6 +18,7 @@ import type { SessionLeader } from './session';
 import { createCCBClient } from '../ccb/ccb-client';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { createTimer } from './timing';
+import { isDidNotMeetEvent } from './did-not-meet-reasons';
 
 // ---------------------------------------------------------------------------
 // Roster
@@ -419,8 +420,10 @@ export function computeLastAttended(
     const occurDate = occurrenceDate(ev?.['@_occurrence'] ?? ev?.occurrence);
     if (!occurDate) continue;
 
-    const dnm = textVal(ev?.did_not_meet).toLowerCase() === 'true';
-    if (dnm) continue;
+    // Skip did-not-meet weeks — matches the events list's detection (explicit
+    // flag OR the notes-prefix marker) so a did-not-meet meeting is never
+    // counted as attendance here but not there.
+    if (isDidNotMeetEvent({ didNotMeet: ev?.did_not_meet, notes: textVal(ev?.notes) })) continue;
 
     const attRoot = (ev?.attendees ?? ev?.attendee) as Record<string, unknown> | undefined;
     const list: Array<Record<string, unknown>> = Array.isArray(attRoot?.attendee)

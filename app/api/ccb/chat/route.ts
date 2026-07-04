@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -61,6 +62,11 @@ async function callGemini(
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
     const geminiKey = process.env.GEMINI_API_KEY;
 
     if (!geminiKey) {

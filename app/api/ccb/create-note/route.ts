@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,12 @@ function extractIndividualId(profileLink: string): string | null {
 
 export async function POST(req: NextRequest) {
   try {
+    // Admin-only: writes a note into the church's CCB system of record.
+    const { isAdmin, error: adminError } = await verifyAdminAccessDemo(req);
+    if (!isAdmin) {
+      return NextResponse.json({ error: adminError || 'Admin access required' }, { status: 403 });
+    }
+
     const body = await req.json();
     const { leaderId, noteContent } = body as { leaderId: number; noteContent: string };
 

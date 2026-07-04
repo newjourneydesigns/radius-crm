@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 
 export async function POST(request: Request) {
   try {
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
     const { groupName, startDate, endDate, includeAttendance, includeAttendees } = await request.json();
 
     // Validate required fields - Group Name is the primary requirement now
@@ -50,6 +56,11 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    const user = await getUserFromAuthHeader(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    }
+
     // Test CCB connection
     const ccbClient = createCCBClient(await getCCBRequestContext(request, {
       module: 'CCB Events',

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { supabase } from '../../../../lib/supabase';
 import ServeTeamRoster from '../../../../components/circle/ServeTeamRoster';
 import { isTeamsToolkitEnabled } from '../../../../lib/teams-toolkit/feature-flag';
+import { apiFetch } from '../../../../lib/apiClient';
 
 interface RosterPerson {
   id: string;
@@ -146,7 +147,7 @@ export default function CircleRosterPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/ccb/group-roster', {
+      const res = await apiFetch('/api/ccb/group-roster', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId: ccbGroupId }),

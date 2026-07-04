@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyAdminAccessDemo } from '../../../lib/auth-middleware';
 
 function serviceClient() {
   return createClient(
@@ -20,6 +21,15 @@ function slugify(text: string): string {
 export async function GET(req: NextRequest) {
   const supabase = serviceClient();
   const adminParam = req.nextUrl.searchParams.get('admin');
+  const wantsAdmin = adminParam === 'true';
+
+  // The admin view returns unpublished drafts, so it requires an admin session.
+  if (wantsAdmin) {
+    const { isAdmin, error: adminError } = await verifyAdminAccessDemo(req);
+    if (!isAdmin) {
+      return NextResponse.json({ error: adminError || 'Admin access required' }, { status: 403 });
+    }
+  }
 
   let query = supabase
     .from('blog_articles')
@@ -27,7 +37,7 @@ export async function GET(req: NextRequest) {
     .order('posted_at', { ascending: false })
     .order('created_at', { ascending: false });
 
-  if (adminParam !== 'true') {
+  if (!wantsAdmin) {
     query = query.eq('published', true);
   }
 
@@ -38,6 +48,11 @@ export async function GET(req: NextRequest) {
 
 // POST /api/blog — create article (admin only)
 export async function POST(req: NextRequest) {
+  const { isAdmin, error: adminError } = await verifyAdminAccessDemo(req);
+  if (!isAdmin) {
+    return NextResponse.json({ error: adminError || 'Admin access required' }, { status: 403 });
+  }
+
   const supabase = serviceClient();
   const body = await req.json();
   const { title, description, youtube_url, posted_at, published } = body;

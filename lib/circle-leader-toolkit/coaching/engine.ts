@@ -8,12 +8,13 @@
  *
  * Cadence is encoded in each nudge's subjectKey:
  *   - per-week automations (multiplication, inactivity, birthday, did_not_meet)
- *     dedupe on the ISO-week bucket → at most once per week while the condition holds.
+ *     dedupe on the Sunday-start week bucket → at most once per week while the condition holds.
  *   - per-member automations (new_member, first_time) dedupe on the member id
  *     → once ever per person.
  */
 
 import { DateTime } from 'luxon';
+import { sundayWeekStart, sundayWeekEnd, sundayWeekKey } from '../../week';
 import type { AutomationKind, CoachingConfig } from './config';
 import {
   NudgeContent,
@@ -63,9 +64,6 @@ export interface EvaluateContext {
   sentKeys: Set<string>;
 }
 
-function isoWeek(dt: DateTime): string {
-  return dt.toFormat("kkkk-'W'WW");
-}
 
 function displayName(row: RosterRow): string {
   return (row.full_name || row.first_name || 'A Circle member').trim();
@@ -114,9 +112,11 @@ export function evaluateLeader(
   if (!config.enabled || !leader.ccb_group_id) return [];
 
   const now = DateTime.now().setZone(TZ);
-  const weekKey = isoWeek(now);
-  const weekStart = now.startOf('week');
-  const weekEnd = now.endOf('week');
+  // Sunday-start weeks, to match the event-summary domain (submit /
+  // leader-week-summary / circle-reporting all key weeks by the Sunday).
+  const weekKey = sundayWeekKey(now);
+  const weekStart = sundayWeekStart(now);
+  const weekEnd = sundayWeekEnd(now);
 
   const roster = ctx.roster;
   const lastAttended = ctx.lastAttended;
