@@ -223,6 +223,91 @@ export function renameRosterPlayer(id: string, newName: string): boolean {
   return true;
 }
 
+// ---------- Backup & restore ----------
+
+interface BackupFile {
+  version: number;
+  exportedAt: number;
+  games: StoredGame[];
+  roster: RosterPlayer[];
+  favorites: FavoriteGame[];
+}
+
+/** Everything on this device, as a JSON string ready to download. */
+export function exportAll(): string {
+  const backup: BackupFile = {
+    version: 1,
+    exportedAt: Date.now(),
+    games: listGames(),
+    roster: read<RosterPlayer[]>(ROSTER_KEY, []),
+    favorites: listFavorites(),
+  };
+  return JSON.stringify(backup, null, 2);
+}
+
+/**
+ * Merge a backup into this device: games dedupe by id (newer updatedAt
+ * wins), roster merges by name (regular flag and photo survive from either
+ * side), favorites dedupe by game name. Throws on malformed input.
+ */
+export function importAll(json: string): { games: number; players: number } {
+  const data = JSON.parse(json) as Partial<BackupFile>;
+  if (!Array.isArray(data.games) || !Array.isArray(data.roster)) {
+    throw new Error("Not a Scorekeeper backup file");
+  }
+
+  let gamesImported = 0;
+  for (const g of data.games) {
+    if (!g?.id || !Array.isArray(g.events)) continue;
+    const existing = loadGame(g.id);
+    if (!existing || (g.updatedAt ?? 0) > existing.updatedAt) {
+      write(GAME_KEY(g.id), {
+        ...g,
+        messages: g.messages ?? [],
+        updatedAt: g.updatedAt ?? Date.now(),
+      });
+      const ids = listGameIds();
+      if (!ids.includes(g.id)) write(INDEX_KEY, [g.id, ...ids]);
+      gamesImported++;
+    }
+  }
+
+  let playersImported = 0;
+  const roster = read<RosterPlayer[]>(ROSTER_KEY, []);
+  for (const p of data.roster) {
+    if (!p?.name) continue;
+    const existing = findByName(roster, p.name);
+    if (existing) {
+      existing.regular = existing.regular || !!p.regular;
+      existing.photo = existing.photo ?? p.photo;
+      existing.lastPlayedAt =
+        Math.max(existing.lastPlayedAt ?? 0, p.lastPlayedAt ?? 0) || null;
+    } else {
+      roster.push({ ...p, id: p.id ?? nextId() });
+      playersImported++;
+    }
+  }
+  writeRoster(roster);
+
+  if (Array.isArray(data.favorites)) {
+    const favs = listFavorites();
+    for (const f of data.favorites) {
+      if (
+        f?.definition?.name &&
+        !favs.some(
+          (x) =>
+            x.definition.name.toLowerCase() === f.definition.name.toLowerCase()
+        )
+      ) {
+        favs.push(f);
+      }
+    }
+    write(FAVORITES_KEY, favs);
+  }
+
+  return { games: gamesImported, players: playersImported };
+}
+
 // ---------- Favorites ----------
 
 export function listFavorites(): FavoriteGame[] {

@@ -10,11 +10,13 @@ import { GameState } from "@/lib/types";
 export default function ScoreBoard({
   state,
   onAdjust,
+  onOpenPad,
   trackTurns,
   photoMap,
 }: {
   state: GameState;
   onAdjust: (playerId: string, delta: number) => void;
+  onOpenPad?: (playerId: string) => void;
   trackTurns: boolean;
   photoMap?: Map<string, string>;
 }) {
@@ -67,13 +69,18 @@ export default function ScoreBoard({
                 />
               ) : null}
             </div>
-            <div
-              className={`tabular text-center font-display text-6xl font-bold leading-tight ${
+            <button
+              type="button"
+              aria-label={`Open score pad for ${p.name}`}
+              title="Tap for the score pad"
+              disabled={state.finished || !onOpenPad}
+              onClick={() => onOpenPad?.(p.id)}
+              className={`tabular block w-full rounded-lg text-center font-display text-6xl font-bold leading-tight active:bg-black/5 ${
                 p.score < 0 ? "text-ember" : ""
               }`}
             >
               {p.score}
-            </div>
+            </button>
             <div className="flex items-center justify-between">
               <button
                 type="button"

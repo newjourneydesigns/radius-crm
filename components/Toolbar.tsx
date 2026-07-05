@@ -166,6 +166,7 @@ export default function Toolbar({
   onFlip,
   onPick,
   onInvite,
+  onBigBoard,
   timerRequest,
 }: {
   finished: boolean;
@@ -179,6 +180,7 @@ export default function Toolbar({
   onFlip: () => void;
   onPick: () => void;
   onInvite?: () => void;
+  onBigBoard?: () => void;
   timerRequest?: { seconds: number; ts: number } | null;
 }) {
   return (
@@ -198,6 +200,13 @@ export default function Toolbar({
       <Chip label="🎲 Roll" title="Roll 2d6 — or say “roll a d20”" onClick={onRoll} />
       <Chip label="🪙 Flip" onClick={onFlip} />
       <Chip label="👉 Pick" title="Pick a random player" onClick={onPick} />
+      {onBigBoard && (
+        <Chip
+          label="🔎 Big board"
+          title="Fullscreen scoreboard for the middle of the table"
+          onClick={onBigBoard}
+        />
+      )}
       <Timer request={timerRequest} />
       {onInvite && (
         <Chip

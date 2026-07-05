@@ -3,18 +3,23 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import BigBoard from "@/components/BigBoard";
 import ChatPanel from "@/components/ChatPanel";
 import ConfirmBanner from "@/components/ConfirmBanner";
 import GameLog from "@/components/GameLog";
 import ScoreBoard from "@/components/ScoreBoard";
+import ScorePad from "@/components/ScorePad";
+import ScoresheetGrid from "@/components/ScoresheetGrid";
 import Toolbar from "@/components/Toolbar";
 import WinnerScreen from "@/components/WinnerScreen";
 import { useGame } from "@/hooks/useGame";
 import { newId } from "@/lib/engine";
+import { newRecordCallouts } from "@/lib/records";
 import {
   createGame,
   getPhotoMap,
   isFavorite,
+  listGames,
   toggleFavorite,
   upsertRosterNames,
 } from "@/lib/store";
@@ -44,6 +49,9 @@ export default function GamePage({ params }: { params: { id: string } }) {
   } = useGame(params.id);
   const [fav, setFav] = useState(false);
   const [showWinner, setShowWinner] = useState(false);
+  const [showBigBoard, setShowBigBoard] = useState(false);
+  const [padPlayerId, setPadPlayerId] = useState<string | null>(null);
+  const [recordCallouts, setRecordCallouts] = useState<string[]>([]);
   const [photoMap, setPhotoMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -63,9 +71,13 @@ export default function GamePage({ params }: { params: { id: string } }) {
     if (!finished) {
       sawLivePlay.current = true;
     } else if (sawLivePlay.current) {
+      // Did tonight's game rewrite the record book?
+      setRecordCallouts(newRecordCallouts(listGames(), params.id).slice(0, 3));
       setShowWinner(true);
+      setPadPlayerId(null);
+      setShowBigBoard(false);
     }
-  }, [finished, state]);
+  }, [finished, state, params.id]);
 
   if (game === undefined) {
     return <p className="py-12 text-center text-ink-dim">Setting the table…</p>;
@@ -261,6 +273,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
         onAdjust={(playerId, delta) =>
           append({ type: "score_adjusted", playerId, delta, source: "manual" })
         }
+        onOpenPad={setPadPlayerId}
       />
 
       <Toolbar
@@ -286,6 +299,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
           extra.forEach((t) => say("assistant", t));
         }}
         onInvite={invite}
+        onBigBoard={() => setShowBigBoard(true)}
         timerRequest={timerRequest}
       />
 
@@ -306,7 +320,40 @@ export default function GamePage({ params }: { params: { id: string } }) {
         suggestions={suggestions}
       />
 
+      <ScoresheetGrid events={game.events} state={state} />
+
       <GameLog state={state} />
+
+      {padPlayerId &&
+        (() => {
+          const padPlayer = state.players.find((p) => p.id === padPlayerId);
+          return padPlayer ? (
+            <ScorePad
+              player={padPlayer}
+              onAdjust={(delta) =>
+                append({
+                  type: "score_adjusted",
+                  playerId: padPlayer.id,
+                  delta,
+                  source: "manual",
+                })
+              }
+              onSet={(value) =>
+                append({
+                  type: "score_set",
+                  playerId: padPlayer.id,
+                  value,
+                  source: "manual",
+                })
+              }
+              onClose={() => setPadPlayerId(null)}
+            />
+          ) : null;
+        })()}
+
+      {showBigBoard && (
+        <BigBoard state={state} onClose={() => setShowBigBoard(false)} />
+      )}
 
       {showWinner && state.finished && (
         <WinnerScreen
@@ -319,6 +366,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
           )}
           onRematch={rematch}
           onClose={() => setShowWinner(false)}
+          recordCallouts={recordCallouts}
         />
       )}
     </div>

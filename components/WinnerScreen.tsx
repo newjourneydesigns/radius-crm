@@ -50,12 +50,14 @@ export default function WinnerScreen({
   durationMs,
   onRematch,
   onClose,
+  recordCallouts = [],
 }: {
   state: GameState;
   photoMap: Map<string, string>;
   durationMs: number;
   onRematch: () => void;
   onClose: () => void;
+  recordCallouts?: string[];
 }) {
   const [shareState, setShareState] = useState<"idle" | "busy" | "sms">("idle");
 
@@ -125,6 +127,19 @@ export default function WinnerScreen({
         <p className="mt-1 text-sm text-ink-dim">
           final score · {formatDuration(durationMs)} at the table
         </p>
+
+        {recordCallouts.length > 0 && (
+          <div className="mt-4 space-y-1.5">
+            {recordCallouts.map((c) => (
+              <p
+                key={c}
+                className="rounded-full border border-gold/50 bg-felt-3 px-4 py-1.5 text-sm text-gold"
+              >
+                🏅 {c}
+              </p>
+            ))}
+          </div>
+        )}
 
         <div className="mt-7 w-full rounded-2xl bg-card px-5 py-4 text-left text-card-ink shadow-cardstock">
           {standings.map((p, i) => {

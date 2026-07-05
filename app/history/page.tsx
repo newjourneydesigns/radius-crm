@@ -1,17 +1,83 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
+import { computeRecords } from "@/lib/records";
 import { buildInsights, formatDuration, summarizeGame } from "@/lib/stats";
-import { listGames } from "@/lib/store";
+import { exportAll, importAll, listGames } from "@/lib/store";
 import { StoredGame } from "@/lib/types";
+
+function BackupSection({ onRestored }: { onRestored: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const backup = () => {
+    const blob = new Blob([exportAll()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `scorekeeper-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
+
+  const restore = async (file: File) => {
+    try {
+      const result = importAll(await file.text());
+      setMessage(
+        `Restored ${result.games} game${result.games === 1 ? "" : "s"} and ${result.players} player${result.players === 1 ? "" : "s"}.`
+      );
+      onRestored();
+    } catch {
+      setMessage("That doesn't look like a Scorekeeper backup file.");
+    }
+  };
+
+  return (
+    <section className="border-t felt-line pt-4">
+      <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-wider text-ink-dim">
+        Keep it safe
+      </h2>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={backup}
+          className="rounded-full border felt-line bg-felt-2 px-4 py-2 text-sm text-ink active:bg-felt-3 hover:border-gold/50 hover:text-gold"
+        >
+          ⬇ Back up game nights
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f) void restore(f);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="rounded-full border felt-line bg-felt-2 px-4 py-2 text-sm text-ink active:bg-felt-3 hover:border-gold/50 hover:text-gold"
+        >
+          ⬆ Restore from backup
+        </button>
+      </div>
+      {message && <p className="mt-2 text-sm text-ink-dim">{message}</p>}
+      <p className="mt-2 text-xs text-ink-dim/70">
+        Games live on this device — the backup file moves them anywhere.
+      </p>
+    </section>
+  );
+}
 
 export default function HistoryPage() {
   const [games, setGames] = useState<StoredGame[] | null>(null);
 
-  useEffect(() => {
-    setGames(listGames());
-  }, []);
+  const refresh = () => setGames(listGames());
+  useEffect(refresh, []);
 
   if (games === null) {
     return <p className="py-12 text-center text-ink-dim">Opening the record book…</p>;
@@ -19,23 +85,27 @@ export default function HistoryPage() {
 
   if (games.length === 0) {
     return (
-      <div className="py-16 text-center">
-        <h1 className="font-display text-3xl font-bold">The record book</h1>
-        <p className="mt-3 text-ink-dim">
-          No games yet. Every game you play gets remembered here — winners,
-          scores, streaks, and bragging rights.
-        </p>
-        <Link
-          href="/"
-          className="mt-5 inline-block rounded-full bg-gold px-5 py-2 font-display font-bold text-felt"
-        >
-          Start the first game
-        </Link>
+      <div className="space-y-10 py-16">
+        <div className="text-center">
+          <h1 className="font-display text-3xl font-bold">The record book</h1>
+          <p className="mt-3 text-ink-dim">
+            No games yet. Every game you play gets remembered here — winners,
+            scores, streaks, and bragging rights.
+          </p>
+          <Link
+            href="/"
+            className="mt-5 inline-block rounded-full bg-gold px-5 py-2 font-display font-bold text-felt"
+          >
+            Start the first game
+          </Link>
+        </div>
+        <BackupSection onRestored={refresh} />
       </div>
     );
   }
 
   const insights = buildInsights(games);
+  const records = computeRecords(games);
   const summaries = games
     .map(summarizeGame)
     .filter((s): s is NonNullable<typeof s> => s !== null);
@@ -58,6 +128,28 @@ export default function HistoryPage() {
           </p>
         )}
       </div>
+
+      {records.length > 0 && (
+        <section>
+          <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-wider text-ink-dim">
+            All-time records
+          </h2>
+          <ul className="space-y-1.5" data-testid="records">
+            {records.map((r) => (
+              <li
+                key={r.key}
+                className="flex items-baseline justify-between gap-3 rounded-xl border felt-line bg-felt-2 px-4 py-2.5"
+              >
+                <span className="text-sm text-ink-dim">🏅 {r.label}</span>
+                <span className="min-w-0 truncate text-right text-sm">
+                  <strong className="font-display text-gold">{r.holder}</strong>
+                  <span className="ml-1.5 text-ink-dim">{r.value}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {insights.players.length > 0 && (
         <section>
@@ -135,6 +227,8 @@ export default function HistoryPage() {
           ))}
         </ul>
       </section>
+
+      <BackupSection onRestored={refresh} />
     </div>
   );
 }

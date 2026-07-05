@@ -33,6 +33,17 @@ and remembers every game night.
 - **Built for the table** — mobile-first: sticky composer and header with
   safe-area support, 44px touch targets, no tap flash or double-tap zoom,
   and an installable web-app manifest (add it to your home screen).
+- **Round-by-round scoresheet** — the classic paper grid (rounds × players
+  with running totals), derived live from the event log.
+- **Quick score pad** — tap any player's score for a thumb-sized bottom
+  sheet: ±1/5/10, custom amounts, and set-exact.
+- **All-time records** — highest score ever, biggest blowout, fastest win,
+  longest game, longest streak; the winner screen calls out freshly set
+  records with a 🏅.
+- **Big board mode** — a fullscreen scoreboard in giant type for the middle
+  of the table, with a screen wake lock so the phone stays lit.
+- **Backup & restore** — export every game, player, and favorite to a JSON
+  file from the History page and restore it on any device.
 
 ## How the AI layer works
 

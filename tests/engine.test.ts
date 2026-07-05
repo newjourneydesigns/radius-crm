@@ -449,4 +449,77 @@ function await_import_shareCard() {
   check("seed from history", seeded.includes("Zoey") && seeded.includes("Erin"), seeded);
 }
 
+// ---------- scoresheet (round-by-round grid) ----------
+{
+  const { buildScoresheet } = require("../lib/scoresheet") as typeof import("../lib/scoresheet");
+  const B = ev({ type: "score_adjusted", playerId: "p3", delta: 5 });
+  const events = [
+    created(),
+    ev({ type: "score_adjusted", playerId: "p1", delta: 12 }),
+    ev({ type: "score_adjusted", playerId: "p2", delta: -3 }),
+    ev({ type: "round_started", round: 2 }),
+    ev({ type: "score_set", playerId: "p1", value: 20 }), // +8 relative to 12
+    B,
+  ];
+  const sheet = buildScoresheet(events)!;
+  check("scoresheet has a row per round", sheet.rows.length === 2);
+  check("R1 deltas", sheet.rows[0].deltas.p1 === 12 && sheet.rows[0].deltas.p2 === -3);
+  check("score_set becomes a delta", sheet.rows[1].deltas.p1 === 8);
+  check("scoresheet totals match board", sheet.totals.p1 === 20 && sheet.totals.p3 === 5);
+  const undone = buildScoresheet([...events, ev({ type: "undo", targetId: B.id })])!;
+  check("undo drops from the sheet", undone.rows[1].deltas.p3 === undefined && undone.totals.p3 === 0);
+}
+
+// ---------- records ----------
+{
+  const { computeRecords, newRecordCallouts } = require("../lib/records") as typeof import("../lib/records");
+  const mkGame = (id: string, winScore: number, loseScore: number, startTs: number, endTs: number) => ({
+    id,
+    createdAt: startTs,
+    updatedAt: endTs,
+    messages: [],
+    events: [
+      { type: "game_created", id: `${id}c`, ts: startTs, source: "manual", definition: DEF, players: [{ id: "p1", name: "Trip" }, { id: "p2", name: "Erin" }] },
+      { type: "score_adjusted", id: `${id}a`, ts: startTs + 1, source: "manual", playerId: "p1", delta: winScore },
+      { type: "score_adjusted", id: `${id}b`, ts: startTs + 2, source: "manual", playerId: "p2", delta: loseScore },
+      { type: "game_finished", id: `${id}f`, ts: endTs, source: "manual", winnerIds: ["p1"] },
+    ],
+  });
+  const g1 = mkGame("g1", 30, 10, 0, 40 * 60000);
+  const g2 = mkGame("g2", 62, 10, 100 * 60000, 105 * 60000);
+  const recs = computeRecords([g1 as any, g2 as any]);
+  const highest = recs.find((r) => r.key === "highest_score")!;
+  check("highest score record", highest.holder === "Trip" && highest.value.startsWith("62"), highest);
+  const blowout = recs.find((r) => r.key === "biggest_win")!;
+  check("biggest blowout record", blowout.value.includes("by 52"), blowout);
+  const fastest = recs.find((r) => r.key === "fastest_win")!;
+  check("fastest win record", fastest.value.includes("5 min"), fastest);
+  check("streak record", recs.find((r) => r.key === "streak")?.value === "2 in a row");
+  const callouts = newRecordCallouts([g1 as any, g2 as any], "g2");
+  check("new game sets records", callouts.some((c) => c.includes("Highest score ever")), callouts);
+  check("first game sets the book", newRecordCallouts([g1 as any], "g1").length > 0);
+}
+
+// ---------- backup export / import round-trip ----------
+{
+  const json = store.exportAll();
+  const gamesBefore = store.listGames().length;
+  const rosterBefore = store.listRoster().length;
+  check("export has data to test with", gamesBefore > 0 && rosterBefore > 0);
+  for (const id of store.listGameIds()) store.deleteGame(id);
+  for (const p of store.listRoster()) store.deleteRosterPlayer(p.id);
+  check("wiped clean", store.listGames().length === 0 && store.listRoster().length === 0);
+  const result = store.importAll(json);
+  check("import restores games", store.listGames().length === gamesBefore, result);
+  check("import restores players", store.listRoster().length === rosterBefore, result);
+  check("import is idempotent", store.importAll(json).games === 0);
+  let threw = false;
+  try {
+    store.importAll('{"nope": true}');
+  } catch {
+    threw = true;
+  }
+  check("import rejects junk", threw);
+}
+
 console.log(`\nAll ${n} checks passed.`);
