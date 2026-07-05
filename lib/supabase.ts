@@ -919,6 +919,21 @@ export interface StudentMessage {
 }
 
 
+// ── Circle Leader Toolkit — Resources pages ──
+export type ResourcePageAudience = 'circle' | 'host_team';
+
+export interface CircleLeaderResourcePage {
+  id: string;
+  audience: ResourcePageAudience;
+  title: string;
+  slug: string;
+  body_html: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  updated_by?: string | null;
+}
+
 // ── Radius Blog ──
 export interface BlogArticle {
   id: string;

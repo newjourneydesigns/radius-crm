@@ -250,6 +250,21 @@ body:has(.cs-splash),
 .cs-root .cs-tab-badge-red {
   background: #dc2626 !important;
 }
+/* Resources dropdown under the main-nav Resources tab. */
+.cs-root .cs-resources-menu-item,
+.cs-root .cs-resources-menu-item * {
+  color: #3e3e3e !important;
+}
+.cs-root .cs-resources-menu-item:hover,
+.cs-root .cs-resources-menu-item:hover * {
+  color: #1c1c1c !important;
+  background: #f3f4f1;
+}
+.cs-root .cs-resources-menu-item-active,
+.cs-root .cs-resources-menu-item-active * {
+  color: var(--cs-green-dark) !important;
+  background: rgba(52, 178, 51, 0.08);
+}
 .cs-root .cs-inbox-folder-tab {
   border: 1px solid transparent;
 }
