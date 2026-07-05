@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ChatPanel from "@/components/ChatPanel";
 import ConfirmBanner from "@/components/ConfirmBanner";
 import GameLog from "@/components/GameLog";
 import ScoreBoard from "@/components/ScoreBoard";
 import Toolbar from "@/components/Toolbar";
+import WinnerScreen from "@/components/WinnerScreen";
 import { useGame } from "@/hooks/useGame";
 import { newId } from "@/lib/engine";
 import {
   createGame,
+  getPhotoMap,
   isFavorite,
   toggleFavorite,
   upsertRosterNames,
@@ -37,10 +39,29 @@ export default function GamePage({ params }: { params: { id: string } }) {
     dismissProposals,
   } = useGame(params.id);
   const [fav, setFav] = useState(false);
+  const [showWinner, setShowWinner] = useState(false);
+  const [photoMap, setPhotoMap] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    setPhotoMap(getPhotoMap());
+  }, []);
 
   useEffect(() => {
     if (state) setFav(isFavorite(state.definition.name));
   }, [state]);
+
+  const finished = state?.finished ?? false;
+  const sawLivePlay = useRef(false);
+  useEffect(() => {
+    // Celebrate the moment the game ends at this table — but don't ambush
+    // someone who's just revisiting an already-finished game.
+    if (!state) return;
+    if (!finished) {
+      sawLivePlay.current = true;
+    } else if (sawLivePlay.current) {
+      setShowWinner(true);
+    }
+  }, [finished, state]);
 
   if (game === undefined) {
     return <p className="py-12 text-center text-ink-dim">Setting the table…</p>;
@@ -135,13 +156,22 @@ export default function GamePage({ params }: { params: { id: string } }) {
             🏆 {winners.map((w) => w.name).join(" & ") || "Nobody"} take
             {winners.length === 1 || winners.length === 0 ? "s" : ""} it!
           </p>
-          <button
-            type="button"
-            onClick={rematch}
-            className="mt-3 rounded-full bg-gold px-5 py-2 font-display font-bold text-felt"
-          >
-            Rematch
-          </button>
+          <div className="mt-3 flex justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowWinner(true)}
+              className="rounded-full bg-gold px-5 py-2 font-display font-bold text-felt"
+            >
+              🎉 Winner screen
+            </button>
+            <button
+              type="button"
+              onClick={rematch}
+              className="rounded-full border border-gold/60 px-5 py-2 font-display font-bold text-gold"
+            >
+              Rematch
+            </button>
+          </div>
         </div>
       ) : targetPlayer ? (
         <div className="animate-deal-in rounded-xl border border-gold/60 bg-felt-3 p-3 text-center text-sm">
@@ -176,6 +206,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
       <ScoreBoard
         state={state}
         trackTurns={trackTurns}
+        photoMap={photoMap}
         onAdjust={(playerId, delta) =>
           append({ type: "score_adjusted", playerId, delta, source: "manual" })
         }
@@ -223,6 +254,20 @@ export default function GamePage({ params }: { params: { id: string } }) {
       />
 
       <GameLog state={state} />
+
+      {showWinner && state.finished && (
+        <WinnerScreen
+          state={state}
+          photoMap={photoMap}
+          durationMs={Math.max(
+            0,
+            (game.events[game.events.length - 1]?.ts ?? 0) -
+              (game.events[0]?.ts ?? 0)
+          )}
+          onRematch={rematch}
+          onClose={() => setShowWinner(false)}
+        />
+      )}
     </div>
   );
 }

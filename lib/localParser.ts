@@ -2,6 +2,7 @@ import { findPlayer } from "./engine";
 import { lookupGame } from "./registry";
 import {
   AiAction,
+  GameDefinition,
   InterpretRequest,
   InterpretResponse,
   SetupDraft,
@@ -25,11 +26,17 @@ function parseNumber(s: string): number | null {
   return NUMBER_WORDS[s.toLowerCase()] ?? null;
 }
 
-function splitNames(raw: string): string[] {
+/** "Trip, Erin and Bob (guest)" → names, with guests flagged. */
+function splitNames(raw: string): { name: string; guest: boolean }[] {
   return raw
     .split(/,|\band\b|&/i)
     .map((s) => s.trim().replace(/\.$/, ""))
-    .filter((s) => s.length > 0 && s.length < 30);
+    .filter((s) => s.length > 0 && s.length < 40)
+    .map((s) => {
+      const guest = /\(\s*guest\s*\)$/i.test(s);
+      return { name: s.replace(/\s*\(\s*guest\s*\)$/i, "").trim(), guest };
+    })
+    .filter((p) => p.name.length > 0);
 }
 
 // ---------- Setup phase ----------
@@ -65,7 +72,7 @@ export function localSetup(req: InterpretRequest): InterpretResponse {
       return local("What are we playing tonight?", [], draft);
     }
     draft.name = title(gameName);
-    if (m?.[2]) draft.playerNames = splitNames(m[2]);
+    if (m?.[2]) applyPlayers(draft, splitNames(m[2]));
 
     const known = lookupGame(draft.name);
     if (known) {
@@ -74,7 +81,7 @@ export function localSetup(req: InterpretRequest): InterpretResponse {
       draft.targetScore = known.scoring.targetScore ?? null;
       draft.step = "players";
       if (draft.playerNames?.length) {
-        return finishSetup(draft, known.known);
+        return askHouseRules(draft);
       }
       return local(
         `${known.name} — great pick. ${known.winCondition} Who's playing?`,
@@ -92,17 +99,27 @@ export function localSetup(req: InterpretRequest): InterpretResponse {
 
   // Step 2 — players
   if (draft.step === "players" || !draft.playerNames?.length) {
+    // A game-name phrase isn't a players answer — re-ask instead of seating
+    // "We're Playing Catan" at the table.
+    if (/^(we'?re playing|let'?s play|we are playing)\b/i.test(text.trim())) {
+      return local(`${draft.name} it is. Who's playing?`, [], draft);
+    }
     const names = splitNames(text);
     if (!names.length) {
       return local("Give me the player names, like \"Trip, Erin and Ashlyn\".", [], draft);
     }
-    draft.playerNames = names;
+    applyPlayers(draft, names);
+    // Starting from a saved favorite: the definition (house rules included)
+    // is already known, so the table is ready as soon as we have players.
+    if (draft.definition) {
+      return finishSetup(draft);
+    }
     if (draft.direction) {
-      return finishSetup(draft, lookupGame(draft.name) !== null);
+      return askHouseRules(draft);
     }
     draft.step = "direction";
     return local(
-      `Got it — ${names.join(", ")}. Does the highest score win, or the lowest?`,
+      `Got it — ${draft.playerNames!.join(", ")}. Does the highest score win, or the lowest?`,
       [],
       draft,
       ["Highest score wins", "Lowest score wins"]
@@ -129,35 +146,78 @@ export function localSetup(req: InterpretRequest): InterpretResponse {
       : n
         ? parseNumber(n[0])
         : null;
-    return finishSetup(draft, false);
+    return askHouseRules(draft);
   }
 
-  return finishSetup(draft, false);
+  // Step 5 — house rules
+  if (draft.step === "rules") {
+    draft.houseRules = /^(no|none|nope|nah)/i.test(lower)
+      ? []
+      : text
+          .replace(/^house rules?:?\s*/i, "")
+          .split(";")
+          .map((r) => r.trim())
+          .filter(Boolean);
+    return finishSetup(draft);
+  }
+
+  return finishSetup(draft);
 }
 
-function finishSetup(draft: SetupDraft, known: boolean): InterpretResponse {
-  const registry = known ? lookupGame(draft.name ?? "") : null;
-  const definition = registry ?? {
-    name: draft.name ?? "House Game",
-    known,
-    scoring: {
-      direction: draft.direction ?? "highest_wins",
-      targetScore: draft.targetScore ?? undefined,
-    },
-    winCondition:
-      draft.targetScore != null
-        ? `First to ${draft.targetScore} ${draft.direction === "lowest_wins" ? "(lowest score wins)" : ""} wins.`
-        : draft.direction === "lowest_wins"
-          ? "Lowest score wins."
-          : "Highest score wins.",
-    specialRules: [],
-  };
-  const players = (draft.playerNames ?? []).map((name) => ({ name }));
+function applyPlayers(
+  draft: SetupDraft,
+  players: { name: string; guest: boolean }[]
+) {
+  draft.playerNames = players.map((p) => p.name);
+  draft.guests = players.filter((p) => p.guest).map((p) => p.name);
+}
+
+function askHouseRules(draft: SetupDraft): InterpretResponse {
+  draft.step = "rules";
+  return local(
+    "Any house rules tonight? Tell me, or say \"no house rules\".",
+    [],
+    draft,
+    ["No house rules"]
+  );
+}
+
+function finishSetup(draft: SetupDraft): InterpretResponse {
+  const base = draft.definition ?? lookupGame(draft.name ?? "");
+  const houseRules = draft.houseRules ?? [];
+  const definition: GameDefinition = base
+    ? {
+        ...base,
+        specialRules: [...base.specialRules, ...houseRules],
+      }
+    : {
+        name: draft.name ?? "House Game",
+        known: false,
+        scoring: {
+          direction: draft.direction ?? "highest_wins",
+          targetScore: draft.targetScore ?? undefined,
+        },
+        winCondition:
+          draft.targetScore != null
+            ? `First to ${draft.targetScore} ${draft.direction === "lowest_wins" ? "(lowest score wins)" : ""} wins.`
+            : draft.direction === "lowest_wins"
+              ? "Lowest score wins."
+              : "Highest score wins.",
+        specialRules: houseRules,
+      };
+  const guests = draft.guests ?? [];
+  const players = (draft.playerNames ?? []).map((name) => ({
+    name,
+    guest: guests.includes(name) || undefined,
+  }));
   const action: AiAction = { kind: "create_game", definition, players };
+  const rulesNote = definition.specialRules.length
+    ? ` House rules noted (${definition.specialRules.length}).`
+    : "";
   return {
     reply: `Table's set — ${definition.name} with ${players
-      .map((p) => p.name)
-      .join(", ")}. Say things like "${players[0]?.name ?? "Trip"} gets 12" and I'll keep score. Good luck!`,
+      .map((p) => (p.guest ? `${p.name} (guest)` : p.name))
+      .join(", ")}.${rulesNote} Say things like "${players[0]?.name ?? "Trip"} gets 12" and I'll keep score. Good luck!`,
     actions: [action],
     draft: { ...draft, step: "done" },
     provider: "local",

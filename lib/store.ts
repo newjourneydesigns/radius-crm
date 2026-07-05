@@ -151,6 +151,22 @@ export function addRosterPlayer(name: string): boolean {
   return true;
 }
 
+export function setRosterPhoto(id: string, photo: string | undefined) {
+  const roster = read<RosterPlayer[]>(ROSTER_KEY, []);
+  const p = roster.find((x) => x.id === id);
+  if (p) p.photo = photo;
+  writeRoster(roster);
+}
+
+/** Lowercased name -> photo, for showing portraits on score cards. */
+export function getPhotoMap(): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const p of read<RosterPlayer[]>(ROSTER_KEY, [])) {
+    if (p.photo) map.set(p.name.toLowerCase(), p.photo);
+  }
+  return map;
+}
+
 export function toggleRegular(id: string) {
   const roster = read<RosterPlayer[]>(ROSTER_KEY, []);
   const p = roster.find((x) => x.id === id);

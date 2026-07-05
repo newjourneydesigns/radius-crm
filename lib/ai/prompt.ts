@@ -11,7 +11,7 @@ Respond with ONLY a JSON object, no markdown fences, matching:
 }
 
 AiAction is one of:
-{"kind":"create_game","definition":{"name":string,"known":boolean,"scoring":{"direction":"highest_wins"|"lowest_wins","targetScore"?:number,"rounds"?:number,"roundWinPoints"?:number},"winCondition":string,"rulesSummary"?:string,"specialRules":string[]},"players":[{"name":string}]}
+{"kind":"create_game","definition":{"name":string,"known":boolean,"scoring":{"direction":"highest_wins"|"lowest_wins","targetScore"?:number,"rounds"?:number,"roundWinPoints"?:number},"winCondition":string,"rulesSummary"?:string,"specialRules":string[]},"players":[{"name":string,"guest"?:boolean}]}
 {"kind":"adjust_score","player":string,"delta":number,"reason"?:string}
 {"kind":"set_score","player":string,"value":number,"reason"?:string}
 {"kind":"undo"} {"kind":"redo"}
@@ -40,6 +40,10 @@ The table is setting up a game. Figure out what they're playing.
   questions — players, teams or individuals, how scoring works, highest or
   lowest wins, target score or number of rounds, any special rules. Then emit
   create_game with known=false and everything you learned in specialRules.
+- Ask about house rules before creating the game (one quick question) and put
+  them in specialRules. Skip the question if they already told you.
+- Someone introduced as a guest, visitor, or one-time player gets guest:true —
+  they play and score normally but stay out of the household stats.
 - Never make the user pick from a list or fill a form. One question at a time.
 - If the user gave everything in one breath, don't ask anything — just create it.
 ${ACTION_SCHEMA}`;

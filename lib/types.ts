@@ -34,6 +34,8 @@ export interface Player {
   id: string;
   name: string;
   teamId?: string;
+  /** One-night players: play and score normally, stay out of the roster/stats. */
+  guest?: boolean;
 }
 
 // ---------- Events (the source of truth) ----------
@@ -138,6 +140,8 @@ export interface RosterPlayer {
   name: string;
   /** Regulars are the recurring crew — offered first at setup. */
   regular: boolean;
+  /** Small square data-URL portrait. */
+  photo?: string;
   createdAt: number;
   lastPlayedAt: number | null;
 }
@@ -145,7 +149,11 @@ export interface RosterPlayer {
 // ---------- AI actions (what the interpreter returns) ----------
 
 export type AiAction =
-  | { kind: "create_game"; definition: GameDefinition; players: { name: string }[] }
+  | {
+      kind: "create_game";
+      definition: GameDefinition;
+      players: { name: string; guest?: boolean }[];
+    }
   | { kind: "adjust_score"; player: string; delta: number; reason?: string }
   | { kind: "set_score"; player: string; value: number; reason?: string }
   | { kind: "undo" }
@@ -164,9 +172,14 @@ export type AiAction =
 export interface SetupDraft {
   name?: string;
   playerNames?: string[];
+  /** Names among playerNames who are one-night guests. */
+  guests?: string[];
   direction?: ScoringDirection;
   targetScore?: number | null;
-  step?: "name" | "players" | "direction" | "target" | "done";
+  houseRules?: string[];
+  /** Full definition to reuse (starting from a saved favorite). */
+  definition?: GameDefinition;
+  step?: "name" | "players" | "direction" | "target" | "rules" | "done";
 }
 
 export interface InterpretRequest {

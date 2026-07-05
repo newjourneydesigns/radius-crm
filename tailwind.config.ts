@@ -40,10 +40,15 @@ const config: Config = {
           from: { opacity: "0", transform: "translateY(14px) rotate(-1deg)" },
           to: { opacity: "1", transform: "translateY(0) rotate(0)" },
         },
+        confetti: {
+          from: { transform: "translateY(-4vh) rotate(0deg)", opacity: "1" },
+          to: { transform: "translateY(108vh) rotate(540deg)", opacity: "0.7" },
+        },
       },
       animation: {
         "pulse-ring": "pulse-ring 1.4s ease-out infinite",
         "deal-in": "deal-in .35s ease-out both",
+        confetti: "confetti 3s linear infinite",
       },
     },
   },

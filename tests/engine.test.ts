@@ -236,13 +236,17 @@ function setup(texts: string[], draft?: any) {
   return res;
 }
 {
-  const oneShot = setup(["We're playing Uno with Trip, Erin and Ashlyn"]);
+  const asksRules = setup(["We're playing Uno with Trip, Erin and Ashlyn"]);
+  check("setup asks about house rules", /house rules/i.test(asksRules.reply), asksRules.reply);
+  check("house-rules step has a skip chip", asksRules.suggestions?.includes("No house rules"));
+
+  const oneShot = setup(["We're playing Uno with Trip, Erin and Ashlyn", "no house rules"]);
   const create = oneShot.actions[0];
   check("one-breath known game creates", create?.kind === "create_game");
   check("one-breath player names", create.players.map((p: any) => p.name).join() === "Trip,Erin,Ashlyn");
   check("one-breath uses registry", create.definition.scoring.targetScore === 500);
 
-  const twoStep = setup(["We're playing Catan", "Trip and Erin"]);
+  const twoStep = setup(["We're playing Catan", "Trip and Erin", "none"]);
   check("two-step creates", twoStep.actions[0]?.kind === "create_game");
 
   const custom = setup([
@@ -250,19 +254,49 @@ function setup(texts: string[], draft?: any) {
     "Trip, Erin",
     "highest",
     "play to 50",
+    "Draw two on ties; Jokers are wild",
   ]);
   const cdef = custom.actions[0]?.definition;
   check("custom game creates", custom.actions[0]?.kind === "create_game");
   check("custom direction", cdef.scoring.direction === "highest_wins");
   check("custom target", cdef.scoring.targetScore === 50);
   check("custom marked unknown", cdef.known === false);
+  check("house rules captured in setup", cdef.specialRules.join("|") === "Draw two on ties|Jokers are wild", cdef.specialRules);
 
   const madeUp = setup(["We're making up a game"]);
   check("made-up game asks for a name", madeUp.actions.length === 0 && /call|name/i.test(madeUp.reply), madeUp.reply);
-  const named = setup(["We're making up a game", "Kitchen Chaos", "Trip and Erin", "lowest", "no target"]);
+  const named = setup(["We're making up a game", "Kitchen Chaos", "Trip and Erin", "lowest", "no target", "no"]);
   const ndef = named.actions[0]?.definition;
   check("made-up game gets named", ndef?.name === "Kitchen Chaos", ndef?.name);
   check("made-up lowest wins", ndef.scoring.direction === "lowest_wins");
+
+  // Guests play tonight, stay out of the roster.
+  const guests = setup(["We're playing Uno with Trip and Bob (guest)", "no"]);
+  const gplayers = guests.actions[0]?.players;
+  check("guest flagged", gplayers?.find((p: any) => p.name === "Bob")?.guest === true, gplayers);
+  check("non-guest unflagged", !gplayers?.find((p: any) => p.name === "Trip")?.guest);
+
+  // Starting from a saved favorite: definition (house rules included) is
+  // reused and setup only needs players — no rules re-ask.
+  const favDef = {
+    name: "Family Rummy",
+    known: false,
+    scoring: { direction: "highest_wins" as const, targetScore: 300 },
+    winCondition: "First to 300.",
+    specialRules: ["Aces high", "No first-turn melds"],
+  };
+  const favMsg: ChatMessage = { role: "user", text: "Trip and Erin", ts: 1 };
+  const fav = localSetup({
+    phase: "setup",
+    messages: [favMsg],
+    draft: { name: favDef.name, definition: favDef, step: "players" },
+  });
+  check("favorite creates without re-asking", fav.actions[0]?.kind === "create_game", fav.reply);
+  check(
+    "favorite keeps its house rules",
+    fav.actions[0]?.definition.specialRules.join("|") === "Aces high|No first-turn melds"
+  );
+  check("favorite keeps target", fav.actions[0]?.definition.scoring.targetScore === 300);
 }
 
 // ---------- setup suggestions (tappable quick answers) ----------
@@ -278,15 +312,60 @@ function setup(texts: string[], draft?: any) {
     "Trip, Erin",
     "Highest score wins",
     "No target",
+    "No house rules",
   ]);
   const cdef = chipFlow.actions[0]?.definition;
   check("chip answers create the game", chipFlow.actions[0]?.kind === "create_game");
   check("chip direction parsed", cdef.scoring.direction === "highest_wins");
   check("no-target chip parsed", cdef.scoring.targetScore === undefined);
+  check("no-house-rules chip parsed", cdef.specialRules.length === 0);
   const target = setup(["We're playing Flooble", "Trip, Erin", "lowest"]);
   check("target step suggests no-target", target.suggestions?.includes("No target"));
   const lost = play("blorp the fizz");
   check("play fallback suggests safe examples", (lost.suggestions ?? []).includes("What's the score?"));
+}
+
+// ---------- share text + guest-free stats ----------
+{
+  const { buildShareText } = await_import_shareCard();
+  const events = [
+    created(),
+    ev({ type: "score_adjusted", playerId: "p1", delta: 12 }),
+    ev({ type: "score_adjusted", playerId: "p2", delta: 8 }),
+    ev({ type: "game_finished", winnerIds: ["p1"] }),
+  ];
+  const st = deriveState(events)!;
+  const text = buildShareText(st, 62 * 60000);
+  check("share text leads with the winner", text.startsWith("🏆 Trip takes Test Game!"), text);
+  check("share text has standings", text.includes("Trip: 12") && text.includes("Erin: 8"));
+  check("share text has duration", text.includes("1h 2m"));
+
+  const { buildInsights } = require("../lib/stats") as typeof import("../lib/stats");
+  const guestGame = {
+    id: "sg",
+    createdAt: 1,
+    updatedAt: 2,
+    messages: [],
+    events: [
+      ev({
+        type: "game_created",
+        definition: DEF,
+        players: [
+          { id: "p1", name: "Trip" },
+          { id: "p2", name: "Sam", guest: true },
+        ],
+      }),
+      ev({ type: "score_adjusted", playerId: "p2", delta: 5 }),
+      ev({ type: "game_finished", winnerIds: ["p2"] }),
+    ],
+  };
+  const insights = buildInsights([guestGame as any]);
+  check("guests stay out of standings", !insights.players.some((p) => p.name === "Sam"), insights.players);
+  check("regulars still counted", insights.players.some((p) => p.name === "Trip"));
+}
+
+function await_import_shareCard() {
+  return require("../lib/shareCard") as typeof import("../lib/shareCard");
 }
 
 // ---------- player roster (store) ----------

@@ -1,5 +1,6 @@
 "use client";
 
+import Avatar from "./Avatar";
 import { GameState } from "@/lib/types";
 
 /**
@@ -10,10 +11,12 @@ export default function ScoreBoard({
   state,
   onAdjust,
   trackTurns,
+  photoMap,
 }: {
   state: GameState;
   onAdjust: (playerId: string, delta: number) => void;
   trackTurns: boolean;
+  photoMap?: Map<string, string>;
 }) {
   const cols =
     state.players.length <= 2
@@ -36,9 +39,21 @@ export default function ScoreBoard({
               isTurn ? "ring-2 ring-gold" : ""
             } ${state.finished && !isWinner ? "opacity-60" : ""}`}
           >
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="truncate font-display text-sm font-bold uppercase tracking-wide">
-                {p.name}
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <Avatar
+                  name={p.name}
+                  photo={photoMap?.get(p.name.toLowerCase())}
+                  size="sm"
+                />
+                <span className="truncate font-display text-sm font-bold uppercase tracking-wide">
+                  {p.name}
+                </span>
+                {p.guest && (
+                  <span className="shrink-0 rounded border border-card-dim/50 px-1 py-px text-[9px] uppercase tracking-wide text-card-dim">
+                    guest
+                  </span>
+                )}
               </span>
               {isWinner ? (
                 <span aria-label="winner" title="Winner">

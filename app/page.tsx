@@ -67,8 +67,13 @@ export default function HomePage() {
     history: ChatMessage[]
   ) => {
     const id = newId();
-    const players = action.players.map((p) => ({ id: newId(), name: p.name }));
-    upsertRosterNames(players.map((p) => p.name));
+    const players = action.players.map((p) => ({
+      id: newId(),
+      name: p.name,
+      guest: p.guest || undefined,
+    }));
+    // Guests play tonight without joining the household roster.
+    upsertRosterNames(players.filter((p) => !p.guest).map((p) => p.name));
     createGame(
       id,
       [
@@ -86,8 +91,14 @@ export default function HomePage() {
     router.push(`/game/${id}`);
   };
 
-  const sendMessage = async (text: string, source: "user_text" | "user_voice") => {
+  const sendMessage = async (
+    text: string,
+    source: "user_text" | "user_voice",
+    draftOverride?: SetupDraft
+  ) => {
     if (thinking) return;
+    const activeDraft = draftOverride ?? draft;
+    if (draftOverride) setDraft(draftOverride);
     const history: ChatMessage[] = [...messages, { role: "user", text, ts: Date.now() }];
     setMessages(history);
     setThinking(true);
@@ -96,7 +107,11 @@ export default function HomePage() {
       const res = await fetch("/api/interpret", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase: "setup", messages: history.slice(-20), draft }),
+        body: JSON.stringify({
+          phase: "setup",
+          messages: history.slice(-20),
+          draft: activeDraft,
+        }),
       });
       if (!res.ok) throw new Error(`Interpreter error ${res.status}`);
       const data = (await res.json()) as InterpretResponse;
@@ -151,7 +166,33 @@ export default function HomePage() {
             <button
               key={name}
               type="button"
-              onClick={() => sendMessage(`We're playing ${name}`, "user_text")}
+              onClick={() => {
+                // A saved favorite carries its full definition — house rules
+                // included — so setup only needs to ask who's playing. No
+                // interpreter round-trip: seat the table right here.
+                const fav = favorites.find((f) => f.definition.name === name);
+                if (!fav) {
+                  sendMessage(`We're playing ${name}`, "user_text");
+                  return;
+                }
+                setDraft({
+                  name: fav.definition.name,
+                  direction: fav.definition.scoring.direction,
+                  targetScore: fav.definition.scoring.targetScore ?? null,
+                  definition: fav.definition,
+                  step: "players",
+                });
+                const rules = fav.definition.specialRules.length;
+                setMessages((m) => [
+                  ...m,
+                  { role: "user", text: `We're playing ${name}`, ts: Date.now() },
+                  {
+                    role: "assistant",
+                    text: `${fav.definition.name} — the table's already set${rules ? ` with your ${rules} house rule${rules > 1 ? "s" : ""}` : ""}. Who's playing?`,
+                    ts: Date.now(),
+                  },
+                ]);
+              }}
               className="rounded-full border felt-line bg-felt-2 px-4 py-2 text-sm text-ink-dim active:bg-felt-3 hover:border-gold/50 hover:text-gold"
             >
               {favorites.length ? "★ " : ""}

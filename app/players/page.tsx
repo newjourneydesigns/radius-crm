@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Avatar from "@/components/Avatar";
 import { buildInsights, PlayerStats } from "@/lib/stats";
 import {
   addRosterPlayer,
@@ -9,9 +10,43 @@ import {
   listRoster,
   renameRosterPlayer,
   seedRosterFromHistory,
+  setRosterPhoto,
   toggleRegular,
 } from "@/lib/store";
 import { RosterPlayer } from "@/lib/types";
+
+/** Center-crop and shrink a photo to a small square data URL. */
+async function resizePhoto(file: File): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = url;
+    });
+    const SIZE = 128;
+    const canvas = document.createElement("canvas");
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+    const ctx = canvas.getContext("2d")!;
+    const side = Math.min(img.width, img.height);
+    ctx.drawImage(
+      img,
+      (img.width - side) / 2,
+      (img.height - side) / 2,
+      side,
+      side,
+      0,
+      0,
+      SIZE,
+      SIZE
+    );
+    return canvas.toDataURL("image/jpeg", 0.82);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 function PlayerRow({
   player,
@@ -43,9 +78,37 @@ function PlayerRow({
     }
   };
 
+  const photoRef = useRef<HTMLInputElement>(null);
+
   return (
     <li className="rounded-xl border felt-line bg-felt-2 px-4 py-3">
       <div className="flex items-center gap-3">
+        <input
+          ref={photoRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (!f) return;
+            try {
+              setRosterPhoto(player.id, await resizePhoto(f));
+              onChanged();
+            } catch {
+              /* unreadable image — leave the avatar as is */
+            }
+          }}
+        />
+        <button
+          type="button"
+          aria-label={`Set a photo for ${player.name}`}
+          title="Add or change photo"
+          onClick={() => photoRef.current?.click()}
+          className="shrink-0 rounded-full active:opacity-80"
+        >
+          <Avatar name={player.name} photo={player.photo} size="lg" />
+        </button>
         <div className="min-w-0 flex-1">
           {editing ? (
             <input

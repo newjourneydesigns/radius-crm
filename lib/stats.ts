@@ -6,7 +6,7 @@ export interface FinishedGameSummary {
   name: string;
   date: number;
   durationMs: number;
-  players: { name: string; score: number; won: boolean }[];
+  players: { name: string; score: number; won: boolean; guest: boolean }[];
   finished: boolean;
 }
 
@@ -42,6 +42,7 @@ export function summarizeGame(g: StoredGame): FinishedGameSummary | null {
       name: p.name,
       score: p.score,
       won: state.winnerIds.includes(p.id),
+      guest: p.guest ?? false,
     })),
     finished: state.finished,
   };
@@ -76,6 +77,7 @@ export function buildInsights(games: StoredGame[]): HistoryInsights {
     }
 
     for (const p of s.players) {
+      if (p.guest) continue; // one-night guests stay out of the standings
       const rec =
         perPlayer.get(p.name) ??
         { games: 0, wins: 0, best: null, streak: 0, maxStreak: 0 };
