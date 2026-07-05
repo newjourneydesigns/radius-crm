@@ -18,20 +18,20 @@ async function ensurePrefs(leaderId: number | string) {
   const supabase = createServiceSupabaseClient();
   const { data } = await supabase
     .from('circle_leader_notification_preferences')
-    .select('leader_id, inbox_push_enabled, summary_reminder_push_enabled, badge_count_enabled, push_nudge_requested_at')
+    .select('leader_id, inbox_push_enabled, summary_reminder_push_enabled, badge_count_enabled, nightly_digest_push_enabled, push_nudge_requested_at')
     .eq('leader_id', leaderId)
     .maybeSingle();
   if (data) return data;
   const { data: inserted, error } = await supabase
     .from('circle_leader_notification_preferences')
     .upsert({ leader_id: leaderId }, { onConflict: 'leader_id', ignoreDuplicates: true })
-    .select('leader_id, inbox_push_enabled, summary_reminder_push_enabled, badge_count_enabled, push_nudge_requested_at')
+    .select('leader_id, inbox_push_enabled, summary_reminder_push_enabled, badge_count_enabled, nightly_digest_push_enabled, push_nudge_requested_at')
     .maybeSingle();
   if (error) throw error;
   if (inserted) return inserted;
   const { data: existing, error: reloadError } = await supabase
     .from('circle_leader_notification_preferences')
-    .select('leader_id, inbox_push_enabled, summary_reminder_push_enabled, badge_count_enabled, push_nudge_requested_at')
+    .select('leader_id, inbox_push_enabled, summary_reminder_push_enabled, badge_count_enabled, nightly_digest_push_enabled, push_nudge_requested_at')
     .eq('leader_id', leaderId)
     .single();
   if (reloadError) throw reloadError;
@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
     ['inboxPushEnabled', 'inbox_push_enabled'],
     ['summaryReminderPushEnabled', 'summary_reminder_push_enabled'],
     ['badgeCountEnabled', 'badge_count_enabled'],
+    ['nightlyDigestPushEnabled', 'nightly_digest_push_enabled'],
   ] as const) {
     if (typeof body[incoming] === 'boolean') patch[column] = body[incoming];
   }
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('circle_leader_notification_preferences')
     .upsert({ leader_id: leader.id, ...patch, updated_at: new Date().toISOString() }, { onConflict: 'leader_id' })
-    .select('leader_id, inbox_push_enabled, summary_reminder_push_enabled, badge_count_enabled, push_nudge_requested_at')
+    .select('leader_id, inbox_push_enabled, summary_reminder_push_enabled, badge_count_enabled, nightly_digest_push_enabled, push_nudge_requested_at')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ preferences: data });

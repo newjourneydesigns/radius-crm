@@ -141,6 +141,54 @@ function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, value: T, ttl
   map.set(key, { value, expiresAt: Date.now() + ttlMs });
 }
 
+export type AttendanceStatus = { has: boolean; dnm: boolean; headCount: number | null };
+
+/**
+ * Parse a bulk `attendance_profiles` CCB response into a lookup map keyed by
+ * "eventId|YYYY-MM-DD" → whether attendance exists, did-not-meet, head count.
+ * Shared by the events loader and the nightly health-check cron (which reads
+ * the same XML from `ccb_group_events_cache`).
+ */
+export function parseAttendanceMap(bulkXml: unknown): Map<string, AttendanceStatus> {
+  const attendanceMap = new Map<string, AttendanceStatus>();
+  if (!bulkXml) return attendanceMap;
+
+  const ccbRoot = asRecord(bulkXml)?.ccb_api;
+  const response = asRecord(asRecord(ccbRoot)?.response);
+  const eventsRoot = asRecord(response?.events);
+  const rawEvents = recordList(eventsRoot?.event);
+
+  for (const ev of rawEvents) {
+    const evId = String(ev?.['@_id'] ?? ev?.id ?? '').trim();
+    const occurrence = String(ev?.['@_occurrence'] ?? ev?.occurrence ?? '').trim();
+    if (!evId || !occurrence) continue;
+
+    const occurDate = occurrence.slice(0, 10); // "YYYY-MM-DD"
+    const notes = textVal(ev?.notes);
+    const dnm = isDidNotMeetEvent({ didNotMeet: ev?.did_not_meet, notes });
+    // Prefer the explicit head_count; fall back to counting attendee rows.
+    const rawHeadCount = Number(textVal(ev?.head_count));
+    const attendees = asRecord(ev.attendees);
+    const attendeeNode = attendees?.attendee;
+    const attendeeCount = attendeeNode
+      ? Array.isArray(attendeeNode)
+        ? attendeeNode.length
+        : 1
+      : 0;
+    const headCount = rawHeadCount > 0 ? rawHeadCount : attendeeCount > 0 ? attendeeCount : null;
+    const has =
+      dnm ||
+      !!notes ||
+      !!textVal(ev?.topic) ||
+      (headCount ?? 0) > 0 ||
+      attendeeCount > 0;
+
+    attendanceMap.set(`${evId}|${occurDate}`, { has, dnm, headCount });
+  }
+
+  return attendanceMap;
+}
+
 /** Active Message Center messages for the leader's campus. */
 export async function loadLeaderMessages(leader: SessionLeader): Promise<CircleMessage[]> {
   const supabase = createServiceSupabaseClient();
@@ -398,42 +446,7 @@ export async function loadLeaderEvents(
       }
     }
 
-    // Build a lookup map: "eventId|YYYY-MM-DD" → { has, dnm }
-    const attendanceMap = new Map<string, { has: boolean; dnm: boolean; headCount: number | null }>();
-    if (bulkXmlResolved) {
-      const ccbRoot = asRecord(bulkXmlResolved)?.ccb_api;
-      const response = asRecord(asRecord(ccbRoot)?.response);
-      const eventsRoot = asRecord(response?.events);
-      const rawEvents = recordList(eventsRoot?.event);
-
-      for (const ev of rawEvents) {
-        const evId = String(ev?.['@_id'] ?? ev?.id ?? '').trim();
-        const occurrence = String(ev?.['@_occurrence'] ?? ev?.occurrence ?? '').trim();
-        if (!evId || !occurrence) continue;
-
-        const occurDate = occurrence.slice(0, 10); // "YYYY-MM-DD"
-        const notes = textVal(ev?.notes);
-        const dnm = isDidNotMeetEvent({ didNotMeet: ev?.did_not_meet, notes });
-        // Prefer the explicit head_count; fall back to counting attendee rows.
-        const rawHeadCount = Number(textVal(ev?.head_count));
-        const attendees = asRecord(ev.attendees);
-        const attendeeNode = attendees?.attendee;
-        const attendeeCount = attendeeNode
-          ? Array.isArray(attendeeNode)
-            ? attendeeNode.length
-            : 1
-          : 0;
-        const headCount = rawHeadCount > 0 ? rawHeadCount : attendeeCount > 0 ? attendeeCount : null;
-        const has =
-          dnm ||
-          !!notes ||
-          !!textVal(ev?.topic) ||
-          (headCount ?? 0) > 0 ||
-          attendeeCount > 0;
-
-        attendanceMap.set(`${evId}|${occurDate}`, { has, dnm, headCount });
-      }
-    }
+    const attendanceMap = parseAttendanceMap(bulkXmlResolved);
 
     const ignoredSet = new Set(
       ignoredEvents.map((row) => `${row.ccb_event_id}|${String(row.occurrence_date).slice(0, 10)}`)

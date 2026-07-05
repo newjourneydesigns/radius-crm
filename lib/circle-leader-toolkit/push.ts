@@ -21,7 +21,7 @@ type NotificationPayload = {
 };
 
 type DeliveryRecord = {
-  notification_type: 'inbox_message' | 'summary_reminder';
+  notification_type: 'inbox_message' | 'summary_reminder' | 'nightly_digest';
   leader_id: number | string;
   inbox_recipient_id?: string | null;
   message_id?: string | null;

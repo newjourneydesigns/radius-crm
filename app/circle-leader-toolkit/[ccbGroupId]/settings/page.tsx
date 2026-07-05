@@ -10,6 +10,7 @@ type Preferences = {
   inbox_push_enabled: boolean;
   summary_reminder_push_enabled: boolean;
   badge_count_enabled: boolean;
+  nightly_digest_push_enabled: boolean;
 };
 
 type PushSubscriptionInfo = {
@@ -123,6 +124,7 @@ export default function CircleSummaryNotificationSettingsPage() {
           inboxPushEnabled: next.inbox_push_enabled,
           summaryReminderPushEnabled: next.summary_reminder_push_enabled,
           badgeCountEnabled: next.badge_count_enabled,
+          nightlyDigestPushEnabled: next.nightly_digest_push_enabled,
         }),
       });
       const data = await res.json();
@@ -268,6 +270,7 @@ export default function CircleSummaryNotificationSettingsPage() {
   const toggles: Array<{ key: keyof Preferences; title: string; desc: string }> = [
     { key: 'inbox_push_enabled', title: 'Inbox messages', desc: 'Notify me when a new Leader Hub inbox message arrives.' },
     { key: 'summary_reminder_push_enabled', title: 'Event summary reminders', desc: 'Notify me after Circle when a summary still needs submission.' },
+    { key: 'nightly_digest_push_enabled', title: 'Overnight check-in', desc: 'Once overnight, send a digest of anything still waiting — unsubmitted summaries and unread messages — and update the app icon badge.' },
     { key: 'badge_count_enabled', title: 'Badge count', desc: 'Use app icon badges where supported, plus reliable in-app counts everywhere.' },
   ];
 
@@ -404,7 +407,7 @@ export default function CircleSummaryNotificationSettingsPage() {
                     <input
                       type="checkbox"
                       className="cs-toggle"
-                      checked={preferences[key]}
+                      checked={Boolean(preferences[key])}
                       onChange={(e) => savePreference(key, e.target.checked)}
                     />
                   </label>

@@ -3,6 +3,16 @@
     "date": "2026-07-05",
     "date_display": "July 5, 2026",
     "date_iso": "2026-07-05",
+    "id": "toolkit-nightly-health-check",
+    "type": "feature",
+    "category": "Circle Leader Toolkit",
+    "description": "The Toolkit now runs an overnight health check (around 4am) that looks for anything still waiting on you — event summaries that haven't been submitted and unread inbox messages. If something's outstanding, you get one digest push notification and the app icon badge on your installed Toolkit updates with the count, so the number is right before you even open the app. A new \"Overnight check-in\" toggle in Toolkit Settings lets any leader turn it off.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-07-05",
+    "date_display": "July 5, 2026",
+    "date_iso": "2026-07-05",
     "id": "leader-pro-tips",
     "type": "feature",
     "category": "Circle Leader Toolkit",
