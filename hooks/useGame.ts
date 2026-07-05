@@ -9,6 +9,7 @@ import {
   nextUndoTarget,
 } from "@/lib/engine";
 import { loadGame, saveGame } from "@/lib/store";
+import { pushSharedEvent, subscribeToSharedEvents } from "@/lib/sync";
 import { flipCoin, pickRandom, rollDice } from "@/lib/tools";
 import {
   AiAction,
@@ -59,8 +60,34 @@ export function useGame(id: string) {
 
   const append = useCallback(
     (e: NewEvent) => {
+      const full = { ...e, id: newId(), ts: Date.now() } as GameEvent;
       mutate((g) => {
-        g.events.push({ ...e, id: newId(), ts: Date.now() } as GameEvent);
+        g.events.push(full);
+      });
+      const sharedId = gameRef.current?.sharedId;
+      if (sharedId) void pushSharedEvent(sharedId, full);
+    },
+    [mutate]
+  );
+
+  // Live-shared table: merge events other players append, deduped by id.
+  const sharedId = game?.sharedId;
+  useEffect(() => {
+    if (!sharedId) return;
+    return subscribeToSharedEvents(sharedId, (e) => {
+      const g = gameRef.current;
+      if (!g || g.events.some((x) => x.id === e.id)) return;
+      mutate((gg) => {
+        gg.events.push(e);
+        gg.events.sort((a, b) => a.ts - b.ts || a.id.localeCompare(b.id));
+      });
+    });
+  }, [sharedId, mutate]);
+
+  const setSharedId = useCallback(
+    (id: string) => {
+      mutate((g) => {
+        g.sharedId = id;
       });
     },
     [mutate]
@@ -245,6 +272,7 @@ export function useGame(id: string) {
     state,
     thinking,
     suggestions,
+    setSharedId,
     send,
     append,
     say,

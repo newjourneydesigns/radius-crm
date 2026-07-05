@@ -48,7 +48,7 @@ export default function RootLayout({
             >
               Score<span className="text-gold">keeper</span>
             </Link>
-            <nav className="flex gap-5 text-sm text-ink-dim">
+            <nav className="flex gap-4 text-sm text-ink-dim">
               <Link href="/" className="hover:text-ink">
                 Table
               </Link>
@@ -57,6 +57,16 @@ export default function RootLayout({
               </Link>
               <Link href="/history" className="hover:text-ink">
                 History
+              </Link>
+              <Link
+                href="/account"
+                aria-label="Account"
+                className="hover:text-ink"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5" aria-hidden>
+                  <circle cx="12" cy="8.5" r="3.5" />
+                  <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+                </svg>
               </Link>
             </nav>
           </header>

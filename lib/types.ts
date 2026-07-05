@@ -127,6 +127,8 @@ export interface StoredGame {
   updatedAt: number;
   events: GameEvent[];
   messages: ChatMessage[];
+  /** Supabase shared-game id when this table is live-shared across devices. */
+  sharedId?: string;
 }
 
 export interface FavoriteGame {

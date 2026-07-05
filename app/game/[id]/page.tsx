@@ -18,6 +18,8 @@ import {
   toggleFavorite,
   upsertRosterNames,
 } from "@/lib/store";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { currentUserId, shareGame } from "@/lib/sync";
 
 export default function GamePage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -26,6 +28,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
     state,
     thinking,
     suggestions,
+    setSharedId,
     send,
     append,
     say,
@@ -81,6 +84,53 @@ export default function GamePage({ params }: { params: { id: string } }) {
   const target = state.definition.scoring.targetScore;
   const targetPlayer = state.players.find((p) => p.id === state.targetReachedBy);
   const winners = state.players.filter((p) => state.winnerIds.includes(p.id));
+
+  const invite = async () => {
+    if (!game || !state) return;
+    if (!isSupabaseConfigured()) {
+      say(
+        "assistant",
+        "Shared tables aren't switched on in this build yet — the Account page has the two-minute setup. Everything else keeps working right here."
+      );
+      return;
+    }
+    if (!(await currentUserId())) {
+      say("assistant", "Sign in on the Account page first, then invite the table.");
+      router.push("/account");
+      return;
+    }
+    try {
+      let sid = game.sharedId;
+      if (!sid) {
+        sid = await shareGame(game.events);
+        setSharedId(sid);
+      }
+      const url = `${window.location.origin}/join/${sid}`;
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        /* clipboard can be unavailable; the link is in the chat below */
+      }
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            text: `Join our ${state.definition.name} table — score along live: ${url}`,
+          });
+        } catch {
+          /* user closed the sheet */
+        }
+      }
+      say(
+        "assistant",
+        `Table's open! Anyone with this link scores with us live:\n${url}`
+      );
+    } catch {
+      say(
+        "assistant",
+        "Couldn't open the shared table just now — check your connection and try again."
+      );
+    }
+  };
 
   const rematch = () => {
     const id = newId();
@@ -234,6 +284,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
           const extra = applyActions([{ kind: "pick_player" }], "manual");
           extra.forEach((t) => say("assistant", t));
         }}
+        onInvite={invite}
       />
 
       <ConfirmBanner

@@ -85,10 +85,30 @@ auditing, and analytics for free, and leaves the door open for sync and
 multiplayer (swap `lib/store.ts` for a synced backend without touching the
 engine).
 
+## Shared tables & accounts (optional)
+
+With a Supabase project, the whole table can score one game live from
+their own phones:
+
+1. Create a free Supabase project and enable Email (magic link) auth
+2. Run `supabase/schema.sql` in the SQL editor — tables, RLS policies,
+   a capability-style `join_shared_game` RPC, and the realtime publication
+3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+Then sign in on the Account page, tap **🔗 Invite** on any game, and text
+the link to the table. Every score event syncs both ways in realtime;
+the event log's immutable ids make merging conflict-free. Without keys,
+sharing is hidden behind a friendly explainer and everything else works
+device-locally.
+
+> Note: the sync layer is code-complete and unit-typed but hasn't been
+> exercised against a live Supabase project yet — treat the first shared
+> game as a smoke test.
+
 ## Roadmap
 
-- Supabase persistence + realtime sync (shared tables, multiplayer)
 - Offline service worker (manifest is already in place)
+- Chat/rules-question sync for shared tables (score events sync today)
 - Teams UI (engine already models teams)
 - Voice replies (TTS) and continuous listening
 - Richer vision: dice reading, card recognition, board-state analysis

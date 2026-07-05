@@ -109,6 +109,7 @@ export default function Toolbar({
   onRoll,
   onFlip,
   onPick,
+  onInvite,
 }: {
   finished: boolean;
   canUndo: boolean;
@@ -120,6 +121,7 @@ export default function Toolbar({
   onRoll: () => void;
   onFlip: () => void;
   onPick: () => void;
+  onInvite?: () => void;
 }) {
   return (
     <div
@@ -139,6 +141,13 @@ export default function Toolbar({
       <Chip label="🪙 Flip" onClick={onFlip} />
       <Chip label="👉 Pick" title="Pick a random player" onClick={onPick} />
       <Timer />
+      {onInvite && (
+        <Chip
+          label="🔗 Invite"
+          title="Share this table — everyone scores from their own phone"
+          onClick={onInvite}
+        />
+      )}
     </div>
   );
 }
