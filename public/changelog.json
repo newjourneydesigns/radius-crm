@@ -3,6 +3,16 @@
     "date": "2026-07-05",
     "date_display": "July 5, 2026",
     "date_iso": "2026-07-05",
+    "id": "resources-dropdown-polish",
+    "type": "fix",
+    "category": "Circle Leader Toolkit",
+    "description": "Cleaned up Resources navigation in the Toolkit: the dropdown under the Resources tab now renders as a solid, readable menu (it was showing see-through), and the duplicate row of page tabs on the Resources page is gone — the dropdown is the one way to switch pages, with Previous/Next links to move between them.",
+    "page": "/admin/circle-leader-resources"
+  },
+  {
+    "date": "2026-07-05",
+    "date_display": "July 5, 2026",
+    "date_iso": "2026-07-05",
     "id": "leader-pro-tips",
     "type": "feature",
     "category": "Circle Leader Toolkit",

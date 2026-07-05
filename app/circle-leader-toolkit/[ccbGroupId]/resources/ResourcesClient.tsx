@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import Fuse from 'fuse.js';
@@ -45,11 +45,11 @@ function htmlToText(html: string): string {
 }
 
 /**
- * Renders the Resources section: an ordered set of admin-managed pages shown
- * as pill tabs, with previous/next links chaining the pages in nav order, a
- * Pro Tips video catalog as a virtual last page, and fuzzy search across all
- * of it. `slug` comes from the /resources/[slug] route; the bare /resources
- * route shows the first page.
+ * Renders the Resources section: an ordered set of admin-managed pages
+ * navigated via the Resources dropdown in the main nav and previous/next
+ * links chaining the pages in nav order, plus a Pro Tips video catalog as a
+ * virtual last page and fuzzy search across all of it. `slug` comes from the
+ * /resources/[slug] route; the bare /resources route shows the first page.
  */
 export default function ResourcesClient({ slug }: { slug?: string }) {
   useMarkCircleAppEntered();
@@ -63,7 +63,6 @@ export default function ResourcesClient({ slug }: { slug?: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const tabsRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,13 +104,6 @@ export default function ResourcesClient({ slug }: { slug?: string }) {
   const prev = activeIndex > 0 ? visiblePages[activeIndex - 1] : null;
   const next = activeIndex < visiblePages.length - 1 ? visiblePages[activeIndex + 1] : null;
   const isProTipsActive = active?.kind === 'pro_tips';
-
-  // On narrow screens the pill row scrolls horizontally — keep the active
-  // page's pill in view when landing on a deep link.
-  useEffect(() => {
-    const activeTab = tabsRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
-    activeTab?.scrollIntoView({ inline: 'center', block: 'nearest' });
-  }, [loading, activeIndex]);
 
   // Search deep links land on the Pro Tips page with #tip-<id> — scroll to it.
   useEffect(() => {
@@ -250,30 +242,6 @@ export default function ResourcesClient({ slug }: { slug?: string }) {
             </div>
           ) : (
             <>
-              {visiblePages.length > 1 && (
-                <nav
-                  ref={tabsRef}
-                  aria-label="Resource pages"
-                  className="flex gap-1 overflow-x-auto bg-neutral-100 border border-neutral-200 rounded-full p-1 mb-4"
-                >
-                  {visiblePages.map((page, i) => (
-                    <Link
-                      key={page.id}
-                      href={pageHref(page, i)}
-                      aria-current={i === activeIndex ? 'page' : undefined}
-                      className={
-                        'cs-inbox-folder-tab shrink-0 rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition-all ' +
-                        (i === activeIndex
-                          ? 'cs-inbox-folder-tab-active shadow-sm'
-                          : 'cs-inbox-folder-tab-inactive')
-                      }
-                    >
-                      {page.title}
-                    </Link>
-                  ))}
-                </nav>
-              )}
-
               {isProTipsActive ? (
                 <div className="space-y-4">
                   {tips.map((tip) => (

@@ -215,8 +215,7 @@ export default function CircleTabs({
           <div
             role="menu"
             aria-label="Resource pages"
-            className="absolute inset-x-0 top-full mt-2 z-30 rounded-2xl bg-white shadow-xl overflow-hidden"
-            style={{ border: '1px solid var(--cs-border)' }}
+            className="cs-resources-menu absolute inset-x-0 top-full mt-2 z-30"
           >
             {resourcePages.map((page, i) => {
               const isCurrentPage = page.slug === activeResourceSlug;
