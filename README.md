@@ -49,6 +49,9 @@ cp .env.example .env.local   # add keys, or skip — it works without them
 npm run dev
 ```
 
+`npm test` runs the engine and parser unit tests (event sourcing, undo/redo
+semantics, target detection, the natural-language command grammar).
+
 Data is stored in `localStorage` per device for now (see roadmap).
 
 ## Architecture

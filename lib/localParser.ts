@@ -39,9 +39,25 @@ export function localSetup(req: InterpretRequest): InterpretResponse {
   const draft: SetupDraft = { ...(req.draft ?? {}) };
   const lower = text.toLowerCase();
 
-  // Step 1 — which game?
+  // Step 0 — they're inventing a game; get a real name for it first.
+  if (!draft.name && draft.step !== "name" &&
+      /mak(?:e|ing)\s+(?:it\s+|one\s+)?up|our own game|invent(?:ed|ing)? a game|new game/.test(lower)) {
+    draft.step = "name";
+    return local(
+      "Love it — a brand new game. What should we call it?",
+      [],
+      draft
+    );
+  }
+  if (draft.step === "name" && !draft.name) {
+    draft.name = title(text.replace(/^(it'?s called|call it|let'?s call it)\s+/i, ""));
+    draft.step = "players";
+    return local(`${draft.name} — great name. Who's playing?`, [], draft);
+  }
+
+  // Step 1 — which game? (match on the original text so names keep their case)
   if (!draft.name) {
-    const m = lower.match(
+    const m = text.match(
       /(?:we'?re playing|let'?s play|playing|play)\s+(.+?)(?:\s+with\s+(.+))?[.!]?$/i
     );
     const gameName = m ? m[1].trim() : text;

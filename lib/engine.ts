@@ -185,12 +185,13 @@ export function deriveState(events: GameEvent[]): GameState | null {
     ? players.filter((p) => p.score === best).map((p) => p.id)
     : [];
 
+  // The target ends the game in both directions: it's a goal when highest
+  // wins (first to 10 in Catan) and a ceiling when lowest wins (Hearts ends
+  // when someone reaches 100 — and the LOWEST score takes it).
   let targetReachedBy: string | null = null;
   const target = definition.scoring.targetScore;
   if (!finished && target != null) {
-    const reached = players.find((p) =>
-      dir === "lowest_wins" ? p.score <= target && anyScored : p.score >= target
-    );
+    const reached = players.find((p) => p.score >= target);
     if (reached) targetReachedBy = reached.id;
   }
 

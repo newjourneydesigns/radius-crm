@@ -26,6 +26,12 @@ export async function callGemini(
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY not set");
 
+  // Gemini requires the conversation to open with a user turn; drop the
+  // app's scripted greeting if it leads.
+  while (messages.length && messages[0].role === "assistant") {
+    messages = messages.slice(1);
+  }
+
   const contents = messages.map((m, i) => {
     const parts: object[] = [{ text: m.text }];
     // Attach the photo to the final user message.

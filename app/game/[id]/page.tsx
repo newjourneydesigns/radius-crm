@@ -125,7 +125,8 @@ export default function GamePage({ params }: { params: { id: string } }) {
       {state.finished ? (
         <div className="animate-deal-in rounded-xl border border-gold/60 bg-felt-3 p-4 text-center">
           <p className="font-display text-xl font-bold text-gold">
-            🏆 {winners.map((w) => w.name).join(" & ") || "Nobody"} takes it!
+            🏆 {winners.map((w) => w.name).join(" & ") || "Nobody"} take
+            {winners.length === 1 || winners.length === 0 ? "s" : ""} it!
           </p>
           <button
             type="button"
@@ -142,14 +143,20 @@ export default function GamePage({ params }: { params: { id: string } }) {
           <button
             type="button"
             onClick={() => {
-              append({
-                type: "game_finished",
-                winnerIds: [targetPlayer.id],
-                source: "manual",
-              });
+              // Highest-wins: reaching the target wins. Lowest-wins: reaching
+              // the ceiling ENDS the game, and the lowest score takes it.
+              const winnerIds =
+                state.definition.scoring.direction === "lowest_wins"
+                  ? state.leaderIds
+                  : [targetPlayer.id];
+              const names = state.players
+                .filter((p) => winnerIds.includes(p.id))
+                .map((p) => p.name)
+                .join(" & ");
+              append({ type: "game_finished", winnerIds, source: "manual" });
               say(
                 "assistant",
-                `🏆 ${targetPlayer.name} takes ${state.definition.name}! Great game — rematch, anyone?`
+                `🏆 ${names} take${winnerIds.length > 1 ? "" : "s"} ${state.definition.name}! Great game — rematch, anyone?`
               );
             }}
             className="font-bold text-gold underline"
