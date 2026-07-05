@@ -200,6 +200,7 @@ const circleSummaryNavItems = [
   { href: '/admin/message-center', label: 'Message Center', Icon: MessageBulkIcon, adminOnly: true },
   { href: '/leader-messages', label: 'Leader Messages', Icon: MessageBulkIcon },
   { href: '/admin/circle-leader-resources', label: 'Leader Resources', Icon: NotebookIcon, adminOnly: true },
+  { href: '/admin/leader-pro-tips', label: 'Pro Tips', Icon: IdeaIcon, adminOnly: true },
   { href: '/admin/dynamic-questions', label: 'Circle Summary Questions', Icon: LayoutListIcon, adminOnly: true },
   // { href: '/admin/leadership-snapshots/questions', label: 'Health Questions', Icon: LayoutListIcon, adminOnly: true }, // hidden — not ready for ACPDs
   // { href: '/admin/leadership-snapshots', label: 'Health Snaphots', Icon: ChartIcon, adminOnly: true }, // hidden — not ready for ACPDs

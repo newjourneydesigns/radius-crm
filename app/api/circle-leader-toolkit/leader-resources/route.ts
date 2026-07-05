@@ -37,8 +37,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ pages: [], error: error.message }, { status: 500 });
   }
 
+  // The Pro Tips catalog appears as a virtual last page whenever the audience
+  // has at least one published tip. Its content comes from /pro-tips; here it
+  // only claims a tab slot (slug is reserved by the admin API).
+  const { count: tipCount } = await supabase
+    .from('leader_pro_tips')
+    .select('id', { count: 'exact', head: true })
+    .eq('audience', audience)
+    .lte('publish_at', new Date().toISOString());
+  const proTipsPage =
+    tipCount && tipCount > 0
+      ? [{ id: 'pro-tips', slug: 'pro-tips', title: 'Pro Tips', kind: 'pro_tips' as const }]
+      : [];
+
   if (pages && pages.length > 0) {
-    return NextResponse.json({ pages });
+    return NextResponse.json({ pages: [...pages, ...proTipsPage] });
   }
 
   // Legacy fallback: serve the old single doc as one pseudo-page.
@@ -52,7 +65,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ pages: [], error: legacyError.message }, { status: 500 });
   }
   if (!legacy?.body_html || !legacy.body_html.trim()) {
-    return NextResponse.json({ pages: [] });
+    return NextResponse.json({ pages: proTipsPage });
   }
   return NextResponse.json({
     pages: [
@@ -63,6 +76,7 @@ export async function GET(req: NextRequest) {
         updated_at: legacy.updated_at,
         ...(listOnly ? {} : { body_html: legacy.body_html }),
       },
+      ...proTipsPage,
     ],
   });
 }

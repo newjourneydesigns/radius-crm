@@ -678,6 +678,13 @@ body:has(.cs-splash),
 .cs-resources ul { list-style: disc; }
 .cs-resources ol { list-style: decimal; }
 .cs-resources li { margin: 0.25rem 0; }
+.cs-resources img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin: 0.75rem 0;
+}
 /* Overrides the global `a { color: #94a3b8 !important; }` rule in globals.css */
 .cs-resources a,
 .cs-resources a:visited {
@@ -936,6 +943,30 @@ a.cs-button:active {
 .cs-textarea::placeholder {
   color: #6b7280;
   opacity: 1;
+}
+
+/* Resources search — white pill input with room for the leading icon.
+   Element+class specificity with !important beats the global glass input
+   chrome in globals.css (same trick as input.notebook-title-input there). */
+input.cs-resources-search {
+  background-color: #ffffff !important;
+  color: var(--cs-ink) !important;
+  border: 1.5px solid #e5e7eb !important;
+  border-radius: 9999px !important;
+  padding: 0.65rem 1rem 0.65rem 2.5rem;
+  font-size: 1rem; /* ≥16px so iOS Safari doesn't zoom on focus */
+  line-height: 1.4;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+input.cs-resources-search:focus {
+  outline: none !important;
+  border-color: var(--cs-green) !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(52, 178, 51, 0.15) !important;
+}
+input.cs-resources-search::placeholder {
+  color: #6b7280 !important;
+  opacity: 1 !important;
 }
 
 .cs-search-field {

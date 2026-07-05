@@ -28,6 +28,12 @@ function extractYouTubeId(rawUrl: string): string | null {
   return null;
 }
 
+/** True when the URL is a recognizable YouTube watch/short/embed link. */
+export function isYouTubeUrl(url: string): boolean {
+  const videoId = extractYouTubeId(url);
+  return !!videoId && /^[a-zA-Z0-9_-]{6,}$/.test(videoId);
+}
+
 type RenderMessageHtmlOptions = {
   includeYouTubeLink?: boolean;
 };

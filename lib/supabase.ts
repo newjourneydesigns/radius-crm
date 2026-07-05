@@ -934,6 +934,20 @@ export interface CircleLeaderResourcePage {
   updated_by?: string | null;
 }
 
+export interface LeaderProTip {
+  id: string;
+  audience: ResourcePageAudience;
+  title: string;
+  youtube_url: string;
+  body_html: string;
+  publish_at: string;
+  send_to_inbox: boolean;
+  inbox_message_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  updated_by?: string | null;
+}
+
 // ── Radius Blog ──
 export interface BlogArticle {
   id: string;

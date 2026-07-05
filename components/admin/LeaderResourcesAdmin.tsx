@@ -254,6 +254,23 @@ export default function LeaderResourcesAdmin({ audience, title, audienceLabel }:
       .catch((e) => setError(e.message));
   }
 
+  const uploadImage = useCallback(
+    async (file: File): Promise<string> => {
+      if (!token) throw new Error('Not signed in.');
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/admin/resource-images', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Image upload failed.');
+      return data.url;
+    },
+    [token]
+  );
+
   function selectPage(id: string) {
     if (id === selectedId) return;
     if (dirtyRef.current) {
@@ -469,6 +486,7 @@ export default function LeaderResourcesAdmin({ audience, title, audienceLabel }:
                     placeholder="Add helpful resources, links, and instructions…"
                     minHeight="320px"
                     allowButton
+                    onUploadImage={uploadImage}
                     toolkitSurface
                   />
                 </div>

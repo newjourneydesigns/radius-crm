@@ -89,6 +89,8 @@ async function uniqueSlug(
     .eq('audience', audience);
   if (error) throw error;
   const taken = new Set((data || []).map((row) => row.slug));
+  // Reserved for the virtual Pro Tips catalog tab on the leader side.
+  taken.add('pro-tips');
   if (!taken.has(base)) return base;
   for (let n = 2; ; n++) {
     const candidate = `${base}-${n}`;

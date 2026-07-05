@@ -3,6 +3,36 @@
     "date": "2026-07-05",
     "date_display": "July 5, 2026",
     "date_iso": "2026-07-05",
+    "id": "leader-pro-tips",
+    "type": "feature",
+    "category": "Circle Leader Toolkit",
+    "description": "New Pro Tips: post short weekly YouTube coaching clips with a rich-text write-up and a publish date. Each tip appears automatically in a Pro Tips catalog on the Toolkit's Resources tab when its date arrives, and can also be delivered straight to every leader's inbox (with a push notification) at the same time — one form, both destinations.",
+    "page": "/admin/leader-pro-tips"
+  },
+  {
+    "date": "2026-07-05",
+    "date_display": "July 5, 2026",
+    "date_iso": "2026-07-05",
+    "id": "toolkit-resources-search",
+    "type": "feature",
+    "category": "Circle Leader Toolkit",
+    "description": "Circle Leaders can now search their Resources section — a search box on the Resources tab finds matching resource pages and Pro Tips as they type and jumps straight to the result.",
+    "page": "/admin/circle-leader-resources"
+  },
+  {
+    "date": "2026-07-05",
+    "date_display": "July 5, 2026",
+    "date_iso": "2026-07-05",
+    "id": "resource-image-upload",
+    "type": "feature",
+    "category": "Circle Leader Toolkit",
+    "description": "You can now upload and insert images while editing Resources pages and Pro Tips in Radius — a new image button in the editor toolbar uploads the photo (up to 5 MB) and drops it into the content exactly where leaders will see it.",
+    "page": "/admin/circle-leader-resources"
+  },
+  {
+    "date": "2026-07-05",
+    "date_display": "July 5, 2026",
+    "date_iso": "2026-07-05",
     "id": "toolkit-resource-pages",
     "type": "feature",
     "category": "Circle Leader Toolkit",

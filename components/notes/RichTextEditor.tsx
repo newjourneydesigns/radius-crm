@@ -5,7 +5,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
-import { useEffect, useState, useCallback } from 'react';
+import Image from '@tiptap/extension-image';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 // Converts bare URLs in HTML text nodes to <a> tags; idempotent (won't double-wrap).
 function linkifyHtml(html: string): string {
@@ -38,6 +39,11 @@ interface RichTextEditorProps {
   autoFocus?: boolean;
   /** Adds a "Button" toolbar action that inserts a styled anchor (`<a class="cs-button">`). */
   allowButton?: boolean;
+  /**
+   * Adds an image toolbar action. The callback uploads the picked file (e.g. to
+   * /api/admin/resource-images) and resolves to the public URL to insert.
+   */
+  onUploadImage?: (file: File) => Promise<string>;
   /**
    * Renders the editor as a light, WYSIWYG surface that matches the Circle Leader
    * Toolkit (white card, Open Sans, ink text, green links/buttons via `.cs-canvas`
@@ -115,10 +121,14 @@ export default function RichTextEditor({
   borderless = false,
   autoFocus = false,
   allowButton = false,
+  onUploadImage,
   toolkitSurface = false,
 }: RichTextEditorProps) {
   const [linkDialog, setLinkDialog] = useState({ visible: false, displayText: '', url: '', hasSelection: false });
   const [buttonDialog, setButtonDialog] = useState({ visible: false, label: '', url: '' });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -130,6 +140,9 @@ export default function RichTextEditor({
         blockquote: false,
       }),
       Underline,
+      // Registered unconditionally so existing <img> content round-trips even
+      // in editors without an upload action.
+      Image.configure({ inline: false }),
       ClassyLink.configure({
         openOnClick: true,
         autolink: true,
@@ -250,6 +263,24 @@ export default function RichTextEditor({
     setButtonDialog({ visible: false, label: '', url: '' });
     editor?.commands.focus();
   }, [editor]);
+
+  const handleImagePicked = useCallback(
+    async (file: File | null) => {
+      if (!editor || !file || !onUploadImage) return;
+      setImageError(null);
+      setUploadingImage(true);
+      try {
+        const url = await onUploadImage(file);
+        editor.chain().focus().setImage({ src: url, alt: file.name.replace(/\.[^.]+$/, '') }).run();
+      } catch (e: any) {
+        setImageError(e?.message || 'Image upload failed.');
+      } finally {
+        setUploadingImage(false);
+        if (imageInputRef.current) imageInputRef.current.value = '';
+      }
+    },
+    [editor, onUploadImage]
+  );
 
   if (!editor) return null;
 
@@ -429,7 +460,46 @@ export default function RichTextEditor({
             </span>
           </ToolbarButton>
         )}
+
+        {onUploadImage && (
+          <ToolbarButton
+            onClick={() => imageInputRef.current?.click()}
+            disabled={disabled || uploadingImage}
+            light={toolkitSurface}
+            title="Insert image"
+          >
+            {uploadingImage ? (
+              <span className="inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+              </svg>
+            )}
+          </ToolbarButton>
+        )}
       </div>
+
+      {onUploadImage && (
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp"
+          className="hidden"
+          onChange={(e) => handleImagePicked(e.target.files?.[0] || null)}
+        />
+      )}
+
+      {imageError && (
+        <div
+          className={
+            toolkitSurface
+              ? 'px-3 py-1.5 text-xs text-red-600 bg-red-50 border-b border-red-200'
+              : 'px-3 py-1.5 text-xs text-red-500 bg-red-500/10 border-b border-red-500/30'
+          }
+        >
+          {imageError}
+        </div>
+      )}
 
       {/* Inline link dialog */}
       {linkDialog.visible && (
