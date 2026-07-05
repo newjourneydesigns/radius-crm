@@ -4,7 +4,10 @@ const ACTION_SCHEMA = `
 Respond with ONLY a JSON object, no markdown fences, matching:
 {
   "reply": string,           // what you say to the table, short and warm
-  "actions": AiAction[]      // structured changes to apply, [] if none
+  "actions": AiAction[],     // structured changes to apply, [] if none
+  "suggestions"?: string[]   // when your reply asks a question, up to 4 short
+                             // tappable answers, e.g. ["Highest wins","Lowest wins"];
+                             // omit when you aren't asking anything
 }
 
 AiAction is one of:

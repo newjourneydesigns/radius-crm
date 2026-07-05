@@ -29,6 +29,7 @@ export function useGame(id: string) {
   const [game, setGame] = useState<StoredGame | null | undefined>(undefined);
   const [thinking, setThinking] = useState(false);
   const [pendingProposals, setPendingProposals] = useState<AiAction[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const gameRef = useRef<StoredGame | null>(null);
 
   useEffect(() => {
@@ -190,6 +191,7 @@ export function useGame(id: string) {
       if (!g || !st || thinking) return;
       say("user", text || (image ? "📷 (photo)" : ""));
       setThinking(true);
+      setSuggestions([]);
       try {
         const res = await fetch("/api/interpret", {
           method: "POST",
@@ -210,6 +212,7 @@ export function useGame(id: string) {
         const data = (await res.json()) as InterpretResponse;
         const extra = applyActions(data.actions, source, text);
         say("assistant", [data.reply, ...extra].filter(Boolean).join("\n"));
+        setSuggestions(data.suggestions ?? []);
         if (data.proposals?.length) setPendingProposals(data.proposals);
       } catch {
         say(
@@ -241,6 +244,7 @@ export function useGame(id: string) {
     game,
     state,
     thinking,
+    suggestions,
     send,
     append,
     say,

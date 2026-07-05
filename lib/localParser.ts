@@ -104,7 +104,8 @@ export function localSetup(req: InterpretRequest): InterpretResponse {
     return local(
       `Got it — ${names.join(", ")}. Does the highest score win, or the lowest?`,
       [],
-      draft
+      draft,
+      ["Highest score wins", "Lowest score wins"]
     );
   }
 
@@ -115,7 +116,8 @@ export function localSetup(req: InterpretRequest): InterpretResponse {
     return local(
       "Play to a target score? Tell me the number, or say \"no target\".",
       [],
-      draft
+      draft,
+      ["No target", "100", "500"]
     );
   }
 
@@ -280,16 +282,19 @@ export function localPlay(req: InterpretRequest): InterpretResponse {
 
   return local(
     'I didn\'t catch that. Try "Trip gets 12", "undo", "next round", or "roll 2d6". (Add a GEMINI_API_KEY to unlock full conversation.)',
-    []
+    [],
+    undefined,
+    ["What's the score?", "Whose turn is it?", "Next round", "Roll 2d6"]
   );
 }
 
 function local(
   reply: string,
   actions: AiAction[],
-  draft?: SetupDraft
+  draft?: SetupDraft,
+  suggestions: string[] = []
 ): InterpretResponse {
-  return { reply, actions, draft, provider: "local" };
+  return { reply, actions, draft, suggestions, provider: "local" };
 }
 
 function title(s: string): string {

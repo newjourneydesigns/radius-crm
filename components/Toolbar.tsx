@@ -19,7 +19,7 @@ function Chip({
       onClick={onClick}
       disabled={disabled}
       title={title ?? label}
-      className="shrink-0 rounded-full border felt-line bg-felt-2 px-3.5 py-1.5 text-sm text-ink hover:border-gold/50 hover:text-gold disabled:opacity-35 disabled:hover:border-ink/10 disabled:hover:text-ink"
+      className="shrink-0 whitespace-nowrap rounded-full border felt-line bg-felt-2 px-4 py-2 text-sm text-ink active:bg-felt-3 hover:border-gold/50 hover:text-gold disabled:opacity-35 disabled:hover:border-ink/10 disabled:hover:text-ink"
     >
       {label}
     </button>
@@ -64,7 +64,7 @@ function Timer() {
   const ss = String(seconds % 60).padStart(2, "0");
   return (
     <span
-      className={`flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm ${
+      className={`flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm ${
         seconds === 0
           ? "border-ember bg-ember/20 text-ink"
           : "border-gold/50 bg-felt-2 text-gold"
@@ -123,7 +123,7 @@ export default function Toolbar({
 }) {
   return (
     <div
-      className="-mx-4 flex gap-2 overflow-x-auto px-4 py-3"
+      className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 py-3"
       role="toolbar"
       aria-label="Game tools"
     >

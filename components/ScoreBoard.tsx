@@ -65,7 +65,7 @@ export default function ScoreBoard({
                 aria-label={`Subtract one from ${p.name}`}
                 onClick={() => onAdjust(p.id, -1)}
                 disabled={state.finished}
-                className="h-9 w-9 rounded-full text-lg text-card-dim hover:bg-black/10 disabled:opacity-30"
+                className="h-11 w-11 rounded-full text-xl text-card-dim active:bg-black/15 hover:bg-black/10 disabled:opacity-30"
               >
                 −
               </button>
@@ -79,7 +79,7 @@ export default function ScoreBoard({
                 aria-label={`Add one to ${p.name}`}
                 onClick={() => onAdjust(p.id, 1)}
                 disabled={state.finished}
-                className="h-9 w-9 rounded-full text-lg text-card-dim hover:bg-black/10 disabled:opacity-30"
+                className="h-11 w-11 rounded-full text-xl text-card-dim active:bg-black/15 hover:bg-black/10 disabled:opacity-30"
               >
                 +
               </button>

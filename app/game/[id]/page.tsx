@@ -18,6 +18,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
     game,
     state,
     thinking,
+    suggestions,
     send,
     append,
     say,
@@ -212,6 +213,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
         placeholder='Try “Erin gets 12” or “how do ties work?”'
         micSize="md"
         listHeightClass="max-h-[38dvh] min-h-[9rem]"
+        suggestions={suggestions}
       />
 
       <GameLog state={state} />

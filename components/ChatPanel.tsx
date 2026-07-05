@@ -29,6 +29,8 @@ export default function ChatPanel({
   placeholder,
   micSize = "lg",
   listHeightClass = "flex-1 min-h-0",
+  suggestions = [],
+  suggestionMode = "send",
 }: {
   messages: ChatMessage[];
   thinking: boolean;
@@ -38,10 +40,15 @@ export default function ChatPanel({
   micSize?: "lg" | "md";
   /** Cap the transcript height (game screen keeps the scoreboard visible). */
   listHeightClass?: string;
+  /** Tappable answers to the scorekeeper's last question. */
+  suggestions?: string[];
+  /** "send" fires the answer immediately; "compose" builds a list in the input. */
+  suggestionMode?: "send" | "compose";
 }) {
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const speech = useSpeech((transcript) => onSend(transcript, "user_voice"));
 
   useEffect(() => {
@@ -53,6 +60,20 @@ export default function ChatPanel({
     if (!text || thinking) return;
     setDraft("");
     onSend(text, "user_text");
+  };
+
+  const tapSuggestion = (s: string) => {
+    if (thinking) return;
+    if (suggestionMode === "compose") {
+      setDraft((d) => {
+        const parts = d.split(",").map((x) => x.trim()).filter(Boolean);
+        if (parts.some((p) => p.toLowerCase() === s.toLowerCase())) return d;
+        return [...parts, s].join(", ");
+      });
+      inputRef.current?.focus();
+    } else {
+      onSend(s, "user_text");
+    }
   };
 
   const onPhoto = (file: File) => {
@@ -93,60 +114,81 @@ export default function ChatPanel({
         )}
       </div>
 
-      <div className="flex items-center gap-3 border-t felt-line pt-4">
-        <MicButton
-          listening={speech.listening}
-          supported={speech.supported}
-          onStart={speech.start}
-          onStop={speech.stop}
-          size={micSize}
-        />
-        <div className="flex flex-1 items-center gap-2 rounded-full bg-felt-2 px-4 py-2.5 ring-1 ring-inset ring-ink/10 focus-within:ring-gold/60">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder={placeholder}
-            aria-label="Message the scorekeeper"
-            className="w-full bg-transparent text-[16px] text-ink placeholder:text-ink-dim/70 focus:outline-none"
-          />
-          {allowPhoto && (
-            <>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) onPhoto(f);
-                  e.target.value = "";
-                }}
-              />
+      <div className="sticky bottom-0 z-10 -mx-4 border-t felt-line bg-felt/95 px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 backdrop-blur">
+        {suggestions.length > 0 && !thinking && !speech.listening && (
+          <div className="mb-3 flex flex-wrap gap-2" aria-label="Quick answers">
+            {suggestions.map((s) => (
               <button
+                key={s}
                 type="button"
-                aria-label="Photograph the game"
-                title="Photograph the board or scoreboard"
-                onClick={() => fileRef.current?.click()}
-                className="text-ink-dim hover:text-gold"
+                data-testid="suggestion-chip"
+                onClick={() => tapSuggestion(s)}
+                className="rounded-full border border-gold/40 bg-felt-2 px-4 py-2 text-sm text-gold active:bg-felt-3"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6" aria-hidden>
-                  <path d="M3 8a2 2 0 0 1 2-2h1.5l1.2-1.8A2 2 0 0 1 9.4 3h5.2a2 2 0 0 1 1.7 1.2L17.5 6H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8Z" />
-                  <circle cx="12" cy="12.5" r="3.5" />
-                </svg>
+                {suggestionMode === "compose" ? `+ ${s}` : s}
               </button>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={submit}
-            disabled={!draft.trim() || thinking}
-            aria-label="Send"
-            className="font-display text-sm font-bold uppercase tracking-wide text-gold disabled:opacity-40"
-          >
-            Send
-          </button>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <MicButton
+            listening={speech.listening}
+            supported={speech.supported}
+            onStart={speech.start}
+            onStop={speech.stop}
+            size={micSize}
+          />
+          <div className="flex flex-1 items-center gap-2 rounded-full bg-felt-2 px-4 py-2.5 ring-1 ring-inset ring-ink/10 focus-within:ring-gold/60">
+            <input
+              ref={inputRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              placeholder={placeholder}
+              aria-label="Message the scorekeeper"
+              enterKeyHint="send"
+              autoComplete="off"
+              autoCapitalize="sentences"
+              className="w-full min-w-0 bg-transparent text-[16px] text-ink placeholder:text-ink-dim/70 focus:outline-none"
+            />
+            {allowPhoto && (
+              <>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onPhoto(f);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  aria-label="Photograph the game"
+                  title="Photograph the board or scoreboard"
+                  onClick={() => fileRef.current?.click()}
+                  className="-m-2 p-2 text-ink-dim hover:text-gold"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6" aria-hidden>
+                    <path d="M3 8a2 2 0 0 1 2-2h1.5l1.2-1.8A2 2 0 0 1 9.4 3h5.2a2 2 0 0 1 1.7 1.2L17.5 6H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8Z" />
+                    <circle cx="12" cy="12.5" r="3.5" />
+                  </svg>
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!draft.trim() || thinking}
+              aria-label="Send"
+              className="-m-2 p-2 font-display text-sm font-bold uppercase tracking-wide text-gold disabled:opacity-40"
+            >
+              Send
+            </button>
+          </div>
         </div>
       </div>
     </div>

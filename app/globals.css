@@ -30,6 +30,13 @@ body {
     outline-offset: 2px;
     border-radius: 4px;
   }
+  /* Touch polish: no gray tap flash, no double-tap zoom on controls. */
+  button,
+  a,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
 }
 
 @layer utilities {
@@ -38,6 +45,13 @@ body {
   }
   .felt-line {
     border-color: rgba(239, 233, 216, 0.14);
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
 

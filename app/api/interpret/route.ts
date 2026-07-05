@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (hasGemini) {
     try {
       const result = await callGemini(system, messages, body.image);
-      return NextResponse.json(finalize(result.reply, result.actions, body, "gemini"));
+      return NextResponse.json(finalize(result, body, "gemini"));
     } catch (err) {
       console.error("Gemini failed, trying fallback:", err);
     }
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   if (hasGroq && !body.image) {
     try {
       const result = await callGroq(system, messages);
-      return NextResponse.json(finalize(result.reply, result.actions, body, "groq"));
+      return NextResponse.json(finalize(result, body, "groq"));
     } catch (err) {
       console.error("Groq failed, falling back to local parser:", err);
     }
@@ -67,11 +67,11 @@ export async function POST(req: NextRequest) {
  * came from a photo are returned as proposals for the table to confirm.
  */
 function finalize(
-  reply: string,
-  actions: AiAction[],
+  result: { reply: string; actions: AiAction[]; suggestions: string[] },
   body: InterpretRequest,
   provider: InterpretResponse["provider"]
 ): InterpretResponse {
+  const { reply, actions, suggestions } = result;
   if (body.image) {
     const proposals = actions.filter(
       (a) => a.kind === "set_score" || a.kind === "adjust_score"
@@ -79,7 +79,7 @@ function finalize(
     const rest = actions.filter(
       (a) => a.kind !== "set_score" && a.kind !== "adjust_score"
     );
-    return { reply, actions: rest, proposals, provider };
+    return { reply, actions: rest, proposals, suggestions, provider };
   }
-  return { reply, actions, provider };
+  return { reply, actions, suggestions, provider };
 }

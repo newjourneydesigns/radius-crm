@@ -18,10 +18,16 @@ export const metadata: Metadata = {
   title: "Scorekeeper",
   description:
     "Choose any game. The AI does the rest — scoresheets, rules, and history through plain conversation.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Scorekeeper",
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: "#0C2B1C",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -35,7 +41,7 @@ export default function RootLayout({
         className={`${display.variable} ${body.variable} font-body text-ink antialiased`}
       >
         <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-4">
-          <header className="flex items-center justify-between py-4">
+          <header className="sticky top-0 z-20 -mx-4 flex items-center justify-between bg-felt/90 px-4 pb-3 pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur">
             <Link
               href="/"
               className="font-display text-lg font-bold tracking-tight text-ink"

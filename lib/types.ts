@@ -178,5 +178,7 @@ export interface InterpretResponse {
   /** Actions that must be confirmed by the user before applying (vision). */
   proposals?: AiAction[];
   draft?: SetupDraft;
+  /** Short tappable answers to the question just asked, if any. */
+  suggestions?: string[];
   provider: "gemini" | "groq" | "local";
 }

@@ -11,6 +11,9 @@ and remembers every game night.
 
 - **Conversational setup** — name any game; known games get correct scoring
   automatically, unknown games are learned through a short conversation.
+  Every question comes with tappable quick answers, players from past game
+  nights are one tap to re-add, and a live "setting the table" card shows
+  the scoresheet being built as you talk.
 - **Natural-language scorekeeping** — "Trip gets 12", "Erin loses three",
   "undo that", "next round", "Ashlyn won the round".
 - **Event-sourced engine** — every change is an immutable event; state is
@@ -27,6 +30,9 @@ and remembers every game night.
 - **History & insights** — every game, winner, score, and duration; win
   rates, streaks, most-played games, and the closest game on record.
 - **Favorites & rematch** — one tap to run it back.
+- **Built for the table** — mobile-first: sticky composer and header with
+  safe-area support, 44px touch targets, no tap flash or double-tap zoom,
+  and an installable web-app manifest (add it to your home screen).
 
 ## How the AI layer works
 
@@ -82,7 +88,7 @@ engine).
 ## Roadmap
 
 - Supabase persistence + realtime sync (shared tables, multiplayer)
-- PWA install + offline service worker
+- Offline service worker (manifest is already in place)
 - Teams UI (engine already models teams)
 - Voice replies (TTS) and continuous listening
 - Richer vision: dice reading, card recognition, board-state analysis

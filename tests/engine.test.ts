@@ -264,4 +264,28 @@ function setup(texts: string[], draft?: any) {
   check("made-up lowest wins", ndef.scoring.direction === "lowest_wins");
 }
 
+// ---------- setup suggestions (tappable quick answers) ----------
+{
+  const dir = setup(["We're playing Flooble", "Trip, Erin"]);
+  check(
+    "direction step suggests chips",
+    dir.suggestions?.join("|") === "Highest score wins|Lowest score wins",
+    dir.suggestions
+  );
+  const chipFlow = setup([
+    "We're playing Flooble",
+    "Trip, Erin",
+    "Highest score wins",
+    "No target",
+  ]);
+  const cdef = chipFlow.actions[0]?.definition;
+  check("chip answers create the game", chipFlow.actions[0]?.kind === "create_game");
+  check("chip direction parsed", cdef.scoring.direction === "highest_wins");
+  check("no-target chip parsed", cdef.scoring.targetScore === undefined);
+  const target = setup(["We're playing Flooble", "Trip, Erin", "lowest"]);
+  check("target step suggests no-target", target.suggestions?.includes("No target"));
+  const lost = play("blorp the fizz");
+  check("play fallback suggests safe examples", (lost.suggestions ?? []).includes("What's the score?"));
+}
+
 console.log(`\nAll ${n} checks passed.`);

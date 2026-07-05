@@ -3,6 +3,7 @@ import { AiAction, ChatMessage } from "../types";
 export interface AiResult {
   reply: string;
   actions: AiAction[];
+  suggestions: string[];
 }
 
 function extractJson(text: string): AiResult {
@@ -15,6 +16,9 @@ function extractJson(text: string): AiResult {
   return {
     reply: typeof parsed.reply === "string" ? parsed.reply : "",
     actions: Array.isArray(parsed.actions) ? parsed.actions : [],
+    suggestions: Array.isArray(parsed.suggestions)
+      ? parsed.suggestions.filter((s: unknown) => typeof s === "string").slice(0, 4)
+      : [],
   };
 }
 
