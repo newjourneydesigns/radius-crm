@@ -26,10 +26,49 @@ function Chip({
   );
 }
 
-function Timer() {
+function chime() {
+  try {
+    const Ctx =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.value = 0.12;
+    osc.start();
+    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.7);
+    osc.stop(ctx.currentTime + 0.7);
+  } catch {
+    /* no audio permission — the "Time!" pill still shows */
+  }
+}
+
+const TIMER_PRESETS = [
+  { label: "30s", seconds: 30 },
+  { label: "1m", seconds: 60 },
+  { label: "2m", seconds: 120 },
+  { label: "5m", seconds: 300 },
+];
+
+function Timer({ request }: { request?: { seconds: number; ts: number } | null }) {
   const [seconds, setSeconds] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
+  const [picking, setPicking] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // "Set a timer for two minutes" — spoken or typed — lands here.
+  useEffect(() => {
+    if (request) {
+      setSeconds(request.seconds);
+      setRunning(true);
+      setPicking(false);
+    }
+  }, [request]);
 
   useEffect(() => {
     if (!running) return;
@@ -37,6 +76,7 @@ function Timer() {
       setSeconds((s) => {
         if (s === null || s <= 1) {
           setRunning(false);
+          if (s !== null) chime();
           return s === null ? null : 0;
         }
         return s - 1;
@@ -48,14 +88,30 @@ function Timer() {
   }, [running]);
 
   if (seconds === null) {
+    if (picking) {
+      return (
+        <>
+          {TIMER_PRESETS.map((p) => (
+            <Chip
+              key={p.label}
+              label={p.label}
+              title={`Start a ${p.label} timer`}
+              onClick={() => {
+                setSeconds(p.seconds);
+                setRunning(true);
+                setPicking(false);
+              }}
+            />
+          ))}
+          <Chip label="✕" title="Cancel timer" onClick={() => setPicking(false)} />
+        </>
+      );
+    }
     return (
       <Chip
         label="⏱ Timer"
-        title="Start a 1-minute turn timer"
-        onClick={() => {
-          setSeconds(60);
-          setRunning(true);
-        }}
+        title="Start a turn timer — or say “set a timer for 2 minutes”"
+        onClick={() => setPicking(true)}
       />
     );
   }
@@ -110,6 +166,7 @@ export default function Toolbar({
   onFlip,
   onPick,
   onInvite,
+  timerRequest,
 }: {
   finished: boolean;
   canUndo: boolean;
@@ -122,6 +179,7 @@ export default function Toolbar({
   onFlip: () => void;
   onPick: () => void;
   onInvite?: () => void;
+  timerRequest?: { seconds: number; ts: number } | null;
 }) {
   return (
     <div
@@ -140,7 +198,7 @@ export default function Toolbar({
       <Chip label="🎲 Roll" title="Roll 2d6 — or say “roll a d20”" onClick={onRoll} />
       <Chip label="🪙 Flip" onClick={onFlip} />
       <Chip label="👉 Pick" title="Pick a random player" onClick={onPick} />
-      <Timer />
+      <Timer request={timerRequest} />
       {onInvite && (
         <Chip
           label="🔗 Invite"

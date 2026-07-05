@@ -28,6 +28,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
     state,
     thinking,
     suggestions,
+    timerRequest,
     setSharedId,
     send,
     append,
@@ -285,6 +286,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
           extra.forEach((t) => say("assistant", t));
         }}
         onInvite={invite}
+        timerRequest={timerRequest}
       />
 
       <ConfirmBanner

@@ -166,6 +166,7 @@ export type AiAction =
   | { kind: "roll_dice"; spec: string }
   | { kind: "flip_coin" }
   | { kind: "pick_player" }
+  | { kind: "start_timer"; seconds: number }
   | { kind: "add_note"; text: string }
   | { kind: "add_house_rule"; rule: string }
   | { kind: "finish_game"; winners?: string[] };

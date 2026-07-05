@@ -31,6 +31,10 @@ export function useGame(id: string) {
   const [thinking, setThinking] = useState(false);
   const [pendingProposals, setPendingProposals] = useState<AiAction[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [timerRequest, setTimerRequest] = useState<{
+    seconds: number;
+    ts: number;
+  } | null>(null);
   const gameRef = useRef<StoredGame | null>(null);
 
   useEffect(() => {
@@ -179,6 +183,11 @@ export function useGame(id: string) {
             extra.push(`🪙 ${result === "heads" ? "Heads!" : "Tails!"}`);
             break;
           }
+          case "start_timer": {
+            const seconds = Math.max(5, Math.min(a.seconds || 60, 3600));
+            setTimerRequest({ seconds, ts: Date.now() });
+            break; // ephemeral table tool, not a scoring event
+          }
           case "pick_player": {
             const p = pickRandom(st.players);
             if (p) {
@@ -272,6 +281,7 @@ export function useGame(id: string) {
     state,
     thinking,
     suggestions,
+    timerRequest,
     setSharedId,
     send,
     append,

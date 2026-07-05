@@ -217,6 +217,9 @@ function play(text: string, extras: Partial<InterpretRequest> = {}) {
   check("pick", play("pick a player").actions[0].kind === "pick_player");
   check("note", JSON.stringify(play("note: Erin dealt twice").actions[0]) === JSON.stringify({ kind: "add_note", text: "Erin dealt twice" }));
   check("house rule", play("house rule: draw 4 stacks").actions[0].kind === "add_house_rule");
+  check("timer with minutes", JSON.stringify(play("set a timer for 2 minutes").actions[0]) === JSON.stringify({ kind: "start_timer", seconds: 120 }));
+  check("timer with seconds", JSON.stringify(play("30 second timer").actions[0]) === JSON.stringify({ kind: "start_timer", seconds: 30 }));
+  check("bare timer defaults to a minute", JSON.stringify(play("start a timer").actions[0]) === JSON.stringify({ kind: "start_timer", seconds: 60 }));
   check("whose turn answers", play("whose turn is it?").reply.includes("Trip"));
   check("score question answers", play("what's the score?").reply.includes("Trip 12"));
   check("unknown is graceful", play("blorp the fizz").actions.length === 0);

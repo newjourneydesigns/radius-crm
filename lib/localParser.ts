@@ -245,6 +245,24 @@ export function localPlay(req: InterpretRequest): InterpretResponse {
   }
   if (/flip a? ?coin|coin flip|heads or tails/.test(lower))
     return local("Flipping…", [{ kind: "flip_coin" }]);
+
+  // "set a timer for 2 minutes" / "30 second timer" / "start a timer"
+  const timer = lower.match(
+    /(?:(\d+)\s*(seconds?|secs?|minutes?|mins?)\s+timer)|(?:timer\s*(?:for)?\s*(\d+)?\s*(seconds?|secs?|minutes?|mins?)?)/
+  );
+  if (/timer/.test(lower) && timer) {
+    const n = parseNumber(timer[1] ?? timer[3] ?? "") ?? 1;
+    const unit = timer[2] ?? timer[4] ?? "minutes";
+    const seconds = /min|^m/.test(unit) ? n * 60 : n;
+    const mm = Math.floor(seconds / 60);
+    const ss = seconds % 60;
+    const label = mm
+      ? `${mm}:${String(ss).padStart(2, "0")}`
+      : `${ss} second${ss === 1 ? "" : "s"}`;
+    return local(`⏱ Timer set — ${label}. I'll chime when it's up.`, [
+      { kind: "start_timer", seconds },
+    ]);
+  }
   if (/pick (a|someone|a player|random)/.test(lower))
     return local("Drawing a name…", [{ kind: "pick_player" }]);
 

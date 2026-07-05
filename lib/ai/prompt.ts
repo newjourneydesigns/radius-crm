@@ -18,6 +18,7 @@ AiAction is one of:
 {"kind":"start_round"} {"kind":"win_round","player":string} {"kind":"advance_turn"}
 {"kind":"roll_dice","spec":string}   // e.g. "2d6", "d20+3", "d20 advantage"
 {"kind":"flip_coin"} {"kind":"pick_player"}
+{"kind":"start_timer","seconds":number}   // "set a timer for 2 minutes" -> 120
 {"kind":"add_note","text":string} {"kind":"add_house_rule","rule":string}
 {"kind":"finish_game","winners"?:string[]}`;
 
