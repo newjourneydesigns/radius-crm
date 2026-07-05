@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  /* Felt table: deep green with a lamplight vignette from above. */
+  background-color: #0c2b1c;
+  background-image:
+    radial-gradient(
+      1100px 520px at 50% -80px,
+      rgba(228, 180, 84, 0.1),
+      transparent 62%
+    ),
+    radial-gradient(
+      1400px 900px at 50% 110%,
+      rgba(0, 0, 0, 0.5),
+      transparent 60%
+    );
+  background-attachment: fixed;
+  min-height: 100dvh;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid #e4b454;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .felt-line {
+    border-color: rgba(239, 233, 216, 0.14);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
