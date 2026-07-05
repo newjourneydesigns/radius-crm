@@ -10,7 +10,12 @@ import ScoreBoard from "@/components/ScoreBoard";
 import Toolbar from "@/components/Toolbar";
 import { useGame } from "@/hooks/useGame";
 import { newId } from "@/lib/engine";
-import { createGame, isFavorite, toggleFavorite } from "@/lib/store";
+import {
+  createGame,
+  isFavorite,
+  toggleFavorite,
+  upsertRosterNames,
+} from "@/lib/store";
 
 export default function GamePage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -58,6 +63,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
 
   const rematch = () => {
     const id = newId();
+    upsertRosterNames(state.players.map((p) => p.name));
     createGame(
       id,
       [

@@ -6,7 +6,14 @@ import { useEffect, useState } from "react";
 import ChatPanel from "@/components/ChatPanel";
 import SetupProgress from "@/components/SetupProgress";
 import { deriveState, newId } from "@/lib/engine";
-import { createGame, listFavorites, listGames } from "@/lib/store";
+import {
+  createGame,
+  listFavorites,
+  listGames,
+  listRoster,
+  seedRosterFromHistory,
+  upsertRosterNames,
+} from "@/lib/store";
 import {
   AiAction,
   ChatMessage,
@@ -30,30 +37,30 @@ export default function HomePage() {
   const [thinking, setThinking] = useState(false);
   const [recent, setRecent] = useState<StoredGame[]>([]);
   const [favorites, setFavorites] = useState<FavoriteGame[]>([]);
-  const [recentPlayers, setRecentPlayers] = useState<string[]>([]);
+  const [playerChips, setPlayerChips] = useState<
+    { label: string; value: string }[]
+  >([]);
 
   useEffect(() => {
-    const games = listGames();
-    setRecent(games.slice(0, 5));
+    seedRosterFromHistory();
+    setRecent(listGames().slice(0, 5));
     setFavorites(listFavorites().slice(0, 6));
-    // Names from past games, most recent table first, for one-tap re-adding.
-    const names: string[] = [];
-    for (const g of games) {
-      const st = deriveState(g.events);
-      for (const p of st?.players ?? []) {
-        if (!names.some((n) => n.toLowerCase() === p.name.toLowerCase())) {
-          names.push(p.name);
-        }
-      }
-      if (names.length >= 6) break;
+    // The crew, regulars first — one tap each, or the whole crew at once.
+    const roster = listRoster();
+    const regulars = roster.filter((p) => p.regular).map((p) => p.name);
+    const chips = roster
+      .slice(0, 6)
+      .map((p) => ({ label: p.name, value: p.name }));
+    if (regulars.length >= 2) {
+      chips.unshift({ label: "The regulars", value: regulars.join(", ") });
     }
-    setRecentPlayers(names.slice(0, 6));
+    setPlayerChips(chips);
   }, []);
 
   const setupStarted = messages.length > 1;
   const askingForPlayers = draft?.step === "players";
   const chips =
-    askingForPlayers && recentPlayers.length ? recentPlayers : suggestions;
+    askingForPlayers && playerChips.length ? playerChips : suggestions;
 
   const startGame = (
     action: Extract<AiAction, { kind: "create_game" }>,
@@ -61,6 +68,7 @@ export default function HomePage() {
   ) => {
     const id = newId();
     const players = action.players.map((p) => ({ id: newId(), name: p.name }));
+    upsertRosterNames(players.map((p) => p.name));
     createGame(
       id,
       [

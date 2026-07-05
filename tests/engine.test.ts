@@ -11,6 +11,7 @@ import {
 } from "../lib/engine";
 import { localPlay, localSetup } from "../lib/localParser";
 import { lookupGame } from "../lib/registry";
+import * as store from "../lib/store";
 import { rollDice } from "../lib/tools";
 import {
   ChatMessage,
@@ -286,6 +287,84 @@ function setup(texts: string[], draft?: any) {
   check("target step suggests no-target", target.suggestions?.includes("No target"));
   const lost = play("blorp the fizz");
   check("play fallback suggests safe examples", (lost.suggestions ?? []).includes("What's the score?"));
+}
+
+// ---------- player roster (store) ----------
+{
+  // Minimal localStorage shim — store.ts only touches window.localStorage
+  // inside function bodies, so installing the mock here is early enough.
+  const mem = new Map<string, string>();
+  (globalThis as any).window = {
+    localStorage: {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => void mem.set(k, String(v)),
+      removeItem: (k: string) => void mem.delete(k),
+    },
+  };
+
+  store.upsertRosterNames(["Trip", "Erin"]);
+  store.upsertRosterNames(["trip", "Ashlyn"]); // case-insensitive dedupe
+  let roster = store.listRoster();
+  check("roster upsert dedupes by case", roster.length === 3, roster.map((p) => p.name));
+
+  check("add rejects duplicates", store.addRosterPlayer("ERIN") === false);
+  check("add rejects empty", store.addRosterPlayer("   ") === false);
+  check("add accepts new", store.addRosterPlayer("Zoe") === true);
+
+  const zoe = store.listRoster().find((p) => p.name === "Zoe")!;
+  store.toggleRegular(zoe.id);
+  check("regular toggles on", store.listRoster().find((p) => p.id === zoe.id)!.regular);
+  check("regulars sort first", store.listRoster()[0].id === zoe.id);
+
+  // Rename propagates into stored game history.
+  store.createGame(
+    "g1",
+    [
+      {
+        type: "game_created",
+        id: "e1",
+        ts: 1,
+        source: "manual",
+        definition: DEF,
+        players: [
+          { id: "p1", name: "Zoe" },
+          { id: "p2", name: "Trip" },
+        ],
+      },
+    ],
+    []
+  );
+  check("rename works", store.renameRosterPlayer(zoe.id, "Zoey") === true);
+  check(
+    "rename updates roster",
+    store.listRoster().some((p) => p.name === "Zoey") &&
+      !store.listRoster().some((p) => p.name === "Zoe")
+  );
+  const g1 = store.loadGame("g1")!;
+  const createdEv = g1.events[0] as Extract<GameEvent, { type: "game_created" }>;
+  check("rename propagates to history", createdEv.players[0].name === "Zoey");
+
+  // Rename onto an existing name merges the two entries.
+  const erin = store.listRoster().find((p) => p.name === "Erin")!;
+  store.toggleRegular(erin.id);
+  const trip = store.listRoster().find((p) => p.name === "Trip")!;
+  check("merge rename returns true", store.renameRosterPlayer(trip.id, "Erin") === true);
+  roster = store.listRoster();
+  check("merge collapses duplicates", roster.filter((p) => p.name === "Erin").length === 1);
+  check("merge keeps regular flag", roster.find((p) => p.name === "Erin")!.regular);
+  const g1b = store.loadGame("g1")!;
+  const createdEvB = g1b.events[0] as Extract<GameEvent, { type: "game_created" }>;
+  check("merge rename updates history too", createdEvB.players[1].name === "Erin");
+
+  store.deleteRosterPlayer(zoe.id);
+  check("delete removes from roster", !store.listRoster().some((p) => p.id === zoe.id));
+  check("delete leaves history alone", store.loadGame("g1") !== null);
+
+  // Seeding builds the roster from history when it's empty.
+  mem.delete("aisk:players");
+  store.seedRosterFromHistory();
+  const seeded = store.listRoster().map((p) => p.name);
+  check("seed from history", seeded.includes("Zoey") && seeded.includes("Erin"), seeded);
 }
 
 console.log(`\nAll ${n} checks passed.`);

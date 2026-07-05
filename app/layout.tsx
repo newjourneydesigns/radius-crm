@@ -52,6 +52,9 @@ export default function RootLayout({
               <Link href="/" className="hover:text-ink">
                 Table
               </Link>
+              <Link href="/players" className="hover:text-ink">
+                Players
+              </Link>
               <Link href="/history" className="hover:text-ink">
                 History
               </Link>

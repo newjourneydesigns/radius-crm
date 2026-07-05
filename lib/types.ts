@@ -132,6 +132,16 @@ export interface FavoriteGame {
   savedAt: number;
 }
 
+/** A person in the player database, independent of any single game. */
+export interface RosterPlayer {
+  id: string;
+  name: string;
+  /** Regulars are the recurring crew — offered first at setup. */
+  regular: boolean;
+  createdAt: number;
+  lastPlayedAt: number | null;
+}
+
 // ---------- AI actions (what the interpreter returns) ----------
 
 export type AiAction =

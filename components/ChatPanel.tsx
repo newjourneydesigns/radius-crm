@@ -41,7 +41,7 @@ export default function ChatPanel({
   /** Cap the transcript height (game screen keeps the scoreboard visible). */
   listHeightClass?: string;
   /** Tappable answers to the scorekeeper's last question. */
-  suggestions?: string[];
+  suggestions?: (string | { label: string; value: string })[];
   /** "send" fires the answer immediately; "compose" builds a list in the input. */
   suggestionMode?: "send" | "compose";
 }) {
@@ -62,17 +62,26 @@ export default function ChatPanel({
     onSend(text, "user_text");
   };
 
-  const tapSuggestion = (s: string) => {
+  const chips = suggestions.map((s) =>
+    typeof s === "string" ? { label: s, value: s } : s
+  );
+
+  const tapSuggestion = (value: string) => {
     if (thinking) return;
     if (suggestionMode === "compose") {
       setDraft((d) => {
         const parts = d.split(",").map((x) => x.trim()).filter(Boolean);
-        if (parts.some((p) => p.toLowerCase() === s.toLowerCase())) return d;
-        return [...parts, s].join(", ");
+        const incoming = value
+          .split(",")
+          .map((x) => x.trim())
+          .filter(
+            (x) => x && !parts.some((p) => p.toLowerCase() === x.toLowerCase())
+          );
+        return [...parts, ...incoming].join(", ");
       });
       inputRef.current?.focus();
     } else {
-      onSend(s, "user_text");
+      onSend(value, "user_text");
     }
   };
 
@@ -115,17 +124,17 @@ export default function ChatPanel({
       </div>
 
       <div className="sticky bottom-0 z-10 -mx-4 border-t felt-line bg-felt/95 px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 backdrop-blur">
-        {suggestions.length > 0 && !thinking && !speech.listening && (
+        {chips.length > 0 && !thinking && !speech.listening && (
           <div className="mb-3 flex flex-wrap gap-2" aria-label="Quick answers">
-            {suggestions.map((s) => (
+            {chips.map((s) => (
               <button
-                key={s}
+                key={s.label}
                 type="button"
                 data-testid="suggestion-chip"
-                onClick={() => tapSuggestion(s)}
+                onClick={() => tapSuggestion(s.value)}
                 className="rounded-full border border-gold/40 bg-felt-2 px-4 py-2 text-sm text-gold active:bg-felt-3"
               >
-                {suggestionMode === "compose" ? `+ ${s}` : s}
+                {suggestionMode === "compose" ? `+ ${s.label}` : s.label}
               </button>
             ))}
           </div>
