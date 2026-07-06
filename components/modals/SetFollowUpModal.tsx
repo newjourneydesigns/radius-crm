@@ -1,16 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import LeaderCombobox from '../ui/LeaderCombobox';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { buildTimeOptions15Min } from '../../lib/timeUtils';
-import { parseQuickAdd } from '../../lib/quickAddParser';
-
-function nowCST(): Date {
-  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
-}
 
 const TIME_OPTIONS_15_MIN = buildTimeOptions15Min('08:00');
 
@@ -26,7 +21,6 @@ export default function SetFollowUpModal({ isOpen, onClose, onSaved }: Props) {
   const { user } = useAuth();
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [selectedLeaderId, setSelectedLeaderId] = useState('');
-  const [quickInput, setQuickInput] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState('');
   const [followUpNote, setFollowUpNote] = useState('');
@@ -34,34 +28,15 @@ export default function SetFollowUpModal({ isOpen, onClose, onSaved }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const parsed = useMemo(
-    () => (quickInput.trim() ? parseQuickAdd(quickInput, nowCST()) : null),
-    [quickInput]
-  );
-
   useEffect(() => {
     if (!isOpen) return;
     setSelectedLeaderId('');
-    setQuickInput('');
     setFollowUpDate('');
     setFollowUpTime('');
     setFollowUpNote('');
     setError('');
     loadLeaders();
   }, [isOpen]);
-
-  const handleQuickInputChange = (value: string) => {
-    setQuickInput(value);
-    const result = value.trim() ? parseQuickAdd(value, nowCST()) : null;
-    setFollowUpNote(result ? result.title : '');
-    if (result?.dueDate) {
-      setFollowUpDate(result.dueDate);
-      setFollowUpTime(result.dueTime || '');
-    } else if (!value.trim()) {
-      setFollowUpDate('');
-      setFollowUpTime('');
-    }
-  };
 
   const loadLeaders = async () => {
     setIsLoading(true);
@@ -141,37 +116,6 @@ export default function SetFollowUpModal({ isOpen, onClose, onSaved }: Props) {
             {error}
           </div>
         )}
-
-        {/* Quick add */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Quick add
-          </label>
-          <input
-            type="text"
-            value={quickInput}
-            onChange={e => handleQuickInputChange(e.target.value)}
-            placeholder="Call Sarah tomorrow at 3pm"
-            className={inputClass}
-            disabled={isSaving}
-            autoFocus
-          />
-          {parsed && parsed.tokens.filter(t => t.type === 'date' || t.type === 'time').length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {parsed.tokens.filter(t => t.type === 'date' || t.type === 'time').map((t, i) => (
-                <span
-                  key={`${t.type}-${i}`}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                >
-                  {t.text}
-                </span>
-              ))}
-            </div>
-          )}
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
-            Type a date/time (&ldquo;tomorrow 3pm&rdquo;) to set the follow-up date. Everything below stays editable.
-          </p>
-        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

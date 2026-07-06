@@ -1,15 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import LeaderCombobox from '../ui/LeaderCombobox';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { parseQuickAdd } from '../../lib/quickAddParser';
-
-function nowCST(): Date {
-  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
-}
 
 type PrayerType = 'leader' | 'general';
 interface Leader { id: number; name: string; }
@@ -25,39 +20,21 @@ export default function AddPrayerModal({ isOpen, onClose, onSaved }: Props) {
   const [prayerType, setPrayerType] = useState<PrayerType>('leader');
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [selectedLeaderId, setSelectedLeaderId] = useState('');
-  const [quickInput, setQuickInput] = useState('');
   const [content, setContent] = useState('');
   const [prayDate, setPrayDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const parsed = useMemo(
-    () => (quickInput.trim() ? parseQuickAdd(quickInput, nowCST()) : null),
-    [quickInput]
-  );
-
   useEffect(() => {
     if (!isOpen) return;
     setPrayerType('leader');
     setSelectedLeaderId('');
-    setQuickInput('');
     setContent('');
     setPrayDate('');
     setError('');
     loadLeaders();
   }, [isOpen]);
-
-  const handleQuickInputChange = (value: string) => {
-    setQuickInput(value);
-    const result = value.trim() ? parseQuickAdd(value, nowCST()) : null;
-    setContent(result ? result.title : '');
-    if (result?.dueDate) {
-      setPrayDate(result.dueDate);
-    } else if (!value.trim()) {
-      setPrayDate('');
-    }
-  };
 
   const loadLeaders = async () => {
     setIsLoading(true);
@@ -116,37 +93,6 @@ export default function AddPrayerModal({ isOpen, onClose, onSaved }: Props) {
             {error}
           </div>
         )}
-
-        {/* Quick add */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Quick add
-          </label>
-          <input
-            type="text"
-            value={quickInput}
-            onChange={e => handleQuickInputChange(e.target.value)}
-            placeholder="Healing for Sarah next Friday"
-            className={inputClass}
-            disabled={isSaving}
-            autoFocus
-          />
-          {parsed && parsed.tokens.filter(t => t.type === 'date' || t.type === 'time').length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {parsed.tokens.filter(t => t.type === 'date' || t.type === 'time').map((t, i) => (
-                <span
-                  key={`${t.type}-${i}`}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                >
-                  {t.text}
-                </span>
-              ))}
-            </div>
-          )}
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
-            Type a date (&ldquo;next Friday&rdquo;) to set the Pray On date. Everything below stays editable.
-          </p>
-        </div>
 
         {/* Type toggle */}
         <div className="flex gap-1.5 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">

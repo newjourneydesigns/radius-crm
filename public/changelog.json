@@ -3,6 +3,36 @@
     "date": "2026-07-06",
     "date_display": "July 6, 2026",
     "date_iso": "2026-07-06",
+    "id": "toolkit-onboarding-practice-mirrors-real-form",
+    "type": "improvement",
+    "category": "Circles Toolkit",
+    "description": "The onboarding practice summary now mirrors the real Circle summary form: you can look someone up in CCB or add a guest by hand using the same fields, and the “Tell us more” questions (including the “did not meet” questions) are the real ones your team asks. Nothing in the practice run is saved or submitted.",
+    "page": "/circle-leader-toolkit/onboarding"
+  },
+  {
+    "date": "2026-07-06",
+    "date_display": "July 6, 2026",
+    "date_iso": "2026-07-06",
+    "id": "remove-fab-quick-add",
+    "type": "improvement",
+    "category": "Today",
+    "description": "Simplified the quick-action pop-ups from the “+” button: the “Quick add” free-text box has been removed from the Follow-Up, Connection, and Prayer forms. Fill in the fields directly instead.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-07-06",
+    "date_display": "July 6, 2026",
+    "date_iso": "2026-07-06",
+    "id": "remove-acpd-video-library",
+    "type": "improvement",
+    "category": "Help",
+    "description": "Removed the ACPD Video Library page and its link from the Help Center. The Help Center now leads with the “New to Radius? Start here.” walkthrough.",
+    "page": "/help"
+  },
+  {
+    "date": "2026-07-06",
+    "date_display": "July 6, 2026",
+    "date_iso": "2026-07-06",
     "id": "today-popover-clipping",
     "type": "fix",
     "category": "Today",
@@ -3627,8 +3657,7 @@
     "id": "acpd-use-case-videos",
     "type": "feature",
     "category": "Help",
-    "description": "New ACPD Video Library — 18 use case video slots covering daily triage, campaigns, bulk messaging, forms, notebooks, boards, list automations, and more. Videos are ready to fill in as recordings are made. Linked from the Help Center.",
-    "page": "/acpd-use-cases"
+    "description": "New ACPD Video Library — 18 use case video slots covering daily triage, campaigns, bulk messaging, forms, notebooks, boards, list automations, and more. Videos are ready to fill in as recordings are made. Linked from the Help Center."
   },
   {
     "date": "2026-06-27",
