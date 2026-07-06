@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { DateTime } from 'luxon';
 import { Plus, Trash2, X, CalendarDays, Check, Bell, BellOff, ChevronLeft, ChevronRight, MapPin, AlignLeft } from 'lucide-react';
@@ -259,7 +260,7 @@ function HeaderBtn({ onClick, title, active, disabled, children }: {
 const CALENDAR_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#84cc16'];
 
 function CalendarManager({
-  subscriptions, isSaving, error, onAdd, onToggle, onRemove, onClose,
+  subscriptions, isSaving, error, onAdd, onToggle, onRemove, onClose, anchorRef,
 }: {
   subscriptions: CalendarSubscription[];
   isSaving: boolean;
@@ -268,31 +269,58 @@ function CalendarManager({
   onToggle: (id: string, enabled: boolean) => void;
   onRemove: (id: string) => void;
   onClose: () => void;
+  anchorRef: React.RefObject<HTMLElement>;
 }) {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [color, setColor] = useState(CALENDAR_COLORS[0]);
   const ref = useRef<HTMLDivElement>(null);
+  // Rendered in a portal with fixed coords, anchored to the Calendars button, so
+  // it escapes the timeline card's `overflow: hidden` clip instead of being cut off.
+  const [pos, setPos] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const place = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const width = Math.min(320, window.innerWidth - 16);
+      const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+      const top = rect.bottom + 6;
+      setPos({ left, top, width, maxHeight: window.innerHeight - top - 12 });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [anchorRef]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || anchorRef.current?.contains(t)) return;
+      onClose();
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
+  }, [onClose, anchorRef]);
 
   const submit = async () => {
     const ok = await onAdd(name, url, color);
     if (ok) { setName(''); setUrl(''); }
   };
 
-  return (
+  if (!pos) return null;
+
+  return createPortal(
     <div ref={ref} style={{
-      position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50,
-      width: 320, maxWidth: 'calc(100vw - 32px)',
+      position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000,
+      width: pos.width, maxHeight: pos.maxHeight,
       background: '#171a23', border: `1px solid ${T.cardBorder}`, borderRadius: 12,
-      boxShadow: '0 16px 40px rgba(0,0,0,0.5)', overflow: 'hidden',
+      boxShadow: '0 16px 40px rgba(0,0,0,0.5)', overflowX: 'hidden', overflowY: 'auto',
     }}>
       <div style={{
         padding: '10px 14px', borderBottom: `1px solid ${T.cardBorder}`,
@@ -395,7 +423,8 @@ function CalendarManager({
         </div>
         {error && <p style={{ margin: 0, fontSize: 11, color: T.red }}>{error}</p>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -843,6 +872,7 @@ export default function DayTimeline({
   const [remindersOn, setRemindersOn] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const calBtnRef = useRef<HTMLButtonElement>(null);
   const nowMin = useNowMinutes();
   const loaded = useRef(false);
 
@@ -999,6 +1029,7 @@ export default function DayTimeline({
           )}
           <div style={{ position: 'relative' }}>
             <button
+              ref={calBtnRef}
               onClick={() => setShowCalendars(v => !v)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -1022,6 +1053,7 @@ export default function DayTimeline({
                 onToggle={onToggleCalendar}
                 onRemove={onRemoveCalendar}
                 onClose={() => setShowCalendars(false)}
+                anchorRef={calBtnRef}
               />
             )}
           </div>

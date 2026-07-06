@@ -1,5 +1,25 @@
 [
   {
+    "date": "2026-07-06",
+    "date_display": "July 6, 2026",
+    "date_iso": "2026-07-06",
+    "id": "today-popover-clipping",
+    "type": "fix",
+    "category": "Today",
+    "description": "Reschedule and Calendars menus on the Today page no longer get cut off or hidden behind other sections — they now float above everything instead of being clipped by their card.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-07-06",
+    "date_display": "July 6, 2026",
+    "date_iso": "2026-07-06",
+    "id": "blog-editor-full-page",
+    "type": "improvement",
+    "category": "Settings",
+    "description": "Creating or editing a Radius Blog post now opens a clean full-page editor instead of a cramped, scrolling pop-up — with more room to write and the Publish/Cancel actions kept in view.",
+    "page": "/settings"
+  },
+  {
     "date": "2026-07-05",
     "date_display": "July 5, 2026",
     "date_iso": "2026-07-05",

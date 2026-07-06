@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { DateTime } from 'luxon';
 import {
@@ -375,32 +376,56 @@ function RescheduleBtn({ onPick, includeToday = true, label }: {
   label?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [openUp, setOpenUp] = useState(false);
+  // Menu is rendered in a portal with fixed coords so it escapes the section's
+  // `overflow: hidden` clip and the local stacking context (z-index was being
+  // trapped, so the menu stacked behind sibling sections).
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const opts = rescheduleOptions(includeToday);
   const pick = (date: string) => { setOpen(false); onPick(date); };
+
+  const MENU_W = 200;
+  // Rough menu height: each option row + the "Pick a date" row, plus padding.
+  const MENU_H = (opts.length + 1) * 36 + 24;
 
   const handleOpen = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!open && wrapRef.current) {
       const rect = wrapRef.current.getBoundingClientRect();
-      // menu is ~180px tall; flip up if not enough space below
-      setOpenUp(rect.bottom + 186 > window.innerHeight);
+      // Right-align the menu to the button, clamped to the viewport.
+      const left = Math.max(8, Math.min(rect.right - MENU_W, window.innerWidth - MENU_W - 8));
+      // Flip up if there isn't enough room below.
+      const flipUp = rect.bottom + MENU_H + 8 > window.innerHeight;
+      setPos(flipUp
+        ? { left, bottom: window.innerHeight - rect.top + 6 }
+        : { left, top: rect.bottom + 6 });
     }
     setOpen(v => !v);
   };
 
   // Close on a genuine outside tap. The listener is attached only after the menu
-  // is open (next commit), so the same gesture that opened it can't immediately
-  // close it. Replaces a full-screen fixed backdrop that, on mobile, could
-  // swallow taps meant for the menu and dismiss it before a date was picked.
+  // is open, so the same gesture that opened it can't immediately close it.
+  // Because the menu is portaled out of `wrapRef`, taps inside it are checked
+  // against `menuRef` too — otherwise picking a date would count as "outside"
+  // and dismiss the menu before the click landed. Also close on scroll/resize
+  // since fixed coords don't track the page.
   useEffect(() => {
     if (!open) return;
     const handle = (e: Event) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
+    const close = () => setOpen(false);
     document.addEventListener('pointerdown', handle);
-    return () => document.removeEventListener('pointerdown', handle);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('pointerdown', handle);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
   }, [open]);
 
   const rowStyle: React.CSSProperties = {
@@ -426,12 +451,12 @@ function RescheduleBtn({ onPick, includeToday = true, label }: {
         </svg>
         {label || 'Reschedule'}
       </button>
-      {open && (
-        <div style={{
-          position: 'absolute', right: 0, zIndex: 9999,
-          ...(openUp ? { bottom: 'calc(100% + 6px)' } : { top: 'calc(100% + 6px)' }),
+      {open && pos && createPortal(
+        <div ref={menuRef} style={{
+          position: 'fixed', left: pos.left, zIndex: 9999,
+          ...(pos.top != null ? { top: pos.top } : { bottom: pos.bottom }),
           background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 10,
-          padding: 6, minWidth: 184, boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+          padding: 6, width: MENU_W, boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
         }}>
           {opts.map(o => (
             <button key={o.label} onClick={() => pick(o.date)} style={rowStyle} className="today-resched-row">
@@ -452,7 +477,8 @@ function RescheduleBtn({ onPick, includeToday = true, label }: {
               }}
             />
           </label>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

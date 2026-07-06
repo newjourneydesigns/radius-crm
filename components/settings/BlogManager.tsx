@@ -143,6 +143,132 @@ export default function BlogManager() {
     }
   }
 
+  // Full-page editor — replaces the list while creating or editing, so the post
+  // flows with the page instead of being crammed into a scrolling overlay pane.
+  if (modal) {
+    return (
+      <div>
+        {/* Editor header */}
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={closeModal}
+              className="p-2 -ml-2 shrink-0 text-slate-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+              title="Back to posts"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-white">
+                {modal === 'create' ? 'New post' : 'Edit post'}
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {modal === 'create'
+                  ? 'Draft a new article for the Radius Blog.'
+                  : 'Update this Radius Blog article.'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={closeModal}
+              className="px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-white bg-btn-primary rounded-lg hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              {saving ? 'Saving…' : modal === 'create' ? 'Publish' : 'Save changes'}
+            </button>
+          </div>
+        </div>
+
+        {/* Form */}
+        <div className="max-w-3xl space-y-5">
+          {/* Title */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Title</label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={e => handleTitleChange(e.target.value)}
+              placeholder="e.g. How to use the Boards feature"
+              className="w-full px-3 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* YouTube URL */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">YouTube URL</label>
+            <input
+              type="url"
+              value={form.youtube_url}
+              onChange={e => setForm(prev => ({ ...prev, youtube_url: e.target.value }))}
+              placeholder="https://www.youtube.com/watch?v=…"
+              className="w-full px-3 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Description</label>
+            <div className="rounded-lg border border-zinc-700 overflow-hidden">
+              <RichTextEditor
+                value={form.description}
+                onChange={html => setForm(prev => ({ ...prev, description: html }))}
+                placeholder="Add context, instructions, or links…"
+                minHeight="280px"
+              />
+            </div>
+          </div>
+
+          {/* Posted date + Slug row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Posted date</label>
+              <input
+                type="date"
+                value={form.posted_at}
+                onChange={e => setForm(prev => ({ ...prev, posted_at: e.target.value }))}
+                className="w-full px-3 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Slug</label>
+              <input
+                type="text"
+                value={form.slug}
+                onChange={e => setForm(prev => ({ ...prev, slug: slugify(e.target.value) }))}
+                placeholder="my-post-title"
+                className="w-full px-3 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Published toggle */}
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div
+              onClick={() => setForm(prev => ({ ...prev, published: !prev.published }))}
+              className={`relative w-9 h-5 rounded-full transition-colors ${form.published ? 'bg-vc-500' : 'bg-zinc-700'}`}
+            >
+              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.published ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </div>
+            <span className="text-sm text-slate-300">{form.published ? 'Published' : 'Draft'}</span>
+          </label>
+
+          {error && (
+            <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Header row */}
@@ -218,117 +344,6 @@ export default function BlogManager() {
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Create / Edit modal */}
-      {modal && (
-        <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto py-8 px-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-2xl bg-[#1a1c22] border border-white/[0.08] rounded-2xl shadow-2xl">
-            {/* Modal header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-              <h3 className="text-base font-semibold text-white">
-                {modal === 'create' ? 'New post' : 'Edit post'}
-              </h3>
-              <button onClick={closeModal} className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Modal body */}
-            <div className="px-6 py-5 space-y-4">
-              {/* Title */}
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">Title</label>
-                <input
-                  type="text"
-                  value={form.title}
-                  onChange={e => handleTitleChange(e.target.value)}
-                  placeholder="e.g. How to use the Boards feature"
-                  className="w-full px-3 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* YouTube URL */}
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">YouTube URL</label>
-                <input
-                  type="url"
-                  value={form.youtube_url}
-                  onChange={e => setForm(prev => ({ ...prev, youtube_url: e.target.value }))}
-                  placeholder="https://www.youtube.com/watch?v=…"
-                  className="w-full px-3 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">Description</label>
-                <div className="rounded-lg border border-zinc-700 overflow-hidden">
-                  <RichTextEditor
-                    value={form.description}
-                    onChange={html => setForm(prev => ({ ...prev, description: html }))}
-                    placeholder="Add context, instructions, or links…"
-                    minHeight="160px"
-                  />
-                </div>
-              </div>
-
-              {/* Posted date + Slug row */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">Posted date</label>
-                  <input
-                    type="date"
-                    value={form.posted_at}
-                    onChange={e => setForm(prev => ({ ...prev, posted_at: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">Slug</label>
-                  <input
-                    type="text"
-                    value={form.slug}
-                    onChange={e => setForm(prev => ({ ...prev, slug: slugify(e.target.value) }))}
-                    placeholder="my-post-title"
-                    className="w-full px-3 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Published toggle */}
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <div
-                  onClick={() => setForm(prev => ({ ...prev, published: !prev.published }))}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${form.published ? 'bg-vc-500' : 'bg-zinc-700'}`}
-                >
-                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.published ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                </div>
-                <span className="text-sm text-slate-300">{form.published ? 'Published' : 'Draft'}</span>
-              </label>
-
-              {error && (
-                <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>
-              )}
-            </div>
-
-            {/* Modal footer */}
-            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-white/[0.06]">
-              <button onClick={closeModal} className="px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors">
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-white bg-btn-primary rounded-lg hover:opacity-90 transition-opacity disabled:opacity-60"
-              >
-                {saving ? 'Saving…' : modal === 'create' ? 'Publish' : 'Save changes'}
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
