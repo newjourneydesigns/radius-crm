@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-07-07",
+    "date_display": "July 7, 2026",
+    "date_iso": "2026-07-07",
+    "id": "campaign-send-imessage-stale-clipboard",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Fixed the follow-up panel's Send iMessage buttons pasting the first person's message to everyone. Opening Messages could interrupt the copy for the second person onward, leaving the first recipient's personalized text on your clipboard — so {{first_name}} looked like it never re-personalized. The copy now completes before Messages opens, so each paste matches the person you clicked.",
+    "page": "/campaigns"
+  },
+  {
     "date": "2026-07-06",
     "date_display": "July 6, 2026",
     "date_iso": "2026-07-06",

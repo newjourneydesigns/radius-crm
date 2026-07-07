@@ -967,10 +967,18 @@ export default function CampaignDetailPage() {
     }
   }
 
-  function sendMessage(person: CampaignPerson) {
+  async function sendMessage(person: CampaignPerson) {
     if (!campaign) return;
     const msg = resolveMessage(msgTemplate, person, campaign);
-    navigator.clipboard.writeText(msg).catch(() => {});
+    // The copy must finish before the sms: launch — Messages steals document
+    // focus, which rejects a still-pending writeText and leaves the previous
+    // recipient's personalized message on the clipboard.
+    try {
+      await navigator.clipboard.writeText(msg);
+    } catch {
+      // Fall through — the sms: body still carries the message on platforms
+      // that honor it.
+    }
     setSentIds(prev => new Set(prev).add(person.id));
     const phone = normalizePhone(bestPhone(person));
     if (phone) window.location.href = `sms:${phone}&body=${encodeURIComponent(msg)}`;
