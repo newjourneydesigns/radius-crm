@@ -6,7 +6,17 @@
     "id": "companion-messages-preflight",
     "type": "fix",
     "category": "Bulk Message",
-    "description": "Auto Send no longer reports \"sent\" when nothing actually went out. Before a batch starts, RADIUS now checks that the Messages app is open, signed in to iMessage, and the account is enabled — and shows exactly what to fix if it isn't. If Messages quits mid-batch, the remaining messages are marked failed instead of silently succeeding. Requires the Mac Companion update (v1.3.0) — the amber banner will prompt you to rerun the install command.",
+    "description": "Auto Send no longer reports \"sent\" when nothing actually went out. Before a batch starts, RADIUS now checks that the Messages app is open, signed in to iMessage, and the account is enabled — and shows exactly what to fix if it isn't. If Messages quits mid-batch, the remaining messages are marked failed instead of silently succeeding. Requires the Mac Companion update (v1.3.0).",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-07-07",
+    "date_display": "July 7, 2026",
+    "date_iso": "2026-07-07",
+    "id": "companion-forced-update-and-guide",
+    "type": "improvement",
+    "category": "Bulk Message",
+    "description": "When your Mac Companion is out of date, Auto Send is now paused until you update it — an out-of-date companion is exactly the one that could report messages as sent when they never went out, so we no longer let it run. Both Bulk Message and Campaigns show a clear \"Update required\" message with a Show me how button. That button (and Settings → Mac Companion) opens a plain-English, step-by-step guide that walks you through opening Terminal, running the command, granting the Messages permission, and confirming it connected — no technical experience needed.",
     "page": "/bulk-message"
   },
   {

@@ -13,6 +13,7 @@ import ServiceWorkerUtils from '../../components/ServiceWorkerUtils';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { haptic, isHapticsEnabled, setHapticsEnabled } from '../../lib/haptics';
 import { useMacCompanion } from '../../hooks/useMacCompanion';
+import CompanionGuideModal from '../../components/companion/CompanionGuideModal';
 
 interface Director {
   id: number;
@@ -58,6 +59,7 @@ export default function SettingsPage() {
 
   const companion = useMacCompanion();
   const [copiedInstall, setCopiedInstall] = useState(false);
+  const [showCompanionGuide, setShowCompanionGuide] = useState(false);
 
   const handleCopyInstall = () => {
     navigator.clipboard.writeText('curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash');
@@ -1521,12 +1523,10 @@ export default function SettingsPage() {
                   {companion.available === null ? (
                     <span className="text-xs text-gray-400 dark:text-gray-500">Checking status...</span>
                   ) : companion.available ? (
-                    <>
-                      <span className="flex items-center gap-1.5 text-xs text-green-500">
-                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                        {companion.needsUpdate ? 'Running — update available' : 'Running — up to date'}
-                      </span>
-                    </>
+                    <span className={`flex items-center gap-1.5 text-xs ${companion.needsUpdate ? 'text-rose-500' : 'text-green-500'}`}>
+                      <span className={`w-2 h-2 rounded-full ${companion.needsUpdate ? 'bg-rose-400' : 'bg-green-400 animate-pulse'}`} />
+                      {companion.needsUpdate ? 'Running — update required' : 'Running — up to date'}
+                    </span>
                   ) : (
                     <span className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
                       <span className="w-2 h-2 rounded-full bg-gray-400" />
@@ -1541,8 +1541,36 @@ export default function SettingsPage() {
                   </button>
                 </div>
 
+                {companion.available === true && companion.needsUpdate && (
+                  <div className="mb-4 rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-900/20 px-5 py-4">
+                    <p className="text-sm font-semibold text-rose-800 dark:text-rose-200">Your companion is out of date</p>
+                    <p className="text-xs text-rose-700 dark:text-rose-300/90 mt-1 leading-relaxed">
+                      The version on your Mac is missing an important fix — older versions could report
+                      messages as sent when they never went out. Auto Send is paused until you update.
+                    </p>
+                  </div>
+                )}
+
                 <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-5 py-4">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Install or update — run this in Terminal on your Mac</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {companion.available && !companion.needsUpdate ? 'Reinstall or update' : companion.needsUpdate ? 'Update the companion' : 'Set up the companion'}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        New to this? We’ll walk you through every step — opening Terminal, running the
+                        command, and granting permission.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowCompanionGuide(true)}
+                      className="shrink-0 text-sm font-semibold px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                    >
+                      Show me how
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 mb-2">Or, if you’re comfortable in Terminal, run this on your Mac:</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs font-mono text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg truncate">
                       curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash
@@ -1555,6 +1583,19 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
+
+                <CompanionGuideModal
+                  isOpen={showCompanionGuide}
+                  onClose={() => setShowCompanionGuide(false)}
+                  mode={companion.available === true && companion.needsUpdate ? 'update' : 'install'}
+                  statusLabel={
+                    companion.available === null ? 'Checking…'
+                      : companion.available ? (companion.needsUpdate ? 'Running — update required' : 'Running — up to date')
+                      : 'Not running'
+                  }
+                  onRecheck={companion.recheck}
+                  checking={companion.available === null}
+                />
               </div>
             </div>
           )}

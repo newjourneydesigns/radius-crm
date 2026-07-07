@@ -8,6 +8,7 @@ import { supabase, CircleLeader } from '../../lib/supabase';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
 import { useMacCompanion } from '../../hooks/useMacCompanion';
+import CompanionGuideModal from '../../components/companion/CompanionGuideModal';
 import { apiFetch } from '../../lib/apiClient';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -223,13 +224,13 @@ function BulkMessageContent() {
   const [savedIndex, setSavedIndex] = useState<number | null>(null);
   const [logs, setLogs] = useState<SendLog[]>([]);
   const [copyFeedback, setCopyFeedback] = useState(false);
-  const [copiedInstall, setCopiedInstall] = useState(false);
 
   // Auto Send (companion) state
   const companion = useMacCompanion();
   const [autoEntries, setAutoEntries] = useState<AutoSendEntry[]>([]);
   const [autoSendError, setAutoSendError] = useState<string | null>(null);
   const [autoSendChecking, setAutoSendChecking] = useState(false);
+  const [showCompanionGuide, setShowCompanionGuide] = useState(false);
   const autoAbortRef = useRef(false);
   const autoListRef = useRef<HTMLDivElement>(null);
 
@@ -586,6 +587,12 @@ function BulkMessageContent() {
 
   const handleStartAutoSend = async () => {
     if (recipients.length === 0 || !message.trim() || !companion.available) return;
+    // An out-of-date companion is the one that can silently fake "sent" — force
+    // the update rather than trusting it.
+    if (companion.needsUpdate) {
+      setShowCompanionGuide(true);
+      return;
+    }
     setAutoSendError(null);
     setAutoSendChecking(true);
     const pre = await companion.preflight();
@@ -1594,29 +1601,33 @@ function BulkMessageContent() {
                     </button>
                   )}
 
-                  {/* Auto Send — only visible when companion is running */}
+                  {/* Auto Send — requires the companion running AND up to date.
+                      An out-of-date companion is blocked because older versions
+                      could report messages as sent when nothing went out. */}
                   {companion.available === true && companion.needsUpdate && (
-                    <div className="border-t border-amber-500/20 bg-amber-500/5 px-4 py-3 flex items-start gap-2.5">
-                      <svg className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                      </svg>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-amber-400">Companion update available</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Run the install command in Terminal to get throttling and notifications.</p>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText('curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash');
-                            setCopiedInstall(true);
-                            setTimeout(() => setCopiedInstall(false), 2000);
-                          }}
-                          className="mt-1.5 text-[10px] font-medium text-amber-400 hover:text-amber-300 transition-colors"
-                        >
-                          {copiedInstall ? 'Copied!' : 'Copy install command'}
-                        </button>
+                    <div className="border-t border-rose-500/20 bg-rose-500/5 px-4 py-4 space-y-3">
+                      <div className="flex items-start gap-2.5">
+                        <svg className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-rose-300">Update required before you can Auto Send</p>
+                          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                            The companion on your Mac is out of date. Older versions could report messages
+                            as sent when they never went out — so Auto Send is paused until you update. It
+                            takes about a minute.
+                          </p>
+                        </div>
                       </div>
+                      <button
+                        onClick={() => setShowCompanionGuide(true)}
+                        className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold rounded-lg transition-colors"
+                      >
+                        Show me how to update
+                      </button>
                     </div>
                   )}
-                  {companion.available === true && (
+                  {companion.available === true && !companion.needsUpdate && (
                     <div className="px-3 pt-3">
                       <button
                         onClick={handleStartAutoSend}
@@ -1642,31 +1653,20 @@ function BulkMessageContent() {
                         <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">Not installed</span>
                       </div>
                       <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Install the Mac Companion to send the whole list automatically — no tapping through each message.
+                        Set up the Mac Companion once to send the whole list automatically — no tapping
+                        through each message. We’ll walk you through it step by step.
                       </p>
-                      <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 flex items-center gap-2">
-                        <code className="text-[11px] text-emerald-400 font-mono flex-1 min-w-0 truncate">
-                          curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash
-                        </code>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText('curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash');
-                            setCopiedInstall(true);
-                            setTimeout(() => setCopiedInstall(false), 2000);
-                          }}
-                          className="flex-shrink-0 text-[10px] font-medium text-slate-400 hover:text-white transition-colors"
-                        >
-                          {copiedInstall ? 'Copied!' : 'Copy'}
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-slate-500">
-                        Run this once in Terminal. macOS will ask for permission to use Messages — click Allow.
-                      </p>
+                      <button
+                        onClick={() => setShowCompanionGuide(true)}
+                        className="w-full py-2.5 bg-[#0A7FF5] hover:bg-[#0A7FF5]/90 text-white text-sm font-semibold rounded-lg transition-colors"
+                      >
+                        Show me how to set it up
+                      </button>
                       <button
                         onClick={companion.recheck}
                         className="w-full text-[11px] text-slate-400 hover:text-white py-2 rounded-lg hover:bg-slate-700/50 border border-slate-700/50 hover:border-slate-600 transition-all"
                       >
-                        Check again after installing
+                        I’ve installed it — check again
                       </button>
                     </div>
                   )}
@@ -1923,6 +1923,19 @@ function BulkMessageContent() {
 
       {/* Bottom safe area padding for mobile */}
       <div className="h-20 md:h-0" />
+
+      <CompanionGuideModal
+        isOpen={showCompanionGuide}
+        onClose={() => setShowCompanionGuide(false)}
+        mode={companion.available === true && companion.needsUpdate ? 'update' : 'install'}
+        statusLabel={
+          companion.available === null ? 'Checking…'
+            : companion.available ? (companion.needsUpdate ? 'Running — update required' : 'Running — up to date')
+            : 'Not running'
+        }
+        onRecheck={companion.recheck}
+        checking={companion.available === null}
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import Modal from '../../../components/ui/Modal';
 import { Campaign, CampaignPerson } from '../../../hooks/useCampaigns';
 import { normalizePhone } from '../../../lib/phoneUtils';
 import { useMacCompanion } from '../../../hooks/useMacCompanion';
+import CompanionGuideModal from '../../../components/companion/CompanionGuideModal';
 import { attrValues } from '../../../lib/campaigns/parseRoster';
 import { StickyNote, ChevronDown, ChevronUp, Download, Trash2, Check, X } from 'lucide-react';
 
@@ -378,7 +379,7 @@ export default function CampaignDetailPage() {
   const [isAutoSending, setIsAutoSending] = useState(false);
   const [autoProgress, setAutoProgress] = useState<{ done: number; total: number } | null>(null);
   const [autoSendError, setAutoSendError] = useState<string | null>(null);
-  const [copiedInstall, setCopiedInstall] = useState(false);
+  const [showCompanionGuide, setShowCompanionGuide] = useState(false);
   // Active column filters: { columnKey: selectedValue }. Multiple columns AND together.
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [sortCol, setSortCol] = useState<string | null>(null);
@@ -987,6 +988,12 @@ export default function CampaignDetailPage() {
 
   async function handleAutoSendAll() {
     if (!selectedPeople.length || !msgTemplate.trim() || !companion.available || !campaign) return;
+    // An out-of-date companion is the one that can silently fake "sent" — force
+    // the update rather than trusting it.
+    if (companion.needsUpdate) {
+      setShowCompanionGuide(true);
+      return;
+    }
     setAutoSendError(null);
     const pre = await companion.preflight();
     if (!pre.ok) {
@@ -2355,29 +2362,9 @@ export default function CampaignDetailPage() {
           {/* Multi-person list */}
           {selectedPeople.length > 1 && (
             <div>
-              {companion.available === true && companion.needsUpdate && (
-                <div className="mb-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2 flex items-start gap-2">
-                  <svg className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                  </svg>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-semibold text-amber-400">Companion update available</p>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText('curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash');
-                        setCopiedInstall(true);
-                        setTimeout(() => setCopiedInstall(false), 2000);
-                      }}
-                      className="text-[10px] text-slate-400 hover:text-white transition-colors"
-                    >
-                      {copiedInstall ? 'Copied!' : 'Copy install command'}
-                    </button>
-                  </div>
-                </div>
-              )}
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">All selected</p>
-                {companion.available === true && (
+                {companion.available === true && !companion.needsUpdate && (
                   <button
                     onClick={handleAutoSendAll}
                     disabled={isAutoSending || !msgTemplate.trim()}
@@ -2389,34 +2376,50 @@ export default function CampaignDetailPage() {
                   </button>
                 )}
               </div>
-              {autoSendError && (
-                <div className="mb-2 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
-                  <p className="text-[11px] text-rose-300 leading-relaxed">{autoSendError}</p>
+              {/* An out-of-date companion could report messages as sent when
+                  nothing went out — block Auto Send until it's updated. */}
+              {companion.available === true && companion.needsUpdate && (
+                <div className="mb-3 bg-rose-500/5 border border-rose-500/20 rounded-lg px-3 py-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-rose-300">Update required before you can Auto Send</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        The companion on your Mac is out of date. Older versions could report messages as
+                        sent when they never went out.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowCompanionGuide(true)}
+                    className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    Show me how to update
+                  </button>
                 </div>
               )}
               {companion.available === false && (
                 <div className="mb-3 bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-3 space-y-2">
-                  <p className="text-[11px] text-slate-400">
-                    Install the Mac Companion to auto-send to everyone at once.
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Set up the Mac Companion once to auto-send to everyone at once. We’ll walk you
+                    through it step by step.
                   </p>
-                  <div className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
-                    <code className="text-[10px] text-emerald-400 font-mono flex-1 min-w-0 truncate">
-                      curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash
-                    </code>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText('curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash');
-                        setCopiedInstall(true);
-                        setTimeout(() => setCopiedInstall(false), 2000);
-                      }}
-                      className="flex-shrink-0 text-[10px] text-slate-400 hover:text-white transition-colors"
-                    >
-                      {copiedInstall ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
-                  <button onClick={companion.recheck} className="text-[10px] text-slate-500 hover:text-slate-300 underline transition-colors">
-                    Check again after installing
+                  <button
+                    onClick={() => setShowCompanionGuide(true)}
+                    className="w-full py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    Show me how to set it up
                   </button>
+                  <button onClick={companion.recheck} className="text-[10px] text-slate-500 hover:text-slate-300 underline transition-colors">
+                    I’ve installed it — check again
+                  </button>
+                </div>
+              )}
+              {autoSendError && (
+                <div className="mb-2 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                  <p className="text-[11px] text-rose-300 leading-relaxed">{autoSendError}</p>
                 </div>
               )}
               <div className="divide-y divide-zinc-800/70 rounded-lg border border-zinc-700 overflow-hidden">
@@ -2485,6 +2488,19 @@ export default function CampaignDetailPage() {
           </div>
         </div>
       </Modal>
+
+      <CompanionGuideModal
+        isOpen={showCompanionGuide}
+        onClose={() => setShowCompanionGuide(false)}
+        mode={companion.available === true && companion.needsUpdate ? 'update' : 'install'}
+        statusLabel={
+          companion.available === null ? 'Checking…'
+            : companion.available ? (companion.needsUpdate ? 'Running — update required' : 'Running — up to date')
+            : 'Not running'
+        }
+        onRecheck={companion.recheck}
+        checking={companion.available === null}
+      />
     </ProtectedRoute>
   );
 }
