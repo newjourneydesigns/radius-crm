@@ -228,6 +228,8 @@ function BulkMessageContent() {
   // Auto Send (companion) state
   const companion = useMacCompanion();
   const [autoEntries, setAutoEntries] = useState<AutoSendEntry[]>([]);
+  const [autoSendError, setAutoSendError] = useState<string | null>(null);
+  const [autoSendChecking, setAutoSendChecking] = useState(false);
   const autoAbortRef = useRef(false);
   const autoListRef = useRef<HTMLDivElement>(null);
 
@@ -574,6 +576,7 @@ function BulkMessageContent() {
     setSavedIndex(null);
     setLogs([]);
     setAutoEntries([]);
+    setAutoSendError(null);
     autoAbortRef.current = false;
   };
 
@@ -581,8 +584,16 @@ function BulkMessageContent() {
     autoAbortRef.current = true;
   };
 
-  const handleStartAutoSend = () => {
+  const handleStartAutoSend = async () => {
     if (recipients.length === 0 || !message.trim() || !companion.available) return;
+    setAutoSendError(null);
+    setAutoSendChecking(true);
+    const pre = await companion.preflight();
+    setAutoSendChecking(false);
+    if (!pre.ok) {
+      setAutoSendError(pre.error || 'Messages is not ready to send.');
+      return;
+    }
     const entries: AutoSendEntry[] = recipients.map(r => ({ recipient: r, status: 'pending' }));
     setAutoEntries(entries);
     autoAbortRef.current = false;
@@ -1609,14 +1620,19 @@ function BulkMessageContent() {
                     <div className="px-3 pt-3">
                       <button
                         onClick={handleStartAutoSend}
-                        disabled={recipients.length === 0 || !message.trim()}
+                        disabled={recipients.length === 0 || !message.trim() || autoSendChecking}
                         className="w-full py-3 bg-vc-fab hover:opacity-90 disabled:bg-gray-800 disabled:text-gray-600 text-white transition-all rounded-xl flex flex-col items-center justify-center gap-0.5 shadow-glow-vc disabled:shadow-none"
                       >
                         <span className="font-bold text-sm uppercase tracking-tight">
-                          {recipients.length === 0 ? 'Auto Send' : `Auto Send (${recipients.length})`}
+                          {autoSendChecking ? 'Checking Messages…' : recipients.length === 0 ? 'Auto Send' : `Auto Send (${recipients.length})`}
                         </span>
                         <span className="text-[10px] font-normal opacity-75">sends automatically — hands off</span>
                       </button>
+                      {autoSendError && (
+                        <div className="mt-2 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                          <p className="text-[11px] text-rose-300 leading-relaxed">{autoSendError}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                   {companion.available === false && (

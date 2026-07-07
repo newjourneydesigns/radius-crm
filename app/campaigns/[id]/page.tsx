@@ -377,6 +377,7 @@ export default function CampaignDetailPage() {
   const companion = useMacCompanion();
   const [isAutoSending, setIsAutoSending] = useState(false);
   const [autoProgress, setAutoProgress] = useState<{ done: number; total: number } | null>(null);
+  const [autoSendError, setAutoSendError] = useState<string | null>(null);
   const [copiedInstall, setCopiedInstall] = useState(false);
   // Active column filters: { columnKey: selectedValue }. Multiple columns AND together.
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -986,6 +987,12 @@ export default function CampaignDetailPage() {
 
   async function handleAutoSendAll() {
     if (!selectedPeople.length || !msgTemplate.trim() || !companion.available || !campaign) return;
+    setAutoSendError(null);
+    const pre = await companion.preflight();
+    if (!pre.ok) {
+      setAutoSendError(pre.error || 'Messages is not ready to send.');
+      return;
+    }
     setIsAutoSending(true);
     setAutoProgress({ done: 0, total: selectedPeople.length });
     const delayMs = selectedPeople.length < 25 ? 0 : selectedPeople.length < 100 ? 1000 : 2000;
@@ -2382,6 +2389,11 @@ export default function CampaignDetailPage() {
                   </button>
                 )}
               </div>
+              {autoSendError && (
+                <div className="mb-2 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                  <p className="text-[11px] text-rose-300 leading-relaxed">{autoSendError}</p>
+                </div>
+              )}
               {companion.available === false && (
                 <div className="mb-3 bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-3 space-y-2">
                   <p className="text-[11px] text-slate-400">

@@ -3,6 +3,16 @@
     "date": "2026-07-07",
     "date_display": "July 7, 2026",
     "date_iso": "2026-07-07",
+    "id": "companion-messages-preflight",
+    "type": "fix",
+    "category": "Bulk Message",
+    "description": "Auto Send no longer reports \"sent\" when nothing actually went out. Before a batch starts, RADIUS now checks that the Messages app is open, signed in to iMessage, and the account is enabled — and shows exactly what to fix if it isn't. If Messages quits mid-batch, the remaining messages are marked failed instead of silently succeeding. Requires the Mac Companion update (v1.3.0) — the amber banner will prompt you to rerun the install command.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-07-07",
+    "date_display": "July 7, 2026",
+    "date_iso": "2026-07-07",
     "id": "campaign-send-imessage-stale-clipboard",
     "type": "fix",
     "category": "Campaigns",

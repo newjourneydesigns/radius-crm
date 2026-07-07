@@ -8,10 +8,38 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 5123
-VERSION = '1.2.2'
+VERSION = '1.3.0'
+
+
+def messages_is_running() -> bool:
+    return subprocess.run(['pgrep', '-x', 'Messages'], capture_output=True).returncode == 0
+
+
+def messages_state() -> dict:
+    """Preflight for Auto Send. AppleScript accepts a send (exit 0) even when
+    Messages is closed, signed out, or iMessage is disabled — states where
+    nothing actually goes out — so verify them up front."""
+    if not messages_is_running():
+        return {'ok': False, 'error': 'Messages is not open. Open the Messages app, then try again.'}
+    result = subprocess.run(
+        ['osascript', '-e',
+         'tell application "Messages" to get enabled of 1st service whose service type = iMessage'],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    if result.returncode != 0:
+        return {'ok': False, 'error': 'Messages is not signed in to iMessage. Sign in via Messages → Settings → iMessage, then try again.'}
+    if result.stdout.strip() != 'true':
+        return {'ok': False, 'error': 'Your iMessage account is turned off in Messages. Enable it via Messages → Settings → iMessage, then try again.'}
+    return {'ok': True}
 
 
 def send_imessage(phone: str, message: str) -> dict:
+    # Cheap re-check per message: if Messages quits mid-batch, report real
+    # failures instead of letting AppleScript exit 0 into the void.
+    if not messages_is_running():
+        return {'success': False, 'error': 'Messages is not open'}
     # Pass phone/message as argv so emoji and special chars never touch AppleScript source
     script = (
         'on run argv\n'
@@ -50,6 +78,14 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
 
+    def _json(self, status: int, payload: dict):
+        body = json.dumps(payload).encode()
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self._cors()
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_OPTIONS(self):
         self.send_response(200)
         self._cors()
@@ -57,19 +93,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == '/ping':
-            body = json.dumps({'ok': True}).encode()
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self._cors()
-            self.end_headers()
-            self.wfile.write(body)
+            self._json(200, {'ok': True})
         elif self.path == '/version':
-            body = json.dumps({'version': VERSION}).encode()
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self._cors()
-            self.end_headers()
-            self.wfile.write(body)
+            self._json(200, {'version': VERSION})
+        elif self.path == '/preflight':
+            state = messages_state()
+            self._json(200 if state['ok'] else 503, state)
         else:
             self.send_response(404)
             self.end_headers()
@@ -95,22 +124,11 @@ class Handler(BaseHTTPRequestHandler):
         delay_ms = int(body.get('delay_ms', 0))
 
         if not phone or not message:
-            resp = json.dumps({'success': False, 'error': 'phone and message required'}).encode()
-            self.send_response(400)
-            self.send_header('Content-Type', 'application/json')
-            self._cors()
-            self.end_headers()
-            self.wfile.write(resp)
+            self._json(400, {'success': False, 'error': 'phone and message required'})
             return
 
         result = send_imessage(phone, message)
-
-        resp = json.dumps(result).encode()
-        self.send_response(200 if result['success'] else 500)
-        self.send_header('Content-Type', 'application/json')
-        self._cors()
-        self.end_headers()
-        self.wfile.write(resp)
+        self._json(200 if result['success'] else 500, result)
 
         if delay_ms > 0:
             time.sleep(delay_ms / 1000)

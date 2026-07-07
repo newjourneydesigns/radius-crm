@@ -6,10 +6,15 @@ const BASE = 'http://localhost:5123';
 const PING_TIMEOUT_MS = 2000;
 
 // Bump this whenever server.py changes — RADIUS will prompt users to reinstall.
-export const COMPANION_VERSION = '1.2.2';
+export const COMPANION_VERSION = '1.3.0';
 
 export interface CompanionSendResult {
   success: boolean;
+  error?: string;
+}
+
+export interface CompanionPreflightResult {
+  ok: boolean;
   error?: string;
 }
 
@@ -36,6 +41,21 @@ export function useMacCompanion() {
       setNeedsUpdate(data.version !== COMPANION_VERSION);
     } catch {
       setNeedsUpdate(false);
+    }
+  }, []);
+
+  // Verify Messages is open and signed in to iMessage before a batch.
+  // AppleScript reports success even when Messages is closed/signed out and
+  // nothing actually sends, so this is the only honest pre-batch signal.
+  const preflight = useCallback(async (): Promise<CompanionPreflightResult> => {
+    try {
+      const res = await fetch(`${BASE}/preflight`);
+      // Companions older than 1.3.0 don't have this endpoint — don't block
+      // sending; the version banner already prompts the reinstall.
+      if (res.status === 404) return { ok: true };
+      return await res.json();
+    } catch {
+      return { ok: false, error: 'Companion is not responding — is it still running?' };
     }
   }, []);
 
@@ -84,5 +104,5 @@ export function useMacCompanion() {
     });
   }, [ping, checkVersion]);
 
-  return { available, needsUpdate, send, notify, recheck };
+  return { available, needsUpdate, preflight, send, notify, recheck };
 }
