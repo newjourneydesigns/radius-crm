@@ -116,6 +116,24 @@ export default function CCBPersonLookup({
     onSelect(person);
   };
 
+  // On touch, tapping a result blurs the search input, which dismisses the
+  // keyboard, reflows the page, and slides the result out from under the finger
+  // before `click` fires — so the first tap did nothing. Committing on pointer-up
+  // (before that reflow) fixes it; the movement threshold keeps a scroll drag
+  // from counting as a tap. `onClick` stays for mouse and keyboard activation.
+  const tapStart = useRef<{ x: number; y: number; id: number } | null>(null);
+  const beginTap = (e: React.PointerEvent) => {
+    tapStart.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  };
+  const endTap = (action: () => void) => (e: React.PointerEvent) => {
+    const start = tapStart.current;
+    tapStart.current = null;
+    if (!start || start.id !== e.pointerId) return;
+    if (Math.abs(e.clientX - start.x) > 10 || Math.abs(e.clientY - start.y) > 10) return;
+    e.preventDefault();
+    action();
+  };
+
   /** Reset the search state (e.g. after form submission) */
   const reset = () => {
     setSearchQuery('');
@@ -183,6 +201,8 @@ export default function CCBPersonLookup({
             <button
               key={person.id}
               type="button"
+              onPointerDown={beginTap}
+              onPointerUp={endTap(() => handleSelectPerson(person))}
               onClick={() => handleSelectPerson(person)}
               className="w-full text-left px-3 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors"
             >

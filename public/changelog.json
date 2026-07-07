@@ -3,6 +3,16 @@
     "date": "2026-07-06",
     "date_display": "July 6, 2026",
     "date_iso": "2026-07-06",
+    "id": "mobile-picker-tap-select",
+    "type": "fix",
+    "category": "Mobile",
+    "description": "On phones, you can now tap a leader or CCB person straight from the search results without first closing the keyboard — the pick registers on the first tap. Applies everywhere these pickers appear, including the Set Follow-Up, Add Card, Add Prayer, Quick Connection, Add Note, and Connect Person modals.",
+    "page": "/today"
+  },
+  {
+    "date": "2026-07-06",
+    "date_display": "July 6, 2026",
+    "date_iso": "2026-07-06",
     "id": "toolkit-onboarding-practice-mirrors-real-form",
     "type": "improvement",
     "category": "Circles Toolkit",

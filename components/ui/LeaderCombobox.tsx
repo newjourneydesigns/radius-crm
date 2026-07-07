@@ -59,6 +59,25 @@ export default function LeaderCombobox({
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
+  // On touch, tapping an option blurs the search input, which dismisses the
+  // keyboard, reflows the page, and slides the option out from under the finger
+  // before `click` fires — so the first tap did nothing and you had to close the
+  // keyboard first. Committing the choice on pointer-up (before that reflow)
+  // fixes it. The movement threshold keeps a list-scroll drag from being read as
+  // a tap. `onClick` stays for mouse and keyboard (Enter/Space) activation.
+  const tapStart = useRef<{ x: number; y: number; id: number } | null>(null);
+  const beginTap = (e: React.PointerEvent) => {
+    tapStart.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  };
+  const endTap = (action: () => void) => (e: React.PointerEvent) => {
+    const start = tapStart.current;
+    tapStart.current = null;
+    if (!start || start.id !== e.pointerId) return;
+    if (Math.abs(e.clientX - start.x) > 10 || Math.abs(e.clientY - start.y) > 10) return;
+    e.preventDefault();
+    action();
+  };
+
   const inputClass =
     'w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-vc-500 transition-colors';
 
@@ -141,7 +160,8 @@ export default function LeaderCombobox({
           {optional && value && (
             <button
               type="button"
-              onMouseDown={e => e.preventDefault()}
+              onPointerDown={beginTap}
+              onPointerUp={endTap(handleClear)}
               onClick={handleClear}
               disabled={disabled}
               className="w-full text-left px-3 py-2 text-sm text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors italic"
@@ -158,7 +178,8 @@ export default function LeaderCombobox({
               <button
                 key={leader.id}
                 type="button"
-                onMouseDown={e => e.preventDefault()}
+                onPointerDown={beginTap}
+                onPointerUp={endTap(() => handleSelect(leader))}
                 onClick={() => handleSelect(leader)}
                 disabled={disabled}
                 className="w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600/60 active:bg-gray-100 dark:active:bg-gray-600 transition-colors"
