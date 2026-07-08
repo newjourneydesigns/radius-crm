@@ -1608,7 +1608,7 @@ export default function CampaignDetailPage() {
             )}
             {admin && hasEvents && campaign.last_reconciled_at && (
               <button
-                className="order-1 bg-teal-700 hover:bg-teal-600 text-white px-3 py-2.5 lg:py-1.5 rounded-lg text-sm font-semibold lg:font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="order-1 bg-btn-success text-white px-3 py-2.5 lg:py-1.5 rounded-lg text-sm font-semibold lg:font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
                 onClick={handleCheckAttendance}
                 disabled={checkingAttendance || reconciling}
                 title="Pull day-of check-ins from the campaign's CCB events"

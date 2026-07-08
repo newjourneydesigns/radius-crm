@@ -3,6 +3,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "campaign-check-attendance-button-color",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "The Check Attendance button on a campaign now matches the green of the Reconcile Now button beside it, so the two primary actions read as a consistent pair instead of one teal and one green.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-event-name-search",
     "type": "improvement",
     "category": "Campaigns",
