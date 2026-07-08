@@ -205,6 +205,18 @@ export default function CompanionGuideModal({
           )}
         </div>
 
+        <div className="rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-900/20 px-4 py-3">
+          <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+            To reach non-iPhone (Android) numbers
+          </p>
+          <p className="text-sm text-blue-800/90 dark:text-blue-200/80 mt-0.5 leading-relaxed">
+            Turn on <span className="font-semibold">Text Message Forwarding</span> on your iPhone
+            (Settings → Messages → Text Message Forwarding → enable your Mac). RADIUS then sends iMessage
+            to Apple users and automatically a green text message to everyone else — so every recipient
+            gets it. Without this, your Mac can only send to iMessage users.
+          </p>
+        </div>
+
         <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
           Still not connecting? Restart your Mac, open the Messages app, then click “Check again.” The
           companion starts automatically every time you log in — you won’t need to repeat these steps.

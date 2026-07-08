@@ -10,7 +10,7 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 5123
-VERSION = '1.4.0'
+VERSION = '1.5.0'
 
 # Apple's Messages database. Reading it is the only way to learn whether a
 # message actually delivered (vs. merely being queued to iMessage) — the send
@@ -26,6 +26,20 @@ MAC_EPOCH_OFFSET = 978307200
 
 def messages_is_running() -> bool:
     return subprocess.run(['pgrep', '-x', 'Messages'], capture_output=True).returncode == 0
+
+
+def sms_relay_available() -> bool:
+    """True when a Mac has an SMS service — i.e. Text Message Forwarding is on,
+    so the Mac can relay texts to non-iMessage (Android / green-bubble) numbers
+    through the paired iPhone. Without it, only iMessage users are reachable."""
+    result = subprocess.run(
+        ['osascript', '-e',
+         'tell application "Messages" to return (count of (services whose service type = SMS)) > 0'],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return result.returncode == 0 and result.stdout.strip() == 'true'
 
 
 def messages_state() -> dict:
@@ -45,25 +59,80 @@ def messages_state() -> dict:
         return {'ok': False, 'error': 'Messages is not signed in to iMessage. Sign in via Messages → Settings → iMessage, then try again.'}
     if result.stdout.strip() != 'true':
         return {'ok': False, 'error': 'Your iMessage account is turned off in Messages. Enable it via Messages → Settings → iMessage, then try again.'}
-    return {'ok': True}
+    # Informational (never blocks sending) — lets RADIUS warn that non-iPhone
+    # numbers can't be reached until Text Message Forwarding is turned on.
+    return {'ok': True, 'sms_available': sms_relay_available()}
 
 
-def send_imessage(phone: str, message: str) -> dict:
+def imessage_capability(phone: str):
+    """Whether a number is known to be on iMessage, from Messages' own handle
+    records in chat.db. Returns True (on iMessage), False (known non-iMessage or
+    never seen), or None when chat.db can't be read (Full Disk Access missing) —
+    in which case routing can't improve on the iMessage default."""
+    key = _last10(phone)
+    if not key:
+        return None
+    try:
+        con = _open_chat_db()
+    except (sqlite3.Error, OSError):
+        return None
+    try:
+        rows = con.execute('SELECT id, service FROM handle').fetchall()
+    except sqlite3.Error:
+        return None
+    finally:
+        con.close()
+    services = {(svc or '').upper() for hid, svc in rows if _last10(hid or '') == key}
+    if 'IMESSAGE' in services:
+        return True
+    return False  # known SMS-only, or no handle yet → not a confirmed iMessage user
+
+
+def send_message(phone: str, message: str) -> dict:
+    """Send one text, routing per recipient: iMessage (blue) for confirmed
+    iMessage users, SMS (green) for everyone else so Android numbers are
+    reached. SMS requires Text Message Forwarding; when it's off the AppleScript
+    falls back to iMessage. Returns the service actually used."""
     # Cheap re-check per message: if Messages quits mid-batch, report real
     # failures instead of letting AppleScript exit 0 into the void.
     if not messages_is_running():
         return {'success': False, 'error': 'Messages is not open'}
-    # Pass phone/message as argv so emoji and special chars never touch AppleScript source
+
+    # Prefer SMS unless the number is a confirmed iMessage user. When we can't
+    # read capability at all (no Full Disk Access, capability is None), keep the
+    # old iMessage default rather than flipping every send to green.
+    capable = imessage_capability(phone)
+    prefer_sms = '1' if capable is False else '0'
+
+    # Pass phone/message/preference as argv so emoji and special chars never
+    # touch AppleScript source. preferSMS=1 tries the SMS service first and
+    # falls back to iMessage if Text Message Forwarding isn't set up.
     script = (
         'on run argv\n'
+        '  set targetPhone to item 1 of argv\n'
+        '  set targetMessage to item 2 of argv\n'
+        '  set preferSMS to item 3 of argv\n'
         '  tell application "Messages"\n'
-        '    set svc to 1st service whose service type = iMessage\n'
-        '    send (item 2 of argv) to buddy (item 1 of argv) of svc\n'
+        '    set svc to missing value\n'
+        '    if preferSMS is "1" then\n'
+        '      try\n'
+        '        set svc to 1st service whose service type = SMS\n'
+        '      end try\n'
+        '    end if\n'
+        '    if svc is missing value then\n'
+        '      set svc to 1st service whose service type = iMessage\n'
+        '    end if\n'
+        '    send targetMessage to buddy targetPhone of svc\n'
+        '    if (service type of svc) is SMS then\n'
+        '      return "SMS"\n'
+        '    else\n'
+        '      return "iMessage"\n'
+        '    end if\n'
         '  end tell\n'
         'end run'
     )
     result = subprocess.run(
-        ['osascript', '-', phone, message],
+        ['osascript', '-', phone, message, prefer_sms],
         input=script,
         capture_output=True,
         text=True,
@@ -71,7 +140,7 @@ def send_imessage(phone: str, message: str) -> dict:
     )
     if result.returncode != 0:
         return {'success': False, 'error': result.stderr.strip() or 'AppleScript failed'}
-    return {'success': True}
+    return {'success': True, 'service': result.stdout.strip() or None}
 
 
 def _last10(num: str) -> str:
@@ -247,7 +316,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {'success': False, 'error': 'phone and message required'})
             return
 
-        result = send_imessage(phone, message)
+        result = send_message(phone, message)
         self._json(200 if result['success'] else 500, result)
 
         if delay_ms > 0:

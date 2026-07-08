@@ -6,16 +6,20 @@ const BASE = 'http://localhost:5123';
 const PING_TIMEOUT_MS = 2000;
 
 // Bump this whenever server.py changes — RADIUS will prompt users to reinstall.
-export const COMPANION_VERSION = '1.4.0';
+export const COMPANION_VERSION = '1.5.0';
 
 export interface CompanionSendResult {
   success: boolean;
   error?: string;
+  /** The service actually used — 'iMessage' (blue) or 'SMS' (green). */
+  service?: string | null;
 }
 
 export interface CompanionPreflightResult {
   ok: boolean;
   error?: string;
+  /** Whether Text Message Forwarding is on, so non-iPhone numbers are reachable. */
+  sms_available?: boolean;
 }
 
 export type DeliveryStatus = 'delivered' | 'failed' | 'pending' | 'unknown';

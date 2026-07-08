@@ -500,6 +500,9 @@ export default function CampaignDetailPage() {
   // Delivery-tracking capability + the python binary to grant Full Disk Access,
   // fetched from the companion when the setup guide is open.
   const [fdaInfo, setFdaInfo] = useState<{ capable: boolean; pythonPath?: string } | null>(null);
+  // True when Text Message Forwarding is off — the Mac can't reach non-iPhone
+  // (Android) numbers, so smart routing can't fall back to green SMS.
+  const [smsRelayOff, setSmsRelayOff] = useState(false);
   // Active column filters: { columnKey: selectedValues }. Values within one
   // column OR together (Team = Kids or Host); multiple columns AND together.
   const [filters, setFilters] = useState<Record<string, string[]>>({});
@@ -1290,6 +1293,10 @@ export default function CampaignDetailPage() {
       setAutoSendError(pre.error || 'Messages is not ready to send.');
       return;
     }
+    // sms_available === false means Text Message Forwarding is off, so
+    // non-iPhone numbers can't be reached. Warn but don't block — iMessage
+    // users still go through.
+    setSmsRelayOff(pre.sms_available === false);
     // Reset any verification state from a previous batch.
     setDeliveryStatus({});
     setVerifyUnavailable(false);
@@ -3064,6 +3071,19 @@ export default function CampaignDetailPage() {
                 </div>
               )}
 
+              {/* Text Message Forwarding is off — non-iPhone numbers can't be
+                  reached from this Mac. Warn but let iMessage sends proceed. */}
+              {smsRelayOff && (
+                <div className="mb-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+                  <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                    <span className="font-semibold">Non-iPhone numbers can’t be reached yet.</span> Text
+                    Message Forwarding is off, so your Mac can only send to iMessage users. Turn it on
+                    (iPhone → <span className="text-amber-200">Settings → Messages → Text Message
+                    Forwarding</span> → enable this Mac) to text Android numbers too.
+                  </p>
+                </div>
+              )}
+
               {/* Delivery verification summary — shows while checking and once
                   the results settle. */}
               {(verifying || deliveredCount > 0 || failedPeople.length > 0 || unconfirmedPeople.length > 0) && (
@@ -3093,15 +3113,15 @@ export default function CampaignDetailPage() {
                     {failedPeople.length} {failedPeople.length === 1 ? "message wasn't" : "messages weren't"} delivered
                   </p>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    These numbers aren’t on iMessage, so they couldn’t send from your Mac.{' '}
-                    <span className="text-slate-300 font-medium">Send them from your iPhone</span> — it can
-                    text them over SMS. Tap each person’s <span className="font-medium">Send</span> below on
-                    your phone.
+                    These numbers aren’t on iMessage, and your Mac couldn’t send them a text message —
+                    usually because <span className="text-slate-300 font-medium">Text Message Forwarding</span> is
+                    off. Turn it on (iPhone → <span className="text-slate-300">Settings → Messages → Text
+                    Message Forwarding</span> → enable this Mac), then re-run Auto Send and they’ll go through
+                    automatically as green texts.
                   </p>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    To fix this for good: on your iPhone, turn on{' '}
-                    <span className="text-slate-400">Settings → Messages → Text Message Forwarding</span> for
-                    this Mac, then re-run Auto Send.
+                    To send them right now, tap each person’s <span className="text-slate-400 font-medium">Send</span>{' '}
+                    below on your iPhone.
                   </p>
                 </div>
               )}
