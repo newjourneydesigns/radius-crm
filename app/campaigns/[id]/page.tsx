@@ -2982,28 +2982,34 @@ export default function CampaignDetailPage() {
                 Preview — {previewPerson.first_name} {previewPerson.last_name}
               </p>
               <p className="text-sm text-slate-200 whitespace-pre-wrap break-words">{previewMessage}</p>
-              <div className="pt-1 flex items-center gap-2">
-                {sentIds.has(previewPerson.id) ? (
-                  <>
-                    <span className="text-xs text-green-400 font-medium">Sent</span>
+              {/* Single-person send lives here (no list below in that case).
+                  With multiple selected, the per-person buttons + Auto Send in
+                  the list below are the send controls — a button on the preview
+                  reads as "send to just this one" and is confusing. */}
+              {selectedPeople.length === 1 && (
+                <div className="pt-1 flex items-center gap-2">
+                  {sentIds.has(previewPerson.id) ? (
+                    <>
+                      <span className="text-xs text-green-400 font-medium">Sent</span>
+                      <button
+                        className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={!bestPhone(previewPerson) ? 'No phone number on file' : undefined}
+                        onClick={() => sendMessage(previewPerson)}
+                      >
+                        Send Again
+                      </button>
+                    </>
+                  ) : (
                     <button
                       className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       title={!bestPhone(previewPerson) ? 'No phone number on file' : undefined}
                       onClick={() => sendMessage(previewPerson)}
                     >
-                      Send Again
+                      Send iMessage
                     </button>
-                  </>
-                ) : (
-                  <button
-                    className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    title={!bestPhone(previewPerson) ? 'No phone number on file' : undefined}
-                    onClick={() => sendMessage(previewPerson)}
-                  >
-                    Send iMessage
-                  </button>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -3016,7 +3022,7 @@ export default function CampaignDetailPage() {
                   <button
                     onClick={handleAutoSendAll}
                     disabled={isAutoSending || !msgTemplate.trim()}
-                    className="text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:text-slate-500 text-white px-3 py-1 rounded-lg transition-colors"
+                    className="bg-btn-success text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {isAutoSending
                       ? `Sending ${autoProgress?.done ?? 0} / ${autoProgress?.total ?? selectedPeople.length}…`
