@@ -76,12 +76,16 @@ export async function POST(req: NextRequest) {
   if (auth.response) return auth.response;
 
   const body = await req.json();
-  const { name, ccb_group_ids, ccb_form_id, due_date, message_template, people } = body;
+  const { name, ccb_group_ids, ccb_event_ids, ccb_form_id, due_date, message_template, people } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: 'Campaign name is required' }, { status: 400 });
 
   const cleanGroupIds = Array.isArray(ccb_group_ids)
     ? ccb_group_ids.map((id: unknown) => String(id).trim()).filter(Boolean)
+    : [];
+  // Optional CCB events whose day-of check-ins reconcile marks as attended.
+  const cleanEventIds = Array.isArray(ccb_event_ids)
+    ? ccb_event_ids.map((id: unknown) => String(id).trim()).filter(Boolean)
     : [];
 
   // The invite list can come from CCB groups OR a pasted roster — require at least one.
@@ -117,6 +121,7 @@ export async function POST(req: NextRequest) {
     .insert({
       name: name.trim(),
       ccb_group_ids: cleanGroupIds,
+      ccb_event_ids: cleanEventIds,
       ccb_form_id: String(ccb_form_id).trim(),
       // Form link is always derived from the form ID (same URL shape every time)
       form_link: ccbFormUrl(ccb_form_id),

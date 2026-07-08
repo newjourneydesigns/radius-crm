@@ -38,13 +38,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (auth.response) return auth.response;
 
   const body = await req.json();
-  const { name, ccb_group_ids, ccb_form_id, due_date, message_template, archived } = body;
+  const { name, ccb_group_ids, ccb_event_ids, ccb_form_id, due_date, message_template, archived } = body;
 
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name.trim();
   // Group IDs are optional (paste-built campaigns have none); store whatever's given.
   if (Array.isArray(ccb_group_ids)) {
     updates.ccb_group_ids = ccb_group_ids.map((id: unknown) => String(id).trim()).filter(Boolean);
+  }
+  // Event IDs are optional; reconcile pulls day-of check-ins from them.
+  if (Array.isArray(ccb_event_ids)) {
+    updates.ccb_event_ids = ccb_event_ids.map((id: unknown) => String(id).trim()).filter(Boolean);
   }
   if (ccb_form_id !== undefined) {
     updates.ccb_form_id = String(ccb_form_id).trim();

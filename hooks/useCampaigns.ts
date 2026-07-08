@@ -7,6 +7,8 @@ export interface Campaign {
   id: string;
   name: string;
   ccb_group_ids: string[];
+  // CCB events whose day-of check-ins reconcile marks as attended (optional)
+  ccb_event_ids: string[] | null;
   ccb_form_id: string;
   form_link: string;
   due_date: string;
@@ -19,6 +21,7 @@ export interface Campaign {
   not_in_group_count: number | null;
   needs_review_count: number | null;
   contacted_count: number | null;
+  attended_count: number | null;
   completion_pct: number | null;
   created_at: string;
   created_by: string | null;
@@ -40,6 +43,8 @@ export interface CampaignPerson {
   // They stay on the invite list (in_group stays true) so counts don't shrink.
   left_group: boolean;
   in_form: boolean;
+  // True when they checked in to one of the campaign's CCB events
+  attended: boolean;
   manually_added: boolean;
   form_response_data: Record<string, unknown> | null;
   reconcile_status: string;
@@ -89,6 +94,7 @@ export function useCampaigns() {
   const createCampaign = useCallback(async (payload: {
     name: string;
     ccb_group_ids: string[];
+    ccb_event_ids?: string[];
     ccb_form_id: string;
     due_date: string;
     message_template: string;
@@ -133,7 +139,7 @@ export function useCampaigns() {
 
   const updateCampaign = useCallback(async (
     id: string,
-    payload: Partial<Pick<Campaign, 'name' | 'ccb_group_ids' | 'ccb_form_id' | 'form_link' | 'due_date' | 'message_template'>>,
+    payload: Partial<Pick<Campaign, 'name' | 'ccb_group_ids' | 'ccb_event_ids' | 'ccb_form_id' | 'form_link' | 'due_date' | 'message_template'>>,
   ): Promise<Campaign> => {
     const headers = await authHeader();
     const res = await fetch(`/api/campaigns/${id}`, {

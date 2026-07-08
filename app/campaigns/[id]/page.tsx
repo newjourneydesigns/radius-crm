@@ -34,6 +34,8 @@ const inputCls = 'w-full bg-zinc-700 border border-zinc-600 text-white placehold
 // Sentinel dimension for the CCB source-group name (CCB-group campaigns).
 // Pasted rosters expose their own free-form columns (attributes) as dimensions.
 const SOURCE_DIM = '__source_group__';
+// Sentinel dimension for event check-in status (campaigns with CCB events).
+const ATTENDED_DIM = '__attended__';
 
 // A person can belong to several values of one dimension (e.g. multiple teams),
 // so grouping works on the set of values, not a single string.
@@ -133,24 +135,26 @@ function formAnswersOf(formData: Record<string, unknown> | null): Record<string,
   return out;
 }
 
-type SummaryCell = { invited: number; responded: number; yes: number; no: number };
+type SummaryCell = { invited: number; responded: number; yes: number; no: number; attended: number };
 
 // Roll up invited people by one column's values (a multi-value person counts under
 // each of their values; the total row counts each person once).
 function summaryRows(people: CampaignPerson[], dimKey: string): { total: SummaryCell; rows: ({ value: string } & SummaryCell)[] } {
   const invited = people.filter(p => p.in_group);
-  const total: SummaryCell = { invited: 0, responded: 0, yes: 0, no: 0 };
+  const total: SummaryCell = { invited: 0, responded: 0, yes: 0, no: 0, attended: 0 };
   const byVal = new Map<string, SummaryCell>();
   for (const p of invited) {
     const responded = p.in_form;
     const rsvp = responded ? rsvpAnswer(p.form_response_data) : null;
     total.invited++;
     if (responded) { total.responded++; if (rsvp === 'yes') total.yes++; else if (rsvp === 'no') total.no++; }
+    if (p.attended) total.attended++;
     for (const v of groupValuesOf(p, dimKey)) {
       let row = byVal.get(v);
-      if (!row) { row = { invited: 0, responded: 0, yes: 0, no: 0 }; byVal.set(v, row); }
+      if (!row) { row = { invited: 0, responded: 0, yes: 0, no: 0, attended: 0 }; byVal.set(v, row); }
       row.invited++;
       if (responded) { row.responded++; if (rsvp === 'yes') row.yes++; else if (rsvp === 'no') row.no++; }
+      if (p.attended) row.attended++;
     }
   }
   const rows = Array.from(byVal.entries())
@@ -159,7 +163,11 @@ function summaryRows(people: CampaignPerson[], dimKey: string): { total: Summary
   return { total, rows };
 }
 
-function CampaignSummary({ people, facets }: { people: CampaignPerson[]; facets: { key: string; label: string }[] }) {
+function CampaignSummary({ people, facets, showAttendance }: {
+  people: CampaignPerson[];
+  facets: { key: string; label: string }[];
+  showAttendance: boolean;
+}) {
   const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—');
   if (facets.length === 0) {
     return (
@@ -182,6 +190,12 @@ function CampaignSummary({ people, facets }: { people: CampaignPerson[]; facets:
             <td className="px-4 py-2 text-right tabular-nums text-green-400/90">{s.yes}</td>
             <td className="px-4 py-2 text-right tabular-nums text-amber-400/90">{s.no}</td>
             <td className="px-4 py-2 text-right tabular-nums text-red-400/80">{s.invited - s.responded}</td>
+            {showAttendance && (
+              <>
+                <td className="px-4 py-2 text-right tabular-nums text-teal-400/90">{s.attended}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-teal-400/70">{pct(s.attended, s.invited)}</td>
+              </>
+            )}
           </tr>
         );
         return (
@@ -198,6 +212,12 @@ function CampaignSummary({ people, facets }: { people: CampaignPerson[]; facets:
                     <th className="px-4 py-2 font-medium text-right">RSVP Yes</th>
                     <th className="px-4 py-2 font-medium text-right">RSVP No</th>
                     <th className="px-4 py-2 font-medium text-right">No Response</th>
+                    {showAttendance && (
+                      <>
+                        <th className="px-4 py-2 font-medium text-right">Attended</th>
+                        <th className="px-4 py-2 font-medium text-right">Att %</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/70">
@@ -490,6 +510,7 @@ export default function CampaignDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState('');
   const [editGroupIds, setEditGroupIds] = useState<string[]>(['']);
+  const [editEventIds, setEditEventIds] = useState<string[]>(['']);
   const [editFormId, setEditFormId] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [editTemplate, setEditTemplate] = useState('');
@@ -717,8 +738,18 @@ export default function CampaignDetailPage() {
     return out;
   }, [formAnswersById]);
 
-  // Invite-column facets + form-answer facets. Summary uses `facets` only.
-  const filterFacets = useMemo(() => [...facets, ...formFacets], [facets, formFacets]);
+  const hasEvents = (campaign?.ccb_event_ids?.length ?? 0) > 0;
+
+  // Invite-column facets + check-in facet (event campaigns) + form-answer facets.
+  // Summary uses `facets` only.
+  const filterFacets = useMemo(
+    () => [
+      ...facets,
+      ...(hasEvents ? [{ key: ATTENDED_DIM, label: 'Checked In', values: ['Yes', 'No'] }] : []),
+      ...formFacets,
+    ],
+    [facets, formFacets, hasEvents],
+  );
 
   const activeFilters = useMemo(
     () => Object.entries(filters).filter(([, vals]) => vals.length > 0),
@@ -727,8 +758,9 @@ export default function CampaignDetailPage() {
 
   const matchesFilters = useCallback(
     (p: CampaignPerson) => activeFilters.every(([k, vals]) => {
-      const personVals = k.startsWith('form:')
-        ? attrValues(formAnswersById.get(p.id)?.[k.slice(5)])
+      const personVals =
+        k === ATTENDED_DIM ? [p.attended ? 'Yes' : 'No']
+        : k.startsWith('form:') ? attrValues(formAnswersById.get(p.id)?.[k.slice(5)])
         : groupValuesOf(p, k);
       // OR within the column: any selected value counts as a match.
       return vals.some(v => personVals.includes(v));
@@ -785,6 +817,7 @@ export default function CampaignDetailPage() {
       else if (sortCol === 'submitted') { av = submittedAt(a); bv = submittedAt(b); }
       else if (sortCol === 'match')    { av = (a.match_method || '').toLowerCase(); bv = (b.match_method || '').toLowerCase(); }
       else if (sortCol === 'last_contacted') { av = a.contacted_at || '0000'; bv = b.contacted_at || '0000'; }
+      else if (sortCol === 'attended')  { av = a.attended ? '1' : '0'; bv = b.attended ? '1' : '0'; }
       const cmp = av < bv ? -1 : av > bv ? 1 : 0;
       return sortDir === 'asc' ? cmp : -cmp;
     });
@@ -798,14 +831,17 @@ export default function CampaignDetailPage() {
     const missing = base.filter(p => p.reconcile_status === 'missing').length;
     const needsReview = base.filter(p => p.reconcile_status === 'needs_review').length;
     const contacted = base.filter(p => p.contacted_at !== null).length;
+    const attended = base.filter(p => p.attended).length;
     const expected = submitted + missing + needsReview;
     return {
       submitted,
       missing,
       needs_review: needsReview,
       contacted,
+      attended,
       expected,
       completion_pct: expected > 0 ? Math.round((submitted / expected) * 100) : 0,
+      attendance_pct: expected > 0 ? Math.round((attended / expected) * 100) : 0,
     };
   }, [allPeople, activeFilters, matchesFilters, activeTab]);
 
@@ -1038,7 +1074,11 @@ export default function CampaignDetailPage() {
       }
     }
 
-    const header = ['First Name', 'Last Name', 'CCB ID', 'Email', 'Phone', 'Status', 'Contacted At', ...attrKeys, ...formKeys, 'Note'];
+    const header = [
+      'First Name', 'Last Name', 'CCB ID', 'Email', 'Phone', 'Status', 'Contacted At',
+      ...(hasEvents ? ['Checked In'] : []),
+      ...attrKeys, ...formKeys, 'Note',
+    ];
     const rows = exportPeople.map(p => [
       p.first_name || '',
       p.last_name || '',
@@ -1047,6 +1087,7 @@ export default function CampaignDetailPage() {
       bestPhone(p) || '',
       STATUS_LABELS[p.reconcile_status] || p.reconcile_status,
       p.contacted_at ? DateTime.fromISO(p.contacted_at).toFormat('yyyy-MM-dd HH:mm') : '',
+      ...(hasEvents ? [p.attended ? 'Yes' : ''] : []),
       ...attrKeys.map(k => attrValues(p.attributes?.[k]).join('; ')),
       ...formKeys.map(k => attrValues(formAnswersById.get(p.id)?.[k]).join('; ')),
       p.note || '',
@@ -1201,6 +1242,7 @@ export default function CampaignDetailPage() {
     if (!campaign) return;
     setEditName(campaign.name);
     setEditGroupIds(campaign.ccb_group_ids?.length ? [...campaign.ccb_group_ids] : ['']);
+    setEditEventIds(campaign.ccb_event_ids?.length ? [...campaign.ccb_event_ids] : ['']);
     setEditFormId(campaign.ccb_form_id ?? '');
     setEditDueDate(campaign.due_date ?? '');
     setEditTemplate(campaign.message_template ?? '');
@@ -1212,6 +1254,7 @@ export default function CampaignDetailPage() {
     e.preventDefault();
     if (!campaign) return;
     const cleanGroupIds = editGroupIds.map(gid => gid.trim()).filter(Boolean);
+    const cleanEventIds = editEventIds.map(eid => eid.trim()).filter(Boolean);
     setSaving(true);
     setSaveError(null);
     try {
@@ -1222,6 +1265,7 @@ export default function CampaignDetailPage() {
         body: JSON.stringify({
           name: editName.trim(),
           ccb_group_ids: cleanGroupIds,
+          ccb_event_ids: cleanEventIds,
           ccb_form_id: editFormId.trim(),
           due_date: editDueDate,
           message_template: editTemplate.trim(),
@@ -1320,6 +1364,15 @@ export default function CampaignDetailPage() {
   }
 
   const expectedCount = (campaign.submitted_count ?? 0) + (campaign.missing_count ?? 0) + (campaign.needs_review_count ?? 0);
+
+  // Day-of check-ins (only meaningful when the campaign tracks CCB events).
+  // Attendance % is attended / invited, mirroring the completion math.
+  const attendedCount = filteredStats?.attended ?? campaign.attended_count;
+  const attendanceExpected = filteredStats?.expected ?? expectedCount;
+  const attendancePct =
+    attendedCount !== null && attendanceExpected > 0
+      ? Math.round((attendedCount / attendanceExpected) * 100)
+      : null;
 
   // Inline editor for a person (name/contact/attributes/note). Shared by the
   // desktop table's expanded row and the mobile card so behavior stays identical.
@@ -1616,6 +1669,17 @@ export default function CampaignDetailPage() {
                 active={activeTab === 'needs_review'}
               />
             </div>
+            {/* Row 3 — day-of check-ins, only when the campaign tracks CCB events */}
+            {hasEvents && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard label="Checked In" value={attendedCount} accent="text-teal-400" />
+                <StatCard
+                  label="Attendance"
+                  value={attendancePct !== null ? `${attendancePct}%` : null}
+                  accent={pctColor(attendancePct)}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -1807,7 +1871,7 @@ export default function CampaignDetailPage() {
 
             {/* Campaign summary (exec view) */}
             {activeTab === 'summary' && (
-              <CampaignSummary people={allPeople} facets={facets} />
+              <CampaignSummary people={allPeople} facets={facets} showAttendance={hasEvents} />
             )}
 
             {/* Column filter bar — one dropdown per filterable column; selections AND together */}
@@ -1959,6 +2023,11 @@ export default function CampaignDetailPage() {
                               </div>
                             )}
 
+                            {/* Day-of check-in (event campaigns) */}
+                            {hasEvents && p.attended && (
+                              <div className="mt-1.5 text-xs text-teal-400">Checked in ✓</div>
+                            )}
+
                             {/* Submitted meta */}
                             {activeTab === 'submitted' && (
                               <div className="mt-1.5 text-xs text-slate-500 space-y-0.5">
@@ -2081,6 +2150,9 @@ export default function CampaignDetailPage() {
                         {activeTab === 'submitted' && (
                           <SortTh col="submitted" label="Submitted" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         )}
+                        {activeTab === 'submitted' && hasEvents && (
+                          <SortTh col="attended" label="Checked In" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+                        )}
                         {activeTab === 'submitted' && (
                           <SortTh col="match" label="Match" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         )}
@@ -2174,6 +2246,13 @@ export default function CampaignDetailPage() {
                                 {submittedAt(p)
                                   ? DateTime.fromSQL(submittedAt(p)).toFormat('MMM d · h:mm a')
                                   : '—'}
+                              </td>
+                            )}
+                            {activeTab === 'submitted' && hasEvents && (
+                              <td className="px-4 py-3 text-xs whitespace-nowrap">
+                                {p.attended
+                                  ? <span className="inline-flex items-center gap-1 text-teal-400"><Check className="w-3.5 h-3.5" strokeWidth={2.5} /> Yes</span>
+                                  : <span className="text-slate-600">—</span>}
                               </td>
                             )}
                             {activeTab === 'submitted' && (
@@ -2443,6 +2522,43 @@ export default function CampaignDetailPage() {
                 onClick={() => setEditGroupIds(prev => [...prev, ''])}
               >
                 + Add another group
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">CCB Event IDs <span className="text-slate-600 normal-case">(optional — tracks day-of check-ins)</span></label>
+            <div className="space-y-2">
+              {editEventIds.map((eid, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className={inputCls}
+                    placeholder={i === 0 ? 'e.g. 9876' : 'e.g. 5432'}
+                    value={eid}
+                    onChange={e => setEditEventIds(prev => prev.map((v, idx) => idx === i ? e.target.value : v))}
+                  />
+                  {editEventIds.length > 1 && (
+                    <button
+                      type="button"
+                      className="text-slate-500 hover:text-red-400 transition-colors px-2"
+                      onClick={() => setEditEventIds(prev => prev.filter((_, idx) => idx !== i))}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-slate-600">Reconcile marks who checked in to these events</span>
+              <button
+                type="button"
+                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                onClick={() => setEditEventIds(prev => [...prev, ''])}
+              >
+                + Add another event
               </button>
             </div>
           </div>

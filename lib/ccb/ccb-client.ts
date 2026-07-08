@@ -1161,6 +1161,46 @@ ${attendeesBlock}
     return this.normalizeAttendance(xml, includeAttendees);
   }
 
+  /**
+   * Every recorded attendee across an event's past occurrences (deduped, capped
+   * at the 20 most recent). Used by follow-up campaigns to reconcile who RSVP'd
+   * against who actually checked in on the day.
+   */
+  async getEventAttendees(eventId: string): Promise<Array<{ id: string; name: string }>> {
+    if (!eventId || !/^\d+$/.test(eventId)) {
+      throw new Error('Event ID must be a numeric string');
+    }
+
+    const eventXml = await this.getXml({ srv: 'event_profile', event_id: eventId });
+    const event = this.parseEventProfile(eventXml, eventId);
+    if (!event || event.occurrences.length === 0) {
+      throw new Error(`Event ${eventId} has no occurrences to read attendance from`);
+    }
+
+    // Only occurrences that have started can have check-ins.
+    const today = DateTime.now().endOf('day');
+    const occurrences = event.occurrences
+      .map(o => DateTime.fromISO(o.start))
+      .filter(dt => dt.isValid && dt <= today)
+      .sort((a, b) => b.toMillis() - a.toMillis())
+      .slice(0, 20);
+
+    const byKey = new Map<string, { id: string; name: string }>();
+    for (const occ of occurrences) {
+      try {
+        const summary = await this.fetchAttendance(eventId, occ.toFormat('yyyyLLdd'), true);
+        for (const a of summary?.attendees ?? []) {
+          const key = a.id || (a.name || '').toLowerCase();
+          if (!key || byKey.has(key)) continue;
+          byKey.set(key, { id: a.id || '', name: a.name || '' });
+        }
+      } catch {
+        // An occurrence without recorded attendance shouldn't sink the rest.
+      }
+    }
+    return Array.from(byKey.values());
+  }
+
   // ---- Public API ----
 
   /**

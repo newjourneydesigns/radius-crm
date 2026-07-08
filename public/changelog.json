@@ -3,6 +3,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "campaign-event-attendance",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "Campaigns can now close the loop from invited to registered to attended. Add one or more CCB Event IDs to a campaign (create form or Edit), and Reconcile pulls each event's day-of check-ins and matches them to your people. You get Checked In and Attendance % stat cards, an Attended column with Att % on every Summary breakdown (matching the exec report layout), a Checked In column on the Submitted tab, a Checked In filter — so you can select everyone who registered but didn't show and text them — and a Checked In column in the CSV export.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-sticky-invite-list",
     "type": "fix",
     "category": "Campaigns",

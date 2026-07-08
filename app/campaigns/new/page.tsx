@@ -151,6 +151,7 @@ function NewCampaignForm() {
   const namesMapped = mapping.firstName !== null && mapping.lastName !== null;
 
   const [formId, setFormId] = useState('');
+  const [eventIds, setEventIds] = useState<string[]>(['']);
   const [dueDate, setDueDate] = useState('');
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   const [saving, setSaving] = useState(false);
@@ -242,6 +243,7 @@ function NewCampaignForm() {
       const campaign = await createCampaign({
         name: name.trim(),
         ccb_group_ids: sourceMode === 'groups' ? cleanGroupIds : [],
+        ccb_event_ids: eventIds.map(id => id.trim()).filter(Boolean),
         ccb_form_id: formId.trim(),
         due_date: dueDate,
         message_template: template.trim(),
@@ -527,6 +529,46 @@ function NewCampaignForm() {
                   onChange={e => setDueDate(e.target.value)}
                   required
                 />
+              </div>
+            </div>
+
+            {/* CCB Event IDs — optional day-of attendance tracking */}
+            <div>
+              <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+                CCB Event IDs <span className="text-slate-600 normal-case">(optional — tracks day-of check-ins)</span>
+              </label>
+              <div className="space-y-2">
+                {eventIds.map((eid, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className={inputCls}
+                      placeholder={i === 0 ? 'e.g. 9876' : 'e.g. 5432'}
+                      value={eid}
+                      onChange={e => setEventIds(prev => prev.map((v, idx) => idx === i ? e.target.value : v))}
+                    />
+                    {eventIds.length > 1 && (
+                      <button
+                        type="button"
+                        className="text-slate-500 hover:text-red-400 transition-colors px-2"
+                        onClick={() => setEventIds(prev => prev.filter((_, idx) => idx !== i))}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-slate-600">Reconcile marks who checked in to these events</span>
+                <button
+                  type="button"
+                  className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                  onClick={() => setEventIds(prev => [...prev, ''])}
+                >
+                  + Add another event
+                </button>
               </div>
             </div>
 

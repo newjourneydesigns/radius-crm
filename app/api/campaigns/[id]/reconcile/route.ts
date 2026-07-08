@@ -261,6 +261,37 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'ccb_form_fetch_failed', message: msg }, { status: 502 });
   }
 
+  // 4b. Fetch day-of check-ins from the campaign's CCB events (optional).
+  // Attendance is additive: a failed fetch (or an attendee dropped by CCB)
+  // never clears a previously recorded check-in — see prevAttended below.
+  const eventIds: string[] = Array.isArray(campaign.ccb_event_ids)
+    ? campaign.ccb_event_ids.filter(Boolean)
+    : [];
+  const attendedCcbIds = new Set<string>();
+  const attendedNames = new Set<string>();
+  for (const evId of eventIds) {
+    try {
+      const attendees = await ccb.getEventAttendees(evId);
+      for (const a of attendees) {
+        if (a.id) attendedCcbIds.add(a.id);
+        else if (a.name) attendedNames.add(a.name.toLowerCase().trim().replace(/\s+/g, ' '));
+      }
+    } catch (err) {
+      console.warn(`Attendance fetch failed for event ${evId}:`, err);
+    }
+  }
+
+  const prevAttended = eventIds.length > 0
+    ? await fetchAllRows<{ ccb_individual_id: string | null; first_name: string | null; last_name: string | null }>((from, to) =>
+        supabase
+          .from('follow_up_campaign_people')
+          .select('ccb_individual_id, first_name, last_name')
+          .eq('campaign_id', params.id)
+          .eq('attended', true)
+          .range(from, to),
+      )
+    : [];
+
   // 5. Reconcile
   // Deduplicate form respondents by CCB individual ID — a person can submit
   // the form more than once, producing two entries with the same fp.id.
@@ -292,6 +323,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .not('contacted_at', 'is', null)
       .range(from, to),
   );
+
+  const prevAttendedIds = new Set<string>();
+  const prevAttendedNames = new Set<string>();
+  for (const r of prevAttended) {
+    if (r.ccb_individual_id) prevAttendedIds.add(r.ccb_individual_id);
+    else prevAttendedNames.add(`${normName(r.first_name)}|${normName(r.last_name)}`);
+  }
 
   type ContactedRow = { ccb_individual_id: string | null; contacted_at: string | null; contacted_by: string | null; contact_note: string | null };
   const contactedMap = new Map<string, ContactedRow>();
@@ -373,6 +411,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const isExcluded = p.ccbIndividualId ? excludedCcbIds.has(p.ccbIndividualId) : excludedNames.has(nameKey);
     const status = isExcluded ? 'excluded' : resolvedStatus;
 
+    // Checked in to one of the campaign's events — matched by CCB id, by name
+    // (attendee names come as "First Last"), or carried from a prior reconcile.
+    const attended =
+      (p.ccbIndividualId
+        ? attendedCcbIds.has(p.ccbIndividualId) || prevAttendedIds.has(p.ccbIndividualId)
+        : prevAttendedNames.has(nameKey)) ||
+      attendedNames.has(`${normName(p.firstName)} ${normName(p.lastName)}`);
+
     return {
       campaign_id: params.id,
       ccb_individual_id: p.ccbIndividualId || null,
@@ -395,6 +441,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       match_resolution: applyResolution ? resolution : null,
       source_group_id: p.sourceGroupId || null,
       source_group_name: p.sourceGroupName || null,
+      attended,
       // Preserve pasted free-form attributes (Campus, Team, …) across reconcile
       attributes,
       // Preserve contact fields so re-reconciling doesn't wipe them
@@ -463,10 +510,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   // 8. Re-read all people to compute accurate counts (includes any pre-existing contacted rows).
   // Paginate past the 1000-row cap so the aggregate counts reflect the full campaign.
-  const allPeople = await fetchAllRows<{ reconcile_status: string; contacted_at: string | null }>((from, to) =>
+  const allPeople = await fetchAllRows<{ reconcile_status: string; contacted_at: string | null; attended: boolean | null }>((from, to) =>
     supabase
       .from('follow_up_campaign_people')
-      .select('reconcile_status, contacted_at')
+      .select('reconcile_status, contacted_at, attended')
       .eq('campaign_id', params.id)
       .range(from, to),
   );
@@ -484,6 +531,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       not_in_group_count: counts.submitted_not_in_group,
       needs_review_count: counts.needs_review,
       contacted_count: counts.contacted,
+      attended_count: counts.attended,
       completion_pct: counts.completion_pct,
     })
     .eq('id', params.id);

@@ -240,11 +240,14 @@ export type ReconcileCounts = {
   needs_review: number;
   contacted: number;
   excluded: number;
+  attended: number;
   total: number;
   completion_pct: number;
 };
 
-export function computeCounts(people: { reconcile_status: string; contacted_at?: string | null }[]): ReconcileCounts {
+export function computeCounts(
+  people: { reconcile_status: string; contacted_at?: string | null; attended?: boolean | null }[],
+): ReconcileCounts {
   const counts = {
     expected: 0,
     submitted: 0,
@@ -253,6 +256,7 @@ export function computeCounts(people: { reconcile_status: string; contacted_at?:
     needs_review: 0,
     contacted: 0,
     excluded: 0,
+    attended: 0,
     total: 0,
     completion_pct: 0,
   };
@@ -265,6 +269,7 @@ export function computeCounts(people: { reconcile_status: string; contacted_at?:
     // so they drop out of both the "Invited" denominator and the "Unsubmitted" pool.
     if (s === 'excluded') counts.excluded++;
     if (p.contacted_at) counts.contacted++;
+    if (p.attended) counts.attended++;
   }
   const inGroup = counts.submitted + counts.missing + counts.needs_review;
   counts.total = inGroup + counts.submitted_not_in_group;
