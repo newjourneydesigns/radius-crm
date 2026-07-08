@@ -1162,13 +1162,16 @@ ${attendeesBlock}
   }
 
   /**
-   * Lightweight list of every event — id, title, and first occurrence date —
-   * for name-based lookups (e.g. the campaign event picker). event_profiles
+   * Lightweight list of events — id, title, and first occurrence date — for
+   * name-based lookups (e.g. the campaign event picker). event_profiles
    * returns ALL events including private ones, so this is a heavy call:
-   * callers should cache the result.
+   * callers should cache the result and pass modifiedSince (yyyy-MM-dd) to
+   * limit it to recently created/edited events, which is much faster.
    */
-  async listAllEvents(): Promise<Array<{ id: string; title: string; startDate: string | null }>> {
-    const xml = await this.getXml({ srv: 'event_profiles' });
+  async listAllEvents(options: { modifiedSince?: string } = {}): Promise<Array<{ id: string; title: string; startDate: string | null }>> {
+    const params: Record<string, string> = { srv: 'event_profiles' };
+    if (options.modifiedSince) params.modified_since = options.modifiedSince;
+    const xml = await this.getXml(params);
     const eventsRoot = xml?.ccb_api?.response?.events ?? null;
     const rawEvents: any[] = Array.isArray(eventsRoot?.event)
       ? eventsRoot.event

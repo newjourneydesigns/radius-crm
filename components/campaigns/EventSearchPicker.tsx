@@ -13,9 +13,9 @@ async function authHeader(): Promise<Record<string, string>> {
 type EventResult = { id: string; title: string; startDate: string | null };
 
 // Find CCB events by partial name and add their IDs to a campaign — spares
-// admins from hunting event IDs out of CCB URLs one at a time. Debounced;
-// the first search warms a server-side cache of the full event list, so it can
-// take a few seconds, after which searches are instant.
+// admins from hunting event IDs out of CCB URLs one at a time. Debounced.
+// Searches recently created/edited events by default (fast); "Search all
+// events" widens to the full church history for the rare older event.
 export default function EventSearchPicker({ selectedIds, onAdd }: {
   selectedIds: string[];
   onAdd: (id: string) => void;
@@ -24,31 +24,51 @@ export default function EventSearchPicker({ selectedIds, onAdd }: {
   const [results, setResults] = useState<EventResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 'recent' = events touched in the last ~6 months; 'all' = everything.
+  const [scope, setScope] = useState<'recent' | 'all'>('recent');
+  const [searchedScope, setSearchedScope] = useState<'recent' | 'all' | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function runSearch(q: string, useScope: 'recent' | 'all') {
+    setSearching(true);
+    setError(null);
+    try {
+      const headers = await authHeader();
+      const params = new URLSearchParams({ q });
+      if (useScope === 'all') params.set('all', 'true');
+      const res = await fetch(`/api/campaigns/event-search?${params}`, { headers });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Event search failed');
+      setResults(json.events ?? []);
+      setSearchedScope(useScope);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Event search failed');
+      setResults([]);
+      setSearchedScope(null);
+    } finally {
+      setSearching(false);
+    }
+  }
 
   function handleChange(q: string) {
     setQuery(q);
     setError(null);
+    // A new query starts back at the fast recent scope.
+    setScope('recent');
+    setSearchedScope(null);
     if (timerRef.current) clearTimeout(timerRef.current);
     if (q.trim().length < 2) { setResults([]); setSearching(false); return; }
-    timerRef.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const headers = await authHeader();
-        const res = await fetch(`/api/campaigns/event-search?q=${encodeURIComponent(q.trim())}`, { headers });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Event search failed');
-        setResults(json.events ?? []);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Event search failed');
-        setResults([]);
-      } finally {
-        setSearching(false);
-      }
-    }, 400);
+    timerRef.current = setTimeout(() => runSearch(q.trim(), 'recent'), 400);
+  }
+
+  function widenToAll() {
+    if (query.trim().length < 2) return;
+    setScope('all');
+    runSearch(query.trim(), 'all');
   }
 
   const trimmedSelected = selectedIds.map(s => s.trim());
+  const searchedEmpty = !searching && !error && query.trim().length >= 2 && results.length === 0 && searchedScope !== null;
 
   return (
     <div className="space-y-2">
@@ -66,13 +86,30 @@ export default function EventSearchPicker({ selectedIds, onAdd }: {
       </div>
 
       {searching && (
-        <p className="text-xs text-slate-500">Searching CCB events… first search can take a few seconds.</p>
+        <p className="text-xs text-slate-500">
+          {scope === 'all'
+            ? 'Searching the full event history… this one takes longer.'
+            : 'Searching recent CCB events… first search may take a few seconds.'}
+        </p>
       )}
       {error && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">{error}</div>
       )}
-      {!searching && query.trim().length >= 2 && results.length === 0 && !error && (
-        <p className="text-xs text-slate-500">No events match “{query.trim()}”.</p>
+      {searchedEmpty && (
+        <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+          <span>
+            No {searchedScope === 'recent' ? 'recent ' : ''}events match “{query.trim()}”.
+          </span>
+          {searchedScope === 'recent' && (
+            <button
+              type="button"
+              className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+              onClick={widenToAll}
+            >
+              Search all events (slower)
+            </button>
+          )}
+        </div>
       )}
 
       {results.length > 0 && (
@@ -103,6 +140,14 @@ export default function EventSearchPicker({ selectedIds, onAdd }: {
             );
           })}
         </div>
+      )}
+      {results.length > 0 && searchedScope === 'recent' && (
+        <p className="text-xs text-slate-600">
+          Showing events from the last 6 months.{' '}
+          <button type="button" className="text-indigo-400/80 hover:text-indigo-300 transition-colors" onClick={widenToAll}>
+            Search all events
+          </button>
+        </p>
       )}
     </div>
   );
