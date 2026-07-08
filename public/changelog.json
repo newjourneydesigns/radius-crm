@@ -3,6 +3,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "campaign-filter-multiselect",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaign filters now support picking more than one value per column. Each filter is a checkbox dropdown, so you can show, say, Host Team and Kids together under Team while still narrowing by Campus — values within a column combine with OR, different columns still combine with AND. Each selected value shows as its own removable chip, and the stat cards, tab counts, and CSV export all follow the combined selection.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-duplicate",
     "type": "feature",
     "category": "Campaigns",

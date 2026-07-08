@@ -314,6 +314,86 @@ function SortTh({ col, label, sortCol, sortDir, onSort, className = '' }: {
   );
 }
 
+// Multi-select dropdown for one filter column. Checked values OR together
+// within the column; different columns still AND together.
+function FacetMultiSelect({ values, selected, onChange }: {
+  values: string[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  function toggle(v: string) {
+    onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]);
+  }
+
+  const summary =
+    selected.length === 0 ? 'All'
+    : selected.length === 1 ? selected[0]
+    : `${selected.length} selected`;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        className={`w-full flex items-center justify-between gap-1.5 bg-zinc-800 border rounded-lg px-2.5 py-1.5 text-xs text-left focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
+          selected.length > 0 ? 'border-indigo-500/50 text-indigo-200' : 'border-zinc-700 text-slate-300'
+        }`}
+      >
+        <span className="truncate">{summary}</span>
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 min-w-[11rem] bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-30 overflow-hidden">
+          <button
+            type="button"
+            className="w-full text-left px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-zinc-800 transition-colors border-b border-zinc-800 disabled:opacity-40"
+            onClick={() => onChange([])}
+            disabled={selected.length === 0}
+          >
+            All (clear selection)
+          </button>
+          <div className="max-h-52 overflow-y-auto py-1">
+            {values.map(v => (
+              <label
+                key={v}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-zinc-800 cursor-pointer select-none"
+              >
+                <input
+                  type="checkbox"
+                  className="w-3.5 h-3.5 rounded border-zinc-600 bg-zinc-800 accent-indigo-500 cursor-pointer flex-shrink-0"
+                  checked={selected.includes(v)}
+                  onChange={() => toggle(v)}
+                />
+                <span className="truncate">{v}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function formatValue(v: unknown, depth = 0): string {
   if (v === null || v === undefined) return '';
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
@@ -384,8 +464,9 @@ export default function CampaignDetailPage() {
   const [autoProgress, setAutoProgress] = useState<{ done: number; total: number } | null>(null);
   const [autoSendError, setAutoSendError] = useState<string | null>(null);
   const [showCompanionGuide, setShowCompanionGuide] = useState(false);
-  // Active column filters: { columnKey: selectedValue }. Multiple columns AND together.
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  // Active column filters: { columnKey: selectedValues }. Values within one
+  // column OR together (Team = Kids or Host); multiple columns AND together.
+  const [filters, setFilters] = useState<Record<string, string[]>>({});
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [globalSearch, setGlobalSearch] = useState('');
@@ -633,27 +714,32 @@ export default function CampaignDetailPage() {
   // Invite-column facets + form-answer facets. Summary uses `facets` only.
   const filterFacets = useMemo(() => [...facets, ...formFacets], [facets, formFacets]);
 
-  const activeFilters = useMemo(() => Object.entries(filters).filter(([, v]) => v), [filters]);
+  const activeFilters = useMemo(
+    () => Object.entries(filters).filter(([, vals]) => vals.length > 0),
+    [filters],
+  );
 
   const matchesFilters = useCallback(
-    (p: CampaignPerson) => activeFilters.every(([k, v]) => {
-      if (k.startsWith('form:')) {
-        return attrValues(formAnswersById.get(p.id)?.[k.slice(5)]).includes(v);
-      }
-      return groupValuesOf(p, k).includes(v);
+    (p: CampaignPerson) => activeFilters.every(([k, vals]) => {
+      const personVals = k.startsWith('form:')
+        ? attrValues(formAnswersById.get(p.id)?.[k.slice(5)])
+        : groupValuesOf(p, k);
+      // OR within the column: any selected value counts as a match.
+      return vals.some(v => personVals.includes(v));
     }),
     [activeFilters, formAnswersById],
   );
 
-  // Drop any filter whose column or value disappeared after the data changed.
+  // Drop any filter values whose column or value disappeared after the data changed.
   useEffect(() => {
     setFilters(prev => {
       let changed = false;
-      const next: Record<string, string> = {};
-      for (const [k, v] of Object.entries(prev)) {
+      const next: Record<string, string[]> = {};
+      for (const [k, vals] of Object.entries(prev)) {
         const f = filterFacets.find(ff => ff.key === k);
-        if (f && f.values.includes(v)) next[k] = v;
-        else changed = true;
+        const kept = f ? vals.filter(v => f.values.includes(v)) : [];
+        if (kept.length > 0) next[k] = kept;
+        if (kept.length !== vals.length) changed = true;
       }
       return changed ? next : prev;
     });
@@ -1427,7 +1513,7 @@ export default function CampaignDetailPage() {
           <div className="space-y-3 mb-6">
             {activeTab !== 'summary' && activeFilters.length > 0 && (
               <p className="text-xs text-indigo-400/70 font-medium uppercase tracking-wide">
-                Showing stats for: {activeFilters.map(([, v]) => v).join(' · ')}
+                Showing stats for: {activeFilters.map(([, vals]) => vals.join(' / ')).join(' · ')}
               </p>
             )}
             {/* Row 1 — primary headline numbers */}
@@ -1686,42 +1772,41 @@ export default function CampaignDetailPage() {
                       <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1">
                         {f.label}
                       </label>
-                      <select
-                        value={filters[f.key] ?? ''}
-                        onChange={e => {
-                          const v = e.target.value;
+                      <FacetMultiSelect
+                        values={f.values}
+                        selected={filters[f.key] ?? []}
+                        onChange={vals => {
                           setFilters(prev => {
                             const next = { ...prev };
-                            if (v) next[f.key] = v; else delete next[f.key];
+                            if (vals.length) next[f.key] = vals; else delete next[f.key];
                             return next;
                           });
                         }}
-                        className={`w-full bg-zinc-800 border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
-                          filters[f.key] ? 'border-indigo-500/50 text-indigo-200' : 'border-zinc-700 text-slate-300'
-                        }`}
-                      >
-                        <option value="">All</option>
-                        {f.values.map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
+                      />
                     </div>
                   ))}
                 </div>
                 {activeFilters.length > 0 && (
                   <div className="mt-3 pt-2.5 border-t border-zinc-800 flex items-center gap-2 flex-wrap">
                     <span className="text-xs text-slate-500">Active:</span>
-                    {activeFilters.map(([k, v]) => {
+                    {activeFilters.flatMap(([k, vals]) => {
                       const facetLabel = filterFacets.find(f => f.key === k)?.label ?? k;
-                      return (
+                      // One chip per selected value so a single value can be removed
+                      // without clearing the rest of that column's selection.
+                      return vals.map(v => (
                         <button
-                          key={k}
-                          onClick={() => setFilters(prev => { const n = { ...prev }; delete n[k]; return n; })}
+                          key={`${k}|${v}`}
+                          onClick={() => setFilters(prev => {
+                            const kept = (prev[k] ?? []).filter(x => x !== v);
+                            const n = { ...prev };
+                            if (kept.length) n[k] = kept; else delete n[k];
+                            return n;
+                          })}
                           className="inline-flex items-center gap-1 text-xs bg-indigo-500/15 text-indigo-300 px-2 py-0.5 rounded-full hover:bg-indigo-500/25 transition-colors"
                         >
                           {facetLabel}: {v} <X className="w-3 h-3" />
                         </button>
-                      );
+                      ));
                     })}
                     <button
                       onClick={() => setFilters({})}
