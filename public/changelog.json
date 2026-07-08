@@ -3,6 +3,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "campaign-event-name-search",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "No more hunting event IDs out of CCB URLs. The CCB Event IDs section (create form and Edit Campaign) now has a search box — type part of an event's name, like \"Fuel the Fire\", and every matching event appears with its date and ID. Click Add and the ID drops into the list. Word order doesn't matter (\"fuel lvt\" works), and dated series like a gathering with 7/12, 7/19, and 7/26 events all show so you can add each one. The first search warms up the event list and can take a few seconds; after that it's instant.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-attendance-own-button",
     "type": "improvement",
     "category": "Campaigns",

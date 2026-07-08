@@ -12,6 +12,7 @@ import { Campaign, CampaignPerson } from '../../../hooks/useCampaigns';
 import { normalizePhone } from '../../../lib/phoneUtils';
 import { useMacCompanion } from '../../../hooks/useMacCompanion';
 import CompanionGuideModal from '../../../components/companion/CompanionGuideModal';
+import EventSearchPicker from '../../../components/campaigns/EventSearchPicker';
 import { attrValues } from '../../../lib/campaigns/parseRoster';
 import { guessCampusFromGroupName } from '../../../lib/campaigns/campus';
 import { StickyNote, ChevronDown, ChevronUp, Download, Trash2, Check, X } from 'lucide-react';
@@ -1277,6 +1278,16 @@ export default function CampaignDetailPage() {
     await companion.notify(sent, failed);
     setIsAutoSending(false);
     setAutoProgress(null);
+  }
+
+  // Add an event id from the picker: fill the first blank slot, else append.
+  function addEditEventId(evId: string) {
+    setEditEventIds(prev => {
+      if (prev.map(x => x.trim()).includes(evId)) return prev;
+      const blank = prev.findIndex(x => !x.trim());
+      if (blank >= 0) return prev.map((x, i) => (i === blank ? evId : x));
+      return [...prev, evId];
+    });
   }
 
   function openEdit() {
@@ -2627,6 +2638,9 @@ export default function CampaignDetailPage() {
 
           <div>
             <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">CCB Event IDs <span className="text-slate-600 normal-case">(optional — tracks day-of check-ins)</span></label>
+            <div className="mb-3">
+              <EventSearchPicker selectedIds={editEventIds} onAdd={addEditEventId} />
+            </div>
             <div className="space-y-2">
               {editEventIds.map((eid, i) => (
                 <div key={i} className="flex gap-2">

@@ -1162,6 +1162,40 @@ ${attendeesBlock}
   }
 
   /**
+   * Lightweight list of every event — id, title, and first occurrence date —
+   * for name-based lookups (e.g. the campaign event picker). event_profiles
+   * returns ALL events including private ones, so this is a heavy call:
+   * callers should cache the result.
+   */
+  async listAllEvents(): Promise<Array<{ id: string; title: string; startDate: string | null }>> {
+    const xml = await this.getXml({ srv: 'event_profiles' });
+    const eventsRoot = xml?.ccb_api?.response?.events ?? null;
+    const rawEvents: any[] = Array.isArray(eventsRoot?.event)
+      ? eventsRoot.event
+      : eventsRoot?.event ? [eventsRoot.event] : [];
+
+    const out: Array<{ id: string; title: string; startDate: string | null }> = [];
+    for (const ev of rawEvents) {
+      const id = String(ev?.['@_id'] ?? ev?.id ?? '').trim();
+      const title = String(ev?.name ?? ev?.title ?? '').trim();
+      if (!id || !title) continue;
+
+      // First occurrence date, falling back to event-level date fields.
+      const occRoot = ev?.occurrences?.occurrence ?? ev?.occurrence ?? null;
+      const occList: any[] = Array.isArray(occRoot) ? occRoot : occRoot ? [occRoot] : [];
+      const dates = occList
+        .map(o => String(o?.date ?? o?.start_date ?? o?.start_datetime ?? o?.start ?? '').slice(0, 10))
+        .filter(d => DateTime.fromISO(d).isValid)
+        .sort();
+      const eventLevel = String(ev?.start_date ?? ev?.date ?? ev?.event_date ?? '').slice(0, 10);
+      const startDate = dates[0] ?? (DateTime.fromISO(eventLevel).isValid ? eventLevel : null);
+
+      out.push({ id, title, startDate });
+    }
+    return out;
+  }
+
+  /**
    * Every recorded attendee across an event's past occurrences (deduped, capped
    * at the 20 most recent). Used by follow-up campaigns to reconcile who RSVP'd
    * against who actually checked in on the day.

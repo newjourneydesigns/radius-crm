@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { DateTime } from 'luxon';
 import ProtectedRoute from '../../../components/ProtectedRoute';
+import EventSearchPicker from '../../../components/campaigns/EventSearchPicker';
 import { supabase } from '../../../lib/supabase';
 import { useCampaigns } from '../../../hooks/useCampaigns';
 import {
@@ -221,6 +222,16 @@ function NewCampaignForm() {
 
   function updateGroupId(index: number, value: string) {
     setGroupIds(prev => prev.map((id, i) => (i === index ? value : id)));
+  }
+
+  // Add an event id from the picker: fill the first blank slot, else append.
+  function addEventId(evId: string) {
+    setEventIds(prev => {
+      if (prev.map(x => x.trim()).includes(evId)) return prev;
+      const blank = prev.findIndex(x => !x.trim());
+      if (blank >= 0) return prev.map((x, i) => (i === blank ? evId : x));
+      return [...prev, evId];
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -543,6 +554,9 @@ function NewCampaignForm() {
               <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
                 CCB Event IDs <span className="text-slate-600 normal-case">(optional — tracks day-of check-ins)</span>
               </label>
+              <div className="mb-3">
+                <EventSearchPicker selectedIds={eventIds} onAdd={addEventId} />
+              </div>
               <div className="space-y-2">
                 {eventIds.map((eid, i) => (
                   <div key={i} className="flex gap-2">
