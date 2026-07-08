@@ -13,6 +13,7 @@ import { normalizePhone } from '../../../lib/phoneUtils';
 import { useMacCompanion } from '../../../hooks/useMacCompanion';
 import CompanionGuideModal from '../../../components/companion/CompanionGuideModal';
 import { attrValues } from '../../../lib/campaigns/parseRoster';
+import { guessCampusFromGroupName } from '../../../lib/campaigns/campus';
 import { StickyNote, ChevronDown, ChevronUp, Download, Trash2, Check, X } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -511,6 +512,8 @@ export default function CampaignDetailPage() {
   const [editName, setEditName] = useState('');
   const [editGroupIds, setEditGroupIds] = useState<string[]>(['']);
   const [editEventIds, setEditEventIds] = useState<string[]>(['']);
+  // Per-group campus overrides ({ group_id: campus }); blank = auto-detect
+  const [editCampusMap, setEditCampusMap] = useState<Record<string, string>>({});
   const [editFormId, setEditFormId] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [editTemplate, setEditTemplate] = useState('');
@@ -972,6 +975,16 @@ export default function CampaignDetailPage() {
     }
   }
 
+  // Known group names, keyed by group id — lets the campus-mapping editor show
+  // "LVT | Circles | Leader" instead of a bare id (names arrive via reconcile).
+  const groupNamesById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of allPeople) {
+      if (p.source_group_id && p.source_group_name) m.set(p.source_group_id, p.source_group_name);
+    }
+    return m;
+  }, [allPeople]);
+
   // Every source group seen across the campaign — offered when re-attributing a
   // "Count as invited" person to the group they were originally invited through.
   const sourceGroupOptions = useMemo(() => {
@@ -1243,6 +1256,7 @@ export default function CampaignDetailPage() {
     setEditName(campaign.name);
     setEditGroupIds(campaign.ccb_group_ids?.length ? [...campaign.ccb_group_ids] : ['']);
     setEditEventIds(campaign.ccb_event_ids?.length ? [...campaign.ccb_event_ids] : ['']);
+    setEditCampusMap({ ...(campaign.group_campus_map ?? {}) });
     setEditFormId(campaign.ccb_form_id ?? '');
     setEditDueDate(campaign.due_date ?? '');
     setEditTemplate(campaign.message_template ?? '');
@@ -1255,6 +1269,12 @@ export default function CampaignDetailPage() {
     if (!campaign) return;
     const cleanGroupIds = editGroupIds.map(gid => gid.trim()).filter(Boolean);
     const cleanEventIds = editEventIds.map(eid => eid.trim()).filter(Boolean);
+    // Only keep overrides for groups still on the campaign; blank = auto-detect.
+    const cleanCampusMap: Record<string, string> = {};
+    for (const gid of cleanGroupIds) {
+      const v = (editCampusMap[gid] ?? '').trim();
+      if (v) cleanCampusMap[gid] = v;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -1266,6 +1286,7 @@ export default function CampaignDetailPage() {
           name: editName.trim(),
           ccb_group_ids: cleanGroupIds,
           ccb_event_ids: cleanEventIds,
+          group_campus_map: cleanCampusMap,
           ccb_form_id: editFormId.trim(),
           due_date: editDueDate,
           message_template: editTemplate.trim(),
@@ -2525,6 +2546,39 @@ export default function CampaignDetailPage() {
               </button>
             </div>
           </div>
+
+          {/* Group → campus mapping. Blank falls back to auto-detection from the
+              group name, so most VCC groups need nothing here. */}
+          {editGroupIds.some(g => g.trim()) && (
+            <div>
+              <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+                Campus per group <span className="text-slate-600 normal-case">(blank = auto-detect from group name)</span>
+              </label>
+              <div className="space-y-2">
+                {editGroupIds.map(g => g.trim()).filter(Boolean).map(gid => {
+                  const groupName = groupNamesById.get(gid);
+                  const guess = guessCampusFromGroupName(groupName);
+                  return (
+                    <div key={gid} className="flex items-center gap-2">
+                      <span className="flex-1 min-w-0 text-sm text-slate-300 truncate" title={groupName ?? `Group ${gid}`}>
+                        {groupName ?? `Group ${gid}`}
+                      </span>
+                      <input
+                        type="text"
+                        className="w-40 bg-zinc-700 border border-zinc-600 text-white placeholder-slate-500 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                        placeholder={guess ? `${guess} (auto)` : 'Campus'}
+                        value={editCampusMap[gid] ?? ''}
+                        onChange={e => setEditCampusMap(prev => ({ ...prev, [gid]: e.target.value }))}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-slate-600 mt-1.5">
+                Auto-detect knows LVT → Lewisville, GVT → Gainesville, FMT → Flower Mound, DNT → Denton. Type a campus to override. Run Reconcile after saving to apply.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">CCB Event IDs <span className="text-slate-600 normal-case">(optional — tracks day-of check-ins)</span></label>

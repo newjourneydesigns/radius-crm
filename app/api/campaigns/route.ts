@@ -76,9 +76,20 @@ export async function POST(req: NextRequest) {
   if (auth.response) return auth.response;
 
   const body = await req.json();
-  const { name, ccb_group_ids, ccb_event_ids, ccb_form_id, due_date, message_template, people } = body;
+  const { name, ccb_group_ids, ccb_event_ids, ccb_form_id, due_date, message_template, people, group_campus_map } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: 'Campaign name is required' }, { status: 400 });
+
+  // Optional per-group campus overrides ({ group_id: campus }); reconcile falls
+  // back to guessing from the group name for groups without an entry.
+  const cleanCampusMap: Record<string, string> = {};
+  if (group_campus_map && typeof group_campus_map === 'object' && !Array.isArray(group_campus_map)) {
+    for (const [k, v] of Object.entries(group_campus_map)) {
+      const key = String(k).trim();
+      const val = String(v ?? '').trim();
+      if (key && val) cleanCampusMap[key] = val;
+    }
+  }
 
   const cleanGroupIds = Array.isArray(ccb_group_ids)
     ? ccb_group_ids.map((id: unknown) => String(id).trim()).filter(Boolean)
@@ -122,6 +133,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       ccb_group_ids: cleanGroupIds,
       ccb_event_ids: cleanEventIds,
+      group_campus_map: cleanCampusMap,
       ccb_form_id: String(ccb_form_id).trim(),
       // Form link is always derived from the form ID (same URL shape every time)
       form_link: ccbFormUrl(ccb_form_id),

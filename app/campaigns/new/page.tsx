@@ -166,6 +166,8 @@ function NewCampaignForm() {
   const [dupeName, setDupeName] = useState<string | null>(null);
   const [dupeRoster, setDupeRoster] = useState(false);
   const [dupeLoading, setDupeLoading] = useState(!!fromId);
+  // Carried invisibly from the source campaign: same groups -> same campuses.
+  const [dupeCampusMap, setDupeCampusMap] = useState<Record<string, string> | null>(null);
 
   useEffect(() => {
     if (!fromId) return;
@@ -190,6 +192,9 @@ function NewCampaignForm() {
         if (c.ccb_group_ids?.length) {
           setSourceMode('groups');
           setGroupIds([...c.ccb_group_ids]);
+          if (c.group_campus_map && Object.keys(c.group_campus_map).length > 0) {
+            setDupeCampusMap(c.group_campus_map);
+          }
         } else {
           // Pasted-roster campaign: rebuild the invite list into the paste box.
           const pres = await fetch(`/api/campaigns/${fromId}/people`, { headers });
@@ -244,6 +249,7 @@ function NewCampaignForm() {
         name: name.trim(),
         ccb_group_ids: sourceMode === 'groups' ? cleanGroupIds : [],
         ccb_event_ids: eventIds.map(id => id.trim()).filter(Boolean),
+        group_campus_map: sourceMode === 'groups' && dupeCampusMap ? dupeCampusMap : undefined,
         ccb_form_id: formId.trim(),
         due_date: dueDate,
         message_template: template.trim(),

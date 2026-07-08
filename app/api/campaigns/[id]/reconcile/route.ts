@@ -5,6 +5,7 @@ import { createCCBv2Client } from '../../../../../lib/ccb/ccb-v2-client';
 import { getCCBRequestContext } from '../../../../../lib/ccb/ccb-api-gateway';
 import { reconcile, computeCounts } from '../../../../../lib/campaigns/reconcile';
 import { fetchAllRows } from '../../../../../lib/campaigns/fetchAllRows';
+import { guessCampusFromGroupName } from '../../../../../lib/campaigns/campus';
 
 export const dynamic = 'force-dynamic';
 
@@ -388,6 +389,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // 7. Upsert all people
   // For each reconciled person, if they were previously contacted, keep that status.
   // Preserve manually_added flag for anyone who was manually added.
+
+  // Campus per person, from their invite group: an admin override in
+  // group_campus_map wins; otherwise guess from the group name (LVT -> Lewisville).
+  // Stamped into attributes so Campus filters/summaries work on every tab.
+  const campusMap: Record<string, string> =
+    campaign.group_campus_map && typeof campaign.group_campus_map === 'object' && !Array.isArray(campaign.group_campus_map)
+      ? campaign.group_campus_map
+      : {};
+  const campusForGroup = (groupId: string | null, groupName: string | null) =>
+    (groupId ? campusMap[groupId] : undefined) || guessCampusFromGroupName(groupName);
+
   const rows = reconciledPeople.map((p) => {
     const nameKey = `${normName(p.firstName)}|${normName(p.lastName)}`;
     const prevContacted = p.ccbIndividualId
@@ -395,7 +407,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       : contactedNullMap.get(nameKey);
     const isManual = p.ccbIndividualId ? manualCcbIds.has(p.ccbIndividualId) : manualNullKeys.has(nameKey);
     const v2Ph = p.ccbIndividualId ? v2PhoneMap[p.ccbIndividualId] : null;
-    const attributes = (p.ccbIndividualId ? manualAttrsByCcbId.get(p.ccbIndividualId) : manualAttrsByName.get(nameKey)) ?? null;
+    const baseAttrs = ((p.ccbIndividualId ? manualAttrsByCcbId.get(p.ccbIndividualId) : manualAttrsByName.get(nameKey)) ?? null) as Record<string, unknown> | null;
+    // Merge the group-derived campus in; an explicit Campus attribute (e.g. from
+    // a pasted roster) wins because the spread comes after.
+    const campus = campusForGroup(p.sourceGroupId ?? null, p.sourceGroupName ?? null);
+    const attributes = campus ? { Campus: campus, ...(baseAttrs ?? {}) } : baseAttrs;
 
     // Honor a prior admin decision on a fuzzy match: confirmed -> submitted,
     // rejected -> missing (drop the form link). Only applies to fuzzy matches.

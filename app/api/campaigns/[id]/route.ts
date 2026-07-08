@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (auth.response) return auth.response;
 
   const body = await req.json();
-  const { name, ccb_group_ids, ccb_event_ids, ccb_form_id, due_date, message_template, archived } = body;
+  const { name, ccb_group_ids, ccb_event_ids, ccb_form_id, due_date, message_template, archived, group_campus_map } = body;
 
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name.trim();
@@ -49,6 +49,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // Event IDs are optional; reconcile pulls day-of check-ins from them.
   if (Array.isArray(ccb_event_ids)) {
     updates.ccb_event_ids = ccb_event_ids.map((id: unknown) => String(id).trim()).filter(Boolean);
+  }
+  // Per-group campus overrides ({ group_id: campus }); groups without an entry
+  // fall back to name-based auto-detection at reconcile.
+  if (group_campus_map && typeof group_campus_map === 'object' && !Array.isArray(group_campus_map)) {
+    const clean: Record<string, string> = {};
+    for (const [k, v] of Object.entries(group_campus_map)) {
+      const key = String(k).trim();
+      const val = String(v ?? '').trim();
+      if (key && val) clean[key] = val;
+    }
+    updates.group_campus_map = clean;
   }
   if (ccb_form_id !== undefined) {
     updates.ccb_form_id = String(ccb_form_id).trim();

@@ -3,6 +3,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "campaign-group-campus-mapping",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campus is now a real dimension on group-based campaigns. Reconcile reads each person's invite group and stamps their campus automatically — LVT → Lewisville, GVT → Gainesville, FMT → Flower Mound, DNT → Denton — so a Campus filter appears on every tab (filter Submitted by campus while Unsubmitted stays grouped by invite list), the Summary tab gains a By Campus rollup with the attendance columns, and Campus lands in the CSV export. If a group name doesn't match the pattern, set its campus by hand in Edit Campaign → \"Campus per group\" — overrides always win over auto-detection. Run Reconcile once after updating to stamp campuses on existing campaigns.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-event-attendance",
     "type": "feature",
     "category": "Campaigns",

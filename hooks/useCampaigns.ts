@@ -9,6 +9,8 @@ export interface Campaign {
   ccb_group_ids: string[];
   // CCB events whose day-of check-ins reconcile marks as attended (optional)
   ccb_event_ids: string[] | null;
+  // Per-group campus overrides ({ group_id: campus }); blank = guess from group name
+  group_campus_map: Record<string, string> | null;
   ccb_form_id: string;
   form_link: string;
   due_date: string;
@@ -95,6 +97,7 @@ export function useCampaigns() {
     name: string;
     ccb_group_ids: string[];
     ccb_event_ids?: string[];
+    group_campus_map?: Record<string, string>;
     ccb_form_id: string;
     due_date: string;
     message_template: string;
@@ -139,7 +142,7 @@ export function useCampaigns() {
 
   const updateCampaign = useCallback(async (
     id: string,
-    payload: Partial<Pick<Campaign, 'name' | 'ccb_group_ids' | 'ccb_event_ids' | 'ccb_form_id' | 'form_link' | 'due_date' | 'message_template'>>,
+    payload: Partial<Pick<Campaign, 'name' | 'ccb_group_ids' | 'ccb_event_ids' | 'group_campus_map' | 'ccb_form_id' | 'form_link' | 'due_date' | 'message_template'>>,
   ): Promise<Campaign> => {
     const headers = await authHeader();
     const res = await fetch(`/api/campaigns/${id}`, {
