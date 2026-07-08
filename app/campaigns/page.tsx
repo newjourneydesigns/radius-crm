@@ -231,22 +231,29 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-zinc-800">
+                <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-zinc-800">
                   <Link
                     href={`/campaigns/${c.id}`}
-                    className="flex-1 text-center bg-zinc-800 text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    className="text-center bg-zinc-800 text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
                   >
                     View
                   </Link>
                   <button
-                    className="flex-1 text-center bg-zinc-800 text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    className="text-center bg-zinc-800 text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
                     onClick={() => openEdit(c)}
                   >
                     Edit
                   </button>
+                  <Link
+                    href={`/campaigns/new?from=${c.id}`}
+                    className="text-center bg-zinc-800 text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    title="Start a new campaign from this one's settings"
+                  >
+                    Duplicate
+                  </Link>
                   {c.archived_at ? (
                     <button
-                      className="flex-1 flex items-center justify-center bg-zinc-800 text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
+                      className="flex items-center justify-center bg-zinc-800 text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
                       disabled={archiving === c.id}
                       onClick={() => handleRestore(c)}
                     >
@@ -254,7 +261,7 @@ export default function CampaignsPage() {
                     </button>
                   ) : (
                     <button
-                      className="flex-1 flex items-center justify-center bg-zinc-800 text-slate-400 hover:text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
+                      className="flex items-center justify-center bg-zinc-800 text-slate-400 hover:text-slate-200 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
                       disabled={archiving === c.id}
                       onClick={() => handleArchive(c)}
                     >
@@ -327,6 +334,13 @@ export default function CampaignsPage() {
                           >
                             Edit
                           </button>
+                          <Link
+                            href={`/campaigns/new?from=${c.id}`}
+                            className="text-slate-400 hover:text-white hover:bg-zinc-700 px-2.5 py-1 rounded-lg text-xs transition-colors"
+                            title="Start a new campaign from this one's settings"
+                          >
+                            Duplicate
+                          </Link>
                           {c.archived_at ? (
                             <button
                               className="text-slate-400 hover:text-white hover:bg-zinc-700 px-2.5 py-1 rounded-lg text-xs transition-colors disabled:opacity-40 flex items-center gap-1"

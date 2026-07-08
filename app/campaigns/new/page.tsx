@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { DateTime } from 'luxon';
 import ProtectedRoute from '../../../components/ProtectedRoute';
+import { supabase } from '../../../lib/supabase';
 import { useCampaigns } from '../../../hooks/useCampaigns';
 import {
   parseTable,
@@ -51,7 +52,79 @@ function Spinner() {
   return <div className="w-4 h-4 border-2 border-zinc-700 border-t-indigo-500 rounded-full animate-spin" />;
 }
 
+async function authHeader(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+// A stored campaign person, as returned by GET /api/campaigns/[id]/people.
+// Only the fields the duplicate flow needs.
+type StoredPerson = {
+  ccb_individual_id: string | null;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  mobile_phone: string | null;
+  in_group: boolean;
+  reconcile_status: string;
+  attributes: Record<string, string | string[]> | null;
+};
+
+// Rebuild a pasted-roster campaign's invite list as tab-separated text so the
+// duplicate flow drops it straight into the paste box — fully editable, and it
+// re-parses through the same column mapper as a fresh paste. A person with a
+// CCB id and a multi-value attribute (e.g. two teams) becomes one row per value;
+// dedupePeople merges them back into a single invite, exactly like the original.
+function peopleToTsv(people: StoredPerson[]): string {
+  const attrKeys: string[] = [];
+  const seen = new Set<string>();
+  for (const p of people) {
+    for (const k of Object.keys(p.attributes ?? {})) {
+      if (!seen.has(k)) { seen.add(k); attrKeys.push(k); }
+    }
+  }
+  // Cells can't carry the delimiters — collapse tabs/newlines inside values.
+  const cell = (s: string) => s.replace(/[\t\r\n]+/g, ' ').trim();
+  const header = ['Individual ID', 'First Name', 'Last Name', 'Email', 'Phone', ...attrKeys];
+  const lines = [header.join('\t')];
+  for (const p of people) {
+    const vals = attrKeys.map(k => attrValues(p.attributes?.[k]));
+    // Without a CCB id, extra rows can't be re-merged — keep one row and join values.
+    const rowCount = p.ccb_individual_id ? Math.max(1, ...vals.map(v => v.length)) : 1;
+    for (let r = 0; r < rowCount; r++) {
+      lines.push([
+        p.ccb_individual_id || '',
+        p.first_name,
+        p.last_name,
+        r === 0 ? (p.email || '') : '',
+        r === 0 ? (p.mobile_phone || p.phone || '') : '',
+        ...vals.map(v => (rowCount === 1 ? v.join('; ') : (v[r] ?? ''))),
+      ].map(cell).join('\t'));
+    }
+  }
+  return lines.join('\n');
+}
+
+// useSearchParams (for ?from=) requires a Suspense boundary in the App Router.
 export default function NewCampaignPage() {
+  return (
+    <Suspense
+      fallback={
+        <ProtectedRoute>
+          <div className="flex justify-center items-center py-24">
+            <Spinner />
+          </div>
+        </ProtectedRoute>
+      }
+    >
+      <NewCampaignForm />
+    </Suspense>
+  );
+}
+
+function NewCampaignForm() {
   const router = useRouter();
   const { createCampaign } = useCampaigns();
 
@@ -84,6 +157,61 @@ export default function NewCampaignPage() {
   const [err, setErr] = useState<string | null>(null);
 
   const today = DateTime.now().toISODate()!;
+
+  // Duplicate mode: /campaigns/new?from=<id> pre-fills this form from an existing
+  // campaign so its settings can be reviewed and edited before anything is created.
+  const searchParams = useSearchParams();
+  const fromId = searchParams?.get('from') ?? null;
+  const [dupeName, setDupeName] = useState<string | null>(null);
+  const [dupeRoster, setDupeRoster] = useState(false);
+  const [dupeLoading, setDupeLoading] = useState(!!fromId);
+
+  useEffect(() => {
+    if (!fromId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const headers = await authHeader();
+        const res = await fetch(`/api/campaigns/${fromId}`, { headers });
+        if (!res.ok) throw new Error('Could not load the campaign to duplicate');
+        const c = (await res.json()).campaign;
+        if (!c) throw new Error('Campaign not found');
+        if (cancelled) return;
+
+        setDupeName(c.name);
+        setName(`${c.name} (copy)`);
+        setFormId(c.ccb_form_id ?? '');
+        if (typeof c.message_template === 'string' && c.message_template.trim()) {
+          setTemplate(c.message_template);
+        }
+        // Due date is intentionally left blank — a new campaign needs a new one.
+
+        if (c.ccb_group_ids?.length) {
+          setSourceMode('groups');
+          setGroupIds([...c.ccb_group_ids]);
+        } else {
+          // Pasted-roster campaign: rebuild the invite list into the paste box.
+          const pres = await fetch(`/api/campaigns/${fromId}/people`, { headers });
+          if (pres.ok) {
+            const rows: StoredPerson[] = (await pres.json()).people ?? [];
+            // Only the invite list carries over — form-only responders don't
+            // belong to it, and off-boarded people were removed on purpose.
+            const invitees = rows.filter(p => p.in_group && p.reconcile_status !== 'excluded');
+            if (!cancelled && invitees.length > 0) {
+              setSourceMode('paste');
+              setPasteText(peopleToTsv(invitees));
+              setDupeRoster(true);
+            }
+          }
+        }
+      } catch (e) {
+        if (!cancelled) setErr(e instanceof Error ? e.message : 'Could not load the campaign to duplicate');
+      } finally {
+        if (!cancelled) setDupeLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [fromId]);
 
   function updateGroupId(index: number, value: string) {
     setGroupIds(prev => prev.map((id, i) => (i === index ? value : id)));
@@ -139,10 +267,32 @@ export default function NewCampaignPage() {
           >
             ← Campaigns
           </Link>
-          <h1 className="text-xl font-semibold text-white tracking-tight mt-1">New Campaign</h1>
+          <h1 className="text-xl font-semibold text-white tracking-tight mt-1">
+            {fromId ? 'Duplicate Campaign' : 'New Campaign'}
+          </h1>
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
+        {/* Duplicate banner — nothing is created until the form is submitted */}
+        {dupeName && !dupeLoading && (
+          <div className="mb-4 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-200">
+            Settings copied from <span className="font-medium text-white">{dupeName}</span>.
+            Review them below, pick a new due date, then create.
+            {dupeRoster && (
+              <span className="block text-xs text-indigo-300/70 mt-1">
+                The invite list was copied into the paste box — edit it there. Off-boarded people were not carried over.
+              </span>
+            )}
+          </div>
+        )}
+
+        {dupeLoading && (
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 flex items-center justify-center gap-3 py-16">
+            <Spinner />
+            <span className="text-sm text-slate-400">Loading campaign settings…</span>
+          </div>
+        )}
+
+        <div className={`rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6 ${dupeLoading ? 'hidden' : ''}`}>
           <form onSubmit={handleSubmit} className="space-y-5">
 
             {/* Campaign name */}

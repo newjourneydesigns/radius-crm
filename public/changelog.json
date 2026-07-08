@@ -3,6 +3,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "campaign-duplicate",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "Recurring campaigns no longer start from scratch. Every campaign (including archived ones) now has a Duplicate action that opens the new-campaign form pre-filled with its settings — name, CCB groups or the pasted invite list, form ID, and message template — so you can review and edit everything before anything is created. The due date is intentionally left blank so last season's date can't sneak through, and off-boarded people aren't carried over into the new invite list.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-contact-date-and-offboarding",
     "type": "feature",
     "category": "Campaigns",
