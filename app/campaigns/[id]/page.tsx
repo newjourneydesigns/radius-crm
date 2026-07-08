@@ -3005,7 +3005,7 @@ export default function CampaignDetailPage() {
                       title={!bestPhone(previewPerson) ? 'No phone number on file' : undefined}
                       onClick={() => sendMessage(previewPerson)}
                     >
-                      Send iMessage
+                      Send Message
                     </button>
                   )}
                 </div>
@@ -3192,7 +3192,7 @@ export default function CampaignDetailPage() {
                           {sendBtn('Send Again')}
                         </>
                       ) : (
-                        sendBtn('Send iMessage')
+                        sendBtn('Send Message')
                       )}
                     </div>
                   );
