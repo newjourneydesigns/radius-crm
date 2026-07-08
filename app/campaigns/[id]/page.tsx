@@ -480,6 +480,12 @@ export default function CampaignDetailPage() {
   const [resolvingMatch, setResolvingMatch] = useState(false);
   const [excluding, setExcluding] = useState(false);
 
+  // "Count as invited" (Not in Group tab): restore submitters who were removed
+  // from the CCB group after being invited, optionally re-picking their group.
+  const [showMarkInvited, setShowMarkInvited] = useState(false);
+  const [markInvitedGroup, setMarkInvitedGroup] = useState('');
+  const [markingInvited, setMarkingInvited] = useState(false);
+
   // Edit campaign modal
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState('');
@@ -930,6 +936,45 @@ export default function CampaignDetailPage() {
     }
   }
 
+  // Every source group seen across the campaign — offered when re-attributing a
+  // "Count as invited" person to the group they were originally invited through.
+  const sourceGroupOptions = useMemo(() => {
+    const s = new Set<string>();
+    for (const p of allPeople) if (p.source_group_name) s.add(p.source_group_name);
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [allPeople]);
+
+  function openMarkInvited() {
+    // Single-group campaigns get the group preselected; multi-group ones choose.
+    setMarkInvitedGroup(sourceGroupOptions.length === 1 ? sourceGroupOptions[0] : '');
+    setShowMarkInvited(true);
+  }
+
+  async function handleMarkInvited() {
+    if (selected.size === 0) return;
+    setMarkingInvited(true);
+    setReconcileError(null);
+    try {
+      const headers = await authHeader();
+      const res = await fetch(`/api/campaigns/${id}/mark-invited`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          person_ids: Array.from(selected),
+          source_group_name: markInvitedGroup || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to count as invited');
+      setSelected(new Set());
+      setShowMarkInvited(false);
+      await Promise.all([loadCampaign(), loadPeople()]);
+    } catch (err) {
+      setReconcileError(err instanceof Error ? err.message : 'Failed to count as invited');
+    } finally {
+      setMarkingInvited(false);
+    }
+  }
+
   // Note tabs: rows that show the inline editor (note, contact date, off-board) on expand
   const noteTabKeys: TabKey[] = ['missing', 'not_in_group', 'needs_review', 'excluded'];
   const isNoteTab = noteTabKeys.includes(activeTab);
@@ -1247,10 +1292,9 @@ export default function CampaignDetailPage() {
     }
   }
 
-  // Tabs with row selection + bulk actions. Submitted is selectable too so
-  // responders can get texts (reminders, details) and be tracked as contacted.
-  const showCheckboxes =
-    activeTab === 'missing' || activeTab === 'submitted' || activeTab === 'needs_review' || activeTab === 'excluded';
+  // Every people tab has row selection + bulk actions (Follow Up texting works
+  // anywhere; each tab adds its own specific actions).
+  const showCheckboxes = activeTab !== 'summary';
 
   if (loadingCampaign) {
     return (
@@ -1885,6 +1929,14 @@ export default function CampaignDetailPage() {
                                   )}
                                 </span>
                               )}
+                              {p.left_group && (
+                                <span
+                                  className="text-xs text-amber-400/80 border border-amber-500/30 rounded px-1 py-0.5 leading-none"
+                                  title="No longer in the CCB group — kept on the invite list because they were invited"
+                                >
+                                  left group
+                                </span>
+                              )}
                             </div>
 
                             {/* Contact */}
@@ -2069,6 +2121,14 @@ export default function CampaignDetailPage() {
                                   )}
                                 </span>
                               )}
+                              {p.left_group && (
+                                <span
+                                  className="ml-2 text-xs text-amber-400/80 border border-amber-500/30 rounded px-1 py-0.5 leading-none"
+                                  title="No longer in the CCB group — kept on the invite list because they were invited"
+                                >
+                                  left group
+                                </span>
+                              )}
                             </td>
                             <td id={`campaign-row-${p.id}`} className={`px-4 py-3 text-slate-400 transition-colors duration-500 ${highlightedId === p.id ? 'bg-indigo-500/10' : ''}`}>{p.email || '—'}</td>
                             <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{bestPhone(p) || '—'}</td>
@@ -2224,6 +2284,16 @@ export default function CampaignDetailPage() {
                     Off-board
                   </button>
                 )}
+                {activeTab === 'not_in_group' && (
+                  <button
+                    className="bg-btn-success text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
+                    onClick={openMarkInvited}
+                    disabled={markingInvited}
+                    title="They were invited (e.g. removed from the CCB group after submitting) — count them as invited and submitted"
+                  >
+                    <Check className="w-4 h-4" strokeWidth={2} /> Count as invited
+                  </button>
+                )}
               </>
             )}
             <button
@@ -2235,6 +2305,55 @@ export default function CampaignDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Count as invited (Not in Group -> Submitted) */}
+      <Modal
+        isOpen={showMarkInvited}
+        onClose={() => setShowMarkInvited(false)}
+        title={`Count as invited — ${selected.size} ${selected.size === 1 ? 'person' : 'people'}`}
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-300">
+            Moves them to <span className="text-white font-medium">Submitted</span> and adds them to the
+            invited count — for people who were invited but later removed from the CCB group, or edge
+            cases you want counted. Reconcile keeps this decision.
+          </p>
+          {sourceGroupOptions.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+                Source group <span className="text-slate-600 normal-case">(optional — for filters and the summary)</span>
+              </label>
+              <select
+                className={inputCls}
+                value={markInvitedGroup}
+                onChange={e => setMarkInvitedGroup(e.target.value)}
+              >
+                <option value="">No group</option>
+                {sourceGroupOptions.map(g => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-zinc-800">
+            <button
+              className="text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm transition-colors hover:bg-zinc-800"
+              onClick={() => setShowMarkInvited(false)}
+              disabled={markingInvited}
+            >
+              Cancel
+            </button>
+            <button
+              className="bg-btn-success text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+              onClick={handleMarkInvited}
+              disabled={markingInvited}
+            >
+              {markingInvited ? <><Spinner size="sm" /> Saving…</> : 'Count as invited'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Edit Campaign modal */}
       {/* Delete campaign confirmation */}

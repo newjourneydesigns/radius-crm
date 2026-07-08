@@ -191,6 +191,54 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     });
   }
 
+  // 3d. Sticky invite list: someone who was invited (in a CCB group at a prior
+  // reconcile) but has since been removed from the group stays invited. Their
+  // submission still counts, their unsubmitted follow-up still matters, and the
+  // invited denominator doesn't quietly shrink. They're flagged left_group so
+  // the UI can show it; off-boarding is the deliberate way to remove someone.
+  const previouslyInvited = await fetchAllRows<{
+    ccb_individual_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    phone: string | null;
+    mobile_phone: string | null;
+    source_group_id: string | null;
+    source_group_name: string | null;
+  }>((from, to) =>
+    supabase
+      .from('follow_up_campaign_people')
+      .select('ccb_individual_id, first_name, last_name, email, phone, mobile_phone, source_group_id, source_group_name')
+      .eq('campaign_id', params.id)
+      .eq('in_group', true)
+      .eq('manually_added', false)
+      .range(from, to),
+  );
+  const leftGroupCcbIds = new Set<string>();
+  for (const pp of previouslyInvited ?? []) {
+    // Id-less rows can't be tracked across reconciles; still-present people are
+    // already in the list from CCB.
+    if (!pp.ccb_individual_id || seenCcbIds.has(pp.ccb_individual_id)) continue;
+    seenCcbIds.add(pp.ccb_individual_id);
+    leftGroupCcbIds.add(pp.ccb_individual_id);
+    groupParticipants.push({
+      id: pp.ccb_individual_id,
+      firstName: pp.first_name || '',
+      lastName: pp.last_name || '',
+      fullName: `${pp.first_name || ''} ${pp.last_name || ''}`.trim(),
+      email: pp.email || '',
+      phone: pp.phone || '',
+      mobilePhone: pp.mobile_phone || '',
+      status: '',
+      statusId: '',
+      isActive: true,
+      // Keep the group they were invited through so filters and the Summary
+      // rollup still attribute them correctly.
+      sourceGroupId: pp.source_group_id || undefined,
+      sourceGroupName: pp.source_group_name || undefined,
+    });
+  }
+
   if (groupParticipants.length === 0) {
     return NextResponse.json({
       error: 'empty_group',
@@ -336,6 +384,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       phone: v2Ph?.phone || p.phone || null,
       mobile_phone: v2Ph?.mobilePhone || p.mobilePhone || null,
       in_group: p.inGroup,
+      // Explicitly false for people found in the group so the flag clears if
+      // someone rejoins.
+      left_group: p.ccbIndividualId ? leftGroupCcbIds.has(p.ccbIndividualId) : false,
       in_form: rejected ? false : p.inForm,
       manually_added: isManual,
       form_response_data: rejected ? null : (p.formResponseData || null),

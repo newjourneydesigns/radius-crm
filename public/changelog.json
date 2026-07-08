@@ -3,6 +3,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "campaign-sticky-invite-list",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "Being removed from the CCB group no longer erases someone's invite. Previously, if a person was invited and submitted but later left the group, the next reconcile demoted them to Not in Group — dropping them from the submitted count, the invited total, and their group's filter. Now the invite list is sticky: once invited, a person stays invited (with an amber \"left group\" badge), their submission keeps counting, and unsubmitted leavers stay visible for follow-up or off-boarding. For people already demoted by an earlier reconcile, select them on the Not in Group tab and use the new \"Count as invited\" action — you can also re-attach the source group they were invited through so filters and the Summary rollup stay accurate.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-submitted-followup-and-contact-everywhere",
     "type": "improvement",
     "category": "Campaigns",

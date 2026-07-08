@@ -36,6 +36,9 @@ export interface CampaignPerson {
   phone: string | null;
   mobile_phone: string | null;
   in_group: boolean;
+  // True when they were invited but have since been removed from the CCB group.
+  // They stay on the invite list (in_group stays true) so counts don't shrink.
+  left_group: boolean;
   in_form: boolean;
   manually_added: boolean;
   form_response_data: Record<string, unknown> | null;
