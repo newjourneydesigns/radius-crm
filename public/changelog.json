@@ -173,6 +173,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "campaign-header-actions-polish",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Small polish on the campaign header: the action buttons now right-align cleanly, and Check Attendance shares the green styling of Reconcile Now so the two primary actions read as a pair.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-event-name-search",
     "type": "improvement",
     "category": "Campaigns",

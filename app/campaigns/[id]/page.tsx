@@ -1767,7 +1767,7 @@ export default function CampaignDetailPage() {
           </div>
 
           {/* Actions — Reconcile leads (full width on mobile), the rest sit below it */}
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3 lg:flex-wrap">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-end lg:gap-3 lg:flex-wrap">
             {admin && (
               <button
                 className="order-1 bg-btn-success text-white px-3 py-2.5 lg:py-1.5 rounded-lg text-sm font-semibold lg:font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
