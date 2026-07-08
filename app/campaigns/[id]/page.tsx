@@ -466,6 +466,8 @@ export default function CampaignDetailPage() {
   const [loadingCampaign, setLoadingCampaign] = useState(true);
   const [loadingPeople, setLoadingPeople] = useState(false);
   const [reconciling, setReconciling] = useState(false);
+  const [checkingAttendance, setCheckingAttendance] = useState(false);
+  const [attendanceMsg, setAttendanceMsg] = useState<string | null>(null);
   const [enrichingPhones, setEnrichingPhones] = useState(false);
   const [reconcileError, setReconcileError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('missing');
@@ -643,6 +645,32 @@ export default function CampaignDetailPage() {
         .finally(() => setEnrichingPhones(false));
     }
     setReconciling(false);
+  }, [id, loadCampaign, loadPeople]);
+
+  // Pull day-of check-ins from the campaign's events. Separate from Reconcile
+  // because with many events the sweep is slow — run it on demand instead.
+  const handleCheckAttendance = useCallback(async () => {
+    setCheckingAttendance(true);
+    setReconcileError(null);
+    setAttendanceMsg(null);
+    try {
+      const headers = await authHeader();
+      const res = await fetch(`/api/campaigns/${id}/attendance`, { method: 'POST', headers });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || json.error || 'Attendance check failed');
+      await Promise.all([loadCampaign(), loadPeople()]);
+      const failNote = json.events_failed?.length
+        ? ` (${json.events_failed.length} event${json.events_failed.length === 1 ? '' : 's'} couldn't be read)`
+        : '';
+      setAttendanceMsg(
+        `Attendance updated — ${json.counts?.attended ?? 0} checked in, ${json.newly_attended} new${failNote}.`,
+      );
+      setTimeout(() => setAttendanceMsg(null), 6000);
+    } catch (err) {
+      setReconcileError(err instanceof Error ? err.message : 'Attendance check failed');
+    } finally {
+      setCheckingAttendance(false);
+    }
   }, [id, loadCampaign, loadPeople]);
 
   const tabPeople = useMemo(() => {
@@ -1567,6 +1595,16 @@ export default function CampaignDetailPage() {
                 {reconciling ? <><Spinner size="sm" /> Reconciling…</> : 'Reconcile Now'}
               </button>
             )}
+            {admin && hasEvents && campaign.last_reconciled_at && (
+              <button
+                className="order-1 bg-teal-700 hover:bg-teal-600 text-white px-3 py-2.5 lg:py-1.5 rounded-lg text-sm font-semibold lg:font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                onClick={handleCheckAttendance}
+                disabled={checkingAttendance || reconciling}
+                title="Pull day-of check-ins from the campaign's CCB events"
+              >
+                {checkingAttendance ? <><Spinner size="sm" /> Checking…</> : 'Check Attendance'}
+              </button>
+            )}
             <div className="order-2 grid grid-cols-2 gap-2 lg:flex lg:items-center lg:gap-3">
               <button
                 className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 lg:py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-40"
@@ -1626,6 +1664,13 @@ export default function CampaignDetailPage() {
         {contactSuccess && (
           <div className="mb-4 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
             Marked as contacted.
+          </div>
+        )}
+
+        {/* Attendance sweep result */}
+        {attendanceMsg && (
+          <div className="mb-4 rounded-lg border border-teal-500/30 bg-teal-500/10 px-4 py-3 text-sm text-teal-300">
+            {attendanceMsg}
           </div>
         )}
 
@@ -2606,7 +2651,7 @@ export default function CampaignDetailPage() {
               ))}
             </div>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-xs text-slate-600">Reconcile marks who checked in to these events</span>
+              <span className="text-xs text-slate-600">Check Attendance pulls who checked in to these events</span>
               <button
                 type="button"
                 className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"

@@ -262,36 +262,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'ccb_form_fetch_failed', message: msg }, { status: 502 });
   }
 
-  // 4b. Fetch day-of check-ins from the campaign's CCB events (optional).
-  // Attendance is additive: a failed fetch (or an attendee dropped by CCB)
-  // never clears a previously recorded check-in — see prevAttended below.
-  const eventIds: string[] = Array.isArray(campaign.ccb_event_ids)
-    ? campaign.ccb_event_ids.filter(Boolean)
-    : [];
-  const attendedCcbIds = new Set<string>();
-  const attendedNames = new Set<string>();
-  for (const evId of eventIds) {
-    try {
-      const attendees = await ccb.getEventAttendees(evId);
-      for (const a of attendees) {
-        if (a.id) attendedCcbIds.add(a.id);
-        else if (a.name) attendedNames.add(a.name.toLowerCase().trim().replace(/\s+/g, ' '));
-      }
-    } catch (err) {
-      console.warn(`Attendance fetch failed for event ${evId}:`, err);
-    }
-  }
-
-  const prevAttended = eventIds.length > 0
-    ? await fetchAllRows<{ ccb_individual_id: string | null; first_name: string | null; last_name: string | null }>((from, to) =>
-        supabase
-          .from('follow_up_campaign_people')
-          .select('ccb_individual_id, first_name, last_name')
-          .eq('campaign_id', params.id)
-          .eq('attended', true)
-          .range(from, to),
-      )
-    : [];
+  // 4b. Attendance is pulled by the separate "Check Attendance" action
+  // (/api/campaigns/[id]/attendance) — with many events it's too slow to run on
+  // every reconcile. Here we only carry existing check-in flags forward so they
+  // survive the upsert.
+  const prevAttended = await fetchAllRows<{ ccb_individual_id: string | null; first_name: string | null; last_name: string | null }>((from, to) =>
+    supabase
+      .from('follow_up_campaign_people')
+      .select('ccb_individual_id, first_name, last_name')
+      .eq('campaign_id', params.id)
+      .eq('attended', true)
+      .range(from, to),
+  );
 
   // 5. Reconcile
   // Deduplicate form respondents by CCB individual ID — a person can submit
@@ -427,13 +409,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const isExcluded = p.ccbIndividualId ? excludedCcbIds.has(p.ccbIndividualId) : excludedNames.has(nameKey);
     const status = isExcluded ? 'excluded' : resolvedStatus;
 
-    // Checked in to one of the campaign's events — matched by CCB id, by name
-    // (attendee names come as "First Last"), or carried from a prior reconcile.
-    const attended =
-      (p.ccbIndividualId
-        ? attendedCcbIds.has(p.ccbIndividualId) || prevAttendedIds.has(p.ccbIndividualId)
-        : prevAttendedNames.has(nameKey)) ||
-      attendedNames.has(`${normName(p.firstName)} ${normName(p.lastName)}`);
+    // Carry the check-in flag from the previous rows (set by Check Attendance).
+    const attended = p.ccbIndividualId
+      ? prevAttendedIds.has(p.ccbIndividualId)
+      : prevAttendedNames.has(nameKey);
 
     return {
       campaign_id: params.id,

@@ -3,6 +3,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "campaign-attendance-own-button",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Reconcile is fast again on campaigns with many events. Pulling day-of check-ins now has its own Check Attendance button (next to Reconcile Now, shown when the campaign has event IDs) instead of running inside every reconcile — and it reads all events in parallel, so even a dozen events take about as long as one. Reconcile still preserves recorded check-ins; it just no longer re-fetches them. Run Check Attendance after your event (or whenever check-ins change) and you'll get a summary of how many people are checked in and how many are new.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-group-campus-mapping",
     "type": "improvement",
     "category": "Campaigns",

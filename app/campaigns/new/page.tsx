@@ -567,7 +567,7 @@ function NewCampaignForm() {
                 ))}
               </div>
               <div className="flex items-center justify-between mt-2">
-                <span className="text-xs text-slate-600">Reconcile marks who checked in to these events</span>
+                <span className="text-xs text-slate-600">The Check Attendance button pulls who checked in to these events</span>
                 <button
                   type="button"
                   className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
