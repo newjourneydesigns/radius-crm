@@ -2575,7 +2575,7 @@ export default function CampaignDetailPage() {
                 })}
               </div>
               <p className="text-xs text-slate-600 mt-1.5">
-                Auto-detect knows LVT → Lewisville, GVT → Gainesville, FMT → Flower Mound, DNT → Denton. Type a campus to override. Run Reconcile after saving to apply.
+                Auto-detect knows LVT → Lewisville, GVT → Gainesville, FMT → Flower Mound, DNT → Denton, ONL → Online. Type a campus to override. Run Reconcile after saving to apply.
               </p>
             </div>
           )}

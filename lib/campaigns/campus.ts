@@ -10,6 +10,7 @@ export const CAMPUS_PREFIXES: Record<string, string> = {
   GVT: 'Gainesville',
   FMT: 'Flower Mound',
   DNT: 'Denton',
+  ONL: 'Online',
 };
 
 // Best-effort campus from a group name: a known prefix token (LVT, GVT, …)
@@ -21,7 +22,7 @@ export function guessCampusFromGroupName(name: string | null | undefined): strin
     // Token match so e.g. "FMT" doesn't fire inside an unrelated word.
     if (new RegExp(`(^|[^A-Z])${prefix}([^A-Z]|$)`).test(upper)) return campus;
   }
-  for (const campus of [...Object.values(CAMPUS_PREFIXES), 'Online']) {
+  for (const campus of Object.values(CAMPUS_PREFIXES)) {
     if (upper.includes(campus.toUpperCase())) return campus;
   }
   return null;
