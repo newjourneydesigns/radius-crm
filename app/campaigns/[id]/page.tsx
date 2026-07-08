@@ -488,6 +488,18 @@ export default function CampaignDetailPage() {
   const [autoProgress, setAutoProgress] = useState<{ done: number; total: number } | null>(null);
   const [autoSendError, setAutoSendError] = useState<string | null>(null);
   const [showCompanionGuide, setShowCompanionGuide] = useState(false);
+  // Delivery verification (Auto Send only): personId -> outcome. Populated in
+  // the background after a batch by reading Apple's delivery receipts, so a
+  // green-bubble number that silently failed gets flagged instead of counted
+  // as sent.
+  const [deliveryStatus, setDeliveryStatus] = useState<Record<string, 'delivered' | 'failed' | 'pending' | 'unconfirmed'>>({});
+  const [verifying, setVerifying] = useState(false);
+  // True when the companion can't read chat.db (Full Disk Access not granted),
+  // so we couldn't verify delivery for the last batch.
+  const [verifyUnavailable, setVerifyUnavailable] = useState(false);
+  // Delivery-tracking capability + the python binary to grant Full Disk Access,
+  // fetched from the companion when the setup guide is open.
+  const [fdaInfo, setFdaInfo] = useState<{ capable: boolean; pythonPath?: string } | null>(null);
   // Active column filters: { columnKey: selectedValues }. Values within one
   // column OR together (Team = Kids or Host); multiple columns AND together.
   const [filters, setFilters] = useState<Record<string, string[]>>({});
@@ -1197,8 +1209,31 @@ export default function CampaignDetailPage() {
     ? resolveMessage(msgTemplate, previewPerson, campaign)
     : '';
 
+  // Delivery-verification rollups for the Auto Send summary + guidance.
+  const failedPeople = selectedPeople.filter(p => deliveryStatus[p.id] === 'failed');
+  const unconfirmedPeople = selectedPeople.filter(p => deliveryStatus[p.id] === 'unconfirmed');
+  const deliveredCount = selectedPeople.filter(p => deliveryStatus[p.id] === 'delivered').length;
+  // Surface the ones needing attention (not delivered / unconfirmed) at the top
+  // so they're easy to tap through on a phone.
+  const deliveryRank: Record<string, number> = { failed: 0, unconfirmed: 1, pending: 2 };
+  const orderedSelected = [...selectedPeople].sort(
+    (a, b) => (deliveryRank[deliveryStatus[a.id] ?? ''] ?? 3) - (deliveryRank[deliveryStatus[b.id] ?? ''] ?? 3),
+  );
+
+  // When the setup guide opens with a running companion, ask it whether
+  // delivery tracking is on and which python binary needs Full Disk Access.
+  useEffect(() => {
+    if (showCompanionGuide && companion.available) {
+      companion.verifyCapable().then(setFdaInfo);
+    }
+  }, [showCompanionGuide, companion.available, companion.verifyCapable]);
+
   async function handleMarkContacted() {
     if (!selectedPeople.length) return;
+    // Don't mark a message that never delivered as "contacted" — leave those
+    // people uncontacted so they resurface for a follow-up on another device.
+    const contactablePeople = selectedPeople.filter(p => deliveryStatus[p.id] !== 'failed');
+    if (!contactablePeople.length) return;
     setContacting(true);
     try {
       const headers = await authHeader();
@@ -1206,7 +1241,7 @@ export default function CampaignDetailPage() {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          person_ids: selectedPeople.map(p => p.id),
+          person_ids: contactablePeople.map(p => p.id),
           note: contactNote.trim() || undefined,
         }),
       });
@@ -1255,9 +1290,16 @@ export default function CampaignDetailPage() {
       setAutoSendError(pre.error || 'Messages is not ready to send.');
       return;
     }
+    // Reset any verification state from a previous batch.
+    setDeliveryStatus({});
+    setVerifyUnavailable(false);
+    setVerifying(false);
     setIsAutoSending(true);
     setAutoProgress({ done: 0, total: selectedPeople.length });
     const delayMs = selectedPeople.length < 25 ? 0 : selectedPeople.length < 100 ? 1000 : 2000;
+    // Batch start — anything sent after this is what delivery verification looks at.
+    const sinceMs = Date.now();
+    const attempted: { personId: string; phone: string }[] = [];
     let sent = 0, failed = 0;
     for (let i = 0; i < selectedPeople.length; i++) {
       const p = selectedPeople[i];
@@ -1267,6 +1309,8 @@ export default function CampaignDetailPage() {
         if (result.success) {
           sent++;
           setSentIds(prev => new Set(prev).add(p.id));
+          // "Success" here only means queued — verification decides delivery.
+          attempted.push({ personId: p.id, phone });
         } else {
           failed++;
         }
@@ -1278,6 +1322,56 @@ export default function CampaignDetailPage() {
     await companion.notify(sent, failed);
     setIsAutoSending(false);
     setAutoProgress(null);
+    // Kick off background delivery verification — doesn't block the modal.
+    verifyDelivery(attempted, sinceMs);
+  }
+
+  // Poll Apple's delivery receipts (via the companion) until every attempted
+  // message resolves to delivered/failed or we hit the timeout. Failures are
+  // the slow case — iMessage keeps retrying a green-bubble number for up to a
+  // couple of minutes before it gives up, so we keep checking in the background.
+  async function verifyDelivery(attempted: { personId: string; phone: string }[], sinceMs: number) {
+    if (!attempted.length) return;
+    const phones = attempted.map(a => a.phone);
+    const phoneToPerson = new Map(attempted.map(a => [a.phone, a.personId]));
+    setVerifying(true);
+    const deadline = Date.now() + 3 * 60 * 1000;
+
+    const poll = async () => {
+      const res = await companion.verify(phones, sinceMs);
+      if (!res.ok || !res.results) {
+        // Can't read delivery receipts (usually Full Disk Access not granted).
+        if (res.error === 'no_access') setVerifyUnavailable(true);
+        setVerifying(false);
+        return;
+      }
+      const results = res.results;
+      let anyPending = false;
+      const next: Record<string, 'delivered' | 'failed' | 'pending'> = {};
+      for (const [phone, personId] of phoneToPerson) {
+        const status = results[phone]?.status ?? 'unknown';
+        if (status === 'failed') next[personId] = 'failed';
+        else if (status === 'delivered') next[personId] = 'delivered';
+        else { anyPending = true; next[personId] = 'pending'; }
+      }
+      setDeliveryStatus(prev => ({ ...prev, ...next }));
+
+      if (anyPending && Date.now() < deadline) {
+        setTimeout(poll, 10000);
+      } else {
+        // Anything still pending at the deadline is unconfirmed — surface it
+        // softly rather than claiming it delivered.
+        setDeliveryStatus(prev => {
+          const finalized = { ...prev };
+          for (const personId of phoneToPerson.values()) {
+            if (finalized[personId] === 'pending') finalized[personId] = 'unconfirmed';
+          }
+          return finalized;
+        });
+        setVerifying(false);
+      }
+    };
+    poll();
   }
 
   // Add an event id from the picker: fill the first blank slot, else append.
@@ -2969,37 +3063,114 @@ export default function CampaignDetailPage() {
                   <p className="text-[11px] text-rose-300 leading-relaxed">{autoSendError}</p>
                 </div>
               )}
-              <div className="divide-y divide-zinc-800/70 rounded-lg border border-zinc-700 overflow-hidden">
-                {selectedPeople.map(p => (
-                  <div key={p.id} className="flex items-center gap-3 px-3 py-2 bg-zinc-800/40">
-                    <span className="text-sm text-slate-200 flex-1">
-                      {p.first_name} {p.last_name}
-                      {bestPhone(p) && (
-                        <span className="text-slate-500 ml-2 text-xs">{bestPhone(p)}</span>
-                      )}
+
+              {/* Delivery verification summary — shows while checking and once
+                  the results settle. */}
+              {(verifying || deliveredCount > 0 || failedPeople.length > 0 || unconfirmedPeople.length > 0) && (
+                <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                  {verifying && (
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <Spinner size="sm" /> Verifying delivery…
                     </span>
-                    {sentIds.has(p.id) ? (
-                      <>
-                        <span className="text-xs text-green-400 font-medium">Sent</span>
-                        <button
-                          className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                          title={!bestPhone(p) ? 'No phone number on file' : undefined}
-                          onClick={() => sendMessage(p)}
-                        >
-                          Send Again
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={!bestPhone(p) ? 'No phone number on file' : undefined}
-                        onClick={() => sendMessage(p)}
-                      >
-                        Send iMessage
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  )}
+                  {deliveredCount > 0 && (
+                    <span className="text-emerald-400 font-medium">{deliveredCount} delivered</span>
+                  )}
+                  {failedPeople.length > 0 && (
+                    <span className="text-rose-400 font-medium">{failedPeople.length} not delivered</span>
+                  )}
+                  {unconfirmedPeople.length > 0 && (
+                    <span className="text-amber-400 font-medium">{unconfirmedPeople.length} unconfirmed</span>
+                  )}
+                </div>
+              )}
+
+              {/* What to do about the ones that didn't send. Retrying from this
+                  Mac fails identically — the fix is a device with cellular SMS. */}
+              {failedPeople.length > 0 && (
+                <div className="mb-3 bg-rose-500/5 border border-rose-500/20 rounded-lg px-3 py-3 space-y-1.5">
+                  <p className="text-xs font-bold text-rose-300">
+                    {failedPeople.length} {failedPeople.length === 1 ? "message wasn't" : "messages weren't"} delivered
+                  </p>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    These numbers aren’t on iMessage, so they couldn’t send from your Mac.{' '}
+                    <span className="text-slate-300 font-medium">Send them from your iPhone</span> — it can
+                    text them over SMS. Tap each person’s <span className="font-medium">Send</span> below on
+                    your phone.
+                  </p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    To fix this for good: on your iPhone, turn on{' '}
+                    <span className="text-slate-400">Settings → Messages → Text Message Forwarding</span> for
+                    this Mac, then re-run Auto Send.
+                  </p>
+                </div>
+              )}
+
+              {/* Verification couldn't run — Full Disk Access not granted. */}
+              {verifyUnavailable && (
+                <div className="mb-3 bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-3 space-y-2">
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <span className="text-slate-300 font-medium">Delivery tracking is off.</span> RADIUS
+                    couldn’t confirm which messages actually went through. Grant the companion Full Disk
+                    Access so it can read your Mac’s delivery receipts — it only ever reports “delivered” or
+                    “not delivered” per number, never your message contents.
+                  </p>
+                  <button
+                    onClick={() => setShowCompanionGuide(true)}
+                    className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    Show me how to turn it on
+                  </button>
+                </div>
+              )}
+
+              <div className="divide-y divide-zinc-800/70 rounded-lg border border-zinc-700 overflow-hidden">
+                {orderedSelected.map(p => {
+                  const ds = deliveryStatus[p.id];
+                  const sendBtn = (label: string) => (
+                    <button
+                      className="bg-slate-700 hover:bg-slate-600 border border-zinc-600 text-slate-300 px-3 py-1 rounded-lg text-xs transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={!bestPhone(p) ? 'No phone number on file' : undefined}
+                      onClick={() => sendMessage(p)}
+                    >
+                      {label}
+                    </button>
+                  );
+                  return (
+                    <div key={p.id} className="flex items-center gap-3 px-3 py-2 bg-zinc-800/40">
+                      <span className="text-sm text-slate-200 flex-1">
+                        {p.first_name} {p.last_name}
+                        {bestPhone(p) && (
+                          <span className="text-slate-500 ml-2 text-xs">{bestPhone(p)}</span>
+                        )}
+                      </span>
+                      {ds === 'failed' ? (
+                        <>
+                          <span className="text-xs text-rose-400 font-semibold">Not delivered</span>
+                          {sendBtn('Send')}
+                        </>
+                      ) : ds === 'pending' ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                          <Spinner size="sm" /> Verifying…
+                        </span>
+                      ) : ds === 'delivered' ? (
+                        <span className="text-xs text-emerald-400 font-medium">Delivered</span>
+                      ) : ds === 'unconfirmed' ? (
+                        <>
+                          <span className="text-xs text-amber-400 font-medium">Unconfirmed</span>
+                          {sendBtn('Send Again')}
+                        </>
+                      ) : sentIds.has(p.id) ? (
+                        <>
+                          <span className="text-xs text-green-400 font-medium">Sent</span>
+                          {sendBtn('Send Again')}
+                        </>
+                      ) : (
+                        sendBtn('Send iMessage')
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -3016,7 +3187,13 @@ export default function CampaignDetailPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-2 border-t border-zinc-800">
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-zinc-800">
+            <p className="text-[11px] text-slate-500 leading-snug min-w-0">
+              {failedPeople.length > 0
+                ? `${failedPeople.length} not-delivered ${failedPeople.length === 1 ? 'person is' : 'people are'} left unmarked to follow up.`
+                : ''}
+            </p>
+            <div className="flex items-center gap-3 flex-shrink-0">
             <button
               className="text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm transition-colors hover:bg-zinc-800"
               onClick={() => setShowFollowUp(false)}
@@ -3032,6 +3209,7 @@ export default function CampaignDetailPage() {
                 ? <><Spinner size="sm" /> Marking…</>
                 : 'Done'}
             </button>
+            </div>
           </div>
         </div>
       </Modal>
@@ -3047,6 +3225,8 @@ export default function CampaignDetailPage() {
         }
         onRecheck={companion.recheck}
         checking={companion.available === null}
+        pythonPath={fdaInfo?.pythonPath}
+        deliveryTrackingOn={fdaInfo?.capable}
       />
     </ProtectedRoute>
   );
