@@ -278,6 +278,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     else resolutionByName.set(`${normName(r.first_name)}|${normName(r.last_name)}`, r.match_resolution);
   }
 
+  // 6c. Load off-boarded (excluded) people so their status survives reconcile —
+  // an admin removed them from the pool deliberately; don't drop them back in.
+  const excludedPeople = await fetchAllRows<{
+    ccb_individual_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+  }>((from, to) =>
+    supabase
+      .from('follow_up_campaign_people')
+      .select('ccb_individual_id, first_name, last_name')
+      .eq('campaign_id', params.id)
+      .eq('reconcile_status', 'excluded')
+      .range(from, to),
+  );
+  const excludedCcbIds = new Set<string>();
+  const excludedNames = new Set<string>();
+  for (const r of excludedPeople ?? []) {
+    if (r.ccb_individual_id) excludedCcbIds.add(r.ccb_individual_id);
+    else excludedNames.add(`${normName(r.first_name)}|${normName(r.last_name)}`);
+  }
+
   // 7. Upsert all people
   // For each reconciled person, if they were previously contacted, keep that status.
   // Preserve manually_added flag for anyone who was manually added.
@@ -294,10 +315,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // rejected -> missing (drop the form link). Only applies to fuzzy matches.
     const resolution = p.ccbIndividualId ? resolutionByCcbId.get(p.ccbIndividualId) : resolutionByName.get(nameKey);
     const applyResolution = resolution && (p.status === 'needs_review' || p.matchMethod === 'fuzzy');
-    const status = applyResolution
+    const resolvedStatus = applyResolution
       ? (resolution === 'confirmed' ? 'submitted' : 'missing')
       : p.status;
     const rejected = applyResolution && resolution === 'rejected';
+
+    // An admin's off-boarding decision wins over the reconciled status so the
+    // person stays out of the unsubmitted pool until manually restored.
+    const isExcluded = p.ccbIndividualId ? excludedCcbIds.has(p.ccbIndividualId) : excludedNames.has(nameKey);
+    const status = isExcluded ? 'excluded' : resolvedStatus;
 
     return {
       campaign_id: params.id,
@@ -333,7 +359,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .filter(Boolean) as string[];
 
   // Delete people who have a CCB ID but are no longer in either list,
-  // and were not contacted, and were not manually added.
+  // and were not contacted, not manually added, and not off-boarded (an
+  // off-boarding decision should persist even if they leave the CCB group).
   if (currentCcbIds.length > 0) {
     await supabase
       .from('follow_up_campaign_people')
@@ -341,6 +368,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .eq('campaign_id', params.id)
       .eq('manually_added', false)
       .is('contacted_at', null)
+      .neq('reconcile_status', 'excluded')
       .not('ccb_individual_id', 'in', `(${currentCcbIds.map(id => `"${id}"`).join(',')})`);
   }
 

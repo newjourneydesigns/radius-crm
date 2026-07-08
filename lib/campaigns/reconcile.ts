@@ -239,6 +239,7 @@ export type ReconcileCounts = {
   submitted_not_in_group: number;
   needs_review: number;
   contacted: number;
+  excluded: number;
   total: number;
   completion_pct: number;
 };
@@ -251,6 +252,7 @@ export function computeCounts(people: { reconcile_status: string; contacted_at?:
     submitted_not_in_group: 0,
     needs_review: 0,
     contacted: 0,
+    excluded: 0,
     total: 0,
     completion_pct: 0,
   };
@@ -259,6 +261,9 @@ export function computeCounts(people: { reconcile_status: string; contacted_at?:
     if (s === 'submitted' || s === 'missing' || s === 'submitted_not_in_group' || s === 'needs_review') {
       (counts as any)[s]++;
     }
+    // Off-boarded people are deliberately excluded from every completion bucket,
+    // so they drop out of both the "Invited" denominator and the "Unsubmitted" pool.
+    if (s === 'excluded') counts.excluded++;
     if (p.contacted_at) counts.contacted++;
   }
   const inGroup = counts.submitted + counts.missing + counts.needs_review;

@@ -17,13 +17,14 @@ import { StickyNote, ChevronDown, ChevronUp, Download, Trash2, Check, X } from '
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TabKey = 'summary' | 'missing' | 'submitted' | 'not_in_group' | 'needs_review';
+type TabKey = 'summary' | 'missing' | 'submitted' | 'not_in_group' | 'needs_review' | 'excluded';
 
 const TABS: { key: TabKey; label: string; statusKey: string }[] = [
   { key: 'missing',       label: 'Unsubmitted',    statusKey: 'missing' },
   { key: 'submitted',     label: 'Submitted',      statusKey: 'submitted' },
   { key: 'not_in_group',  label: 'Not in Group',   statusKey: 'submitted_not_in_group' },
   { key: 'needs_review',  label: 'Review Matches', statusKey: 'needs_review' },
+  { key: 'excluded',      label: 'Off-boarded',    statusKey: 'excluded' },
 ];
 
 const VARIABLES = ['{{first_name}}', '{{form_link}}', '{{campaign_name}}', '{{due_date}}'];
@@ -50,6 +51,8 @@ type PersonDraft = {
   email: string;
   phone: string;
   note: string;
+  // The date the person was contacted, as 'yyyy-MM-dd' ('' = not contacted).
+  contacted_at: string;
   attributes: Record<string, string>;
 };
 
@@ -60,6 +63,7 @@ const STATUS_LABELS: Record<string, string> = {
   needs_review: 'Needs Review',
   contacted: 'Contacted',
   expected: 'Expected',
+  excluded: 'Off-boarded',
 };
 
 // Quote a CSV cell only when it contains a comma, quote, or newline.
@@ -393,6 +397,7 @@ export default function CampaignDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [resolvingMatch, setResolvingMatch] = useState(false);
+  const [excluding, setExcluding] = useState(false);
 
   // Edit campaign modal
   const [showEdit, setShowEdit] = useState(false);
@@ -433,6 +438,7 @@ export default function CampaignDetailPage() {
     if (p.reconcile_status === 'submitted') return 'submitted';
     if (p.reconcile_status === 'submitted_not_in_group') return 'not_in_group';
     if (p.reconcile_status === 'needs_review') return 'needs_review';
+    if (p.reconcile_status === 'excluded') return 'excluded';
     return 'missing';
   }
 
@@ -740,6 +746,7 @@ export default function CampaignDetailPage() {
       email: p.email || '',
       phone: bestPhone(p) || '',
       note: p.note || '',
+      contacted_at: p.contacted_at ? DateTime.fromISO(p.contacted_at).toFormat('yyyy-MM-dd') : '',
       attributes: Object.fromEntries(allAttrKeys.map(k => [k, attrValues(p.attributes?.[k]).join('; ')])),
     };
   }
@@ -768,7 +775,13 @@ export default function CampaignDetailPage() {
       else if (parts.length > 1) attributes[k] = parts;
     }
 
-    const payload = {
+    // Only send the contact date when it actually changed, so plain note edits
+    // don't trigger a needless count recompute on the server.
+    const person = allPeople.find(p => p.id === personId);
+    const origContacted = person?.contacted_at ? DateTime.fromISO(person.contacted_at).toFormat('yyyy-MM-dd') : '';
+    const contactedChanged = draft.contacted_at !== origContacted;
+
+    const payload: Record<string, unknown> = {
       first_name: draft.first_name,
       last_name: draft.last_name,
       email: draft.email,
@@ -776,6 +789,7 @@ export default function CampaignDetailPage() {
       note: draft.note,
       attributes,
     };
+    if (contactedChanged) payload.contacted_at = draft.contacted_at || null;
 
     try {
       const headers = await authHeader();
@@ -785,15 +799,19 @@ export default function CampaignDetailPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to save');
+      const { person: saved } = await res.json();
       setAllPeople(prev => prev.map(p => p.id === personId ? {
         ...p,
-        first_name: payload.first_name.trim(),
-        last_name: payload.last_name.trim(),
-        email: payload.email.trim() || null,
-        phone: normalizePhone(payload.phone) || null,
-        note: payload.note.trim() || null,
+        first_name: draft.first_name.trim(),
+        last_name: draft.last_name.trim(),
+        email: draft.email.trim() || null,
+        phone: normalizePhone(draft.phone) || null,
+        note: draft.note.trim() || null,
         attributes: Object.keys(attributes).length ? attributes : null,
+        ...(contactedChanged ? { contacted_at: saved?.contacted_at ?? null, contacted_by: saved?.contacted_by ?? null } : {}),
       } : p));
+      // The contact date shifts the cached "Contacted" stat card — refresh it.
+      if (contactedChanged) loadCampaign();
       setNoteSaved(prev => ({ ...prev, [personId]: true }));
       setTimeout(() => setNoteSaved(prev => { const n = { ...prev }; delete n[personId]; return n; }), 2000);
     } catch (err) {
@@ -803,8 +821,31 @@ export default function CampaignDetailPage() {
     }
   }
 
-  // Note tabs: rows that show the inline note editor on expand
-  const noteTabKeys: TabKey[] = ['missing', 'not_in_group', 'needs_review'];
+  // Off-board people (remove from the unsubmitted pool) or restore them back to it.
+  async function setExcluded(personIds: string[], excluded: boolean) {
+    if (personIds.length === 0) return;
+    setExcluding(true);
+    setReconcileError(null);
+    try {
+      const headers = await authHeader();
+      const res = await fetch(`/api/campaigns/${id}/exclude`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ person_ids: personIds, excluded }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to update');
+      setSelected(new Set());
+      setExpandedRows(prev => { const n = new Set(prev); personIds.forEach(pid => n.delete(pid)); return n; });
+      await Promise.all([loadCampaign(), loadPeople()]);
+    } catch (err) {
+      setReconcileError(err instanceof Error ? err.message : 'Failed to off-board');
+    } finally {
+      setExcluding(false);
+    }
+  }
+
+  // Note tabs: rows that show the inline editor (note, contact date, off-board) on expand
+  const noteTabKeys: TabKey[] = ['missing', 'not_in_group', 'needs_review', 'excluded'];
   const isNoteTab = noteTabKeys.includes(activeTab);
 
   function toggleExpand(personId: string) {
@@ -1120,7 +1161,7 @@ export default function CampaignDetailPage() {
     }
   }
 
-  const showCheckboxes = activeTab === 'missing' || activeTab === 'needs_review';
+  const showCheckboxes = activeTab === 'missing' || activeTab === 'needs_review' || activeTab === 'excluded';
 
   if (loadingCampaign) {
     return (
@@ -1200,6 +1241,37 @@ export default function CampaignDetailPage() {
           />
         </div>
 
+        {/* Contact date — set it here or with the quick button, then Save */}
+        <div className="border-t border-zinc-800 pt-3">
+          <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1">Contacted</label>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors [color-scheme:dark]"
+              value={editDrafts[p.id].contacted_at}
+              onChange={e => updateDraft(p.id, { contacted_at: e.target.value })}
+            />
+            {editDrafts[p.id].contacted_at ? (
+              <button
+                type="button"
+                className="text-xs text-slate-400 hover:text-white transition-colors px-2 py-1"
+                onClick={() => updateDraft(p.id, { contacted_at: '' })}
+              >
+                Clear
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1"
+                onClick={() => updateDraft(p.id, { contacted_at: DateTime.now().toFormat('yyyy-MM-dd') })}
+              >
+                Mark contacted today
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1">The date you reached out. Save to apply.</p>
+        </div>
+
         <div className="flex items-center gap-3">
           <button
             className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
@@ -1211,6 +1283,27 @@ export default function CampaignDetailPage() {
           {allAttrKeys.length > 0 && (
             <span className="text-[11px] text-slate-500">Separate multiple values with a semicolon (;)</span>
           )}
+          {activeTab === 'excluded' ? (
+            <button
+              type="button"
+              className="ml-auto text-xs font-medium text-slate-200 bg-zinc-700 hover:bg-zinc-600 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+              onClick={() => setExcluded([p.id], false)}
+              disabled={excluding}
+              title="Move back into the unsubmitted pool"
+            >
+              Restore to Unsubmitted
+            </button>
+          ) : activeTab === 'missing' ? (
+            <button
+              type="button"
+              className="ml-auto text-xs font-medium text-slate-200 bg-zinc-700 hover:bg-amber-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+              onClick={() => setExcluded([p.id], true)}
+              disabled={excluding}
+              title="Remove from the unsubmitted pool so they don't count against completion"
+            >
+              Off-board
+            </button>
+          ) : null}
         </div>
       </div>
     );
@@ -1439,6 +1532,7 @@ export default function CampaignDetailPage() {
                           not_in_group: 'bg-slate-500/20 text-slate-400',
                           needs_review: 'bg-amber-500/15 text-amber-400',
                           contacted: 'bg-indigo-500/15 text-indigo-400',
+                          excluded: 'bg-zinc-500/20 text-zinc-400',
                         }[tabForPerson(p)];
                         return (
                           <button
@@ -2019,13 +2113,31 @@ export default function CampaignDetailPage() {
                   <X className="w-4 h-4" strokeWidth={2} /> Not a match
                 </button>
               </>
-            ) : (
+            ) : activeTab === 'excluded' ? (
               <button
-                className="bg-btn-primary text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
-                onClick={() => setShowFollowUp(true)}
+                className="bg-btn-primary text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
+                onClick={() => setExcluded(Array.from(selected), false)}
+                disabled={excluding}
               >
-                Follow Up
+                Restore to Unsubmitted
               </button>
+            ) : (
+              <>
+                <button
+                  className="bg-btn-primary text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+                  onClick={() => setShowFollowUp(true)}
+                >
+                  Follow Up
+                </button>
+                <button
+                  className="bg-zinc-700 hover:bg-amber-600 text-slate-200 hover:text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  onClick={() => setExcluded(Array.from(selected), true)}
+                  disabled={excluding}
+                  title="Remove from the unsubmitted pool so they don't count against completion"
+                >
+                  Off-board
+                </button>
+              </>
             )}
             <button
               className="text-slate-400 hover:text-white hover:bg-zinc-800 px-3 py-1.5 rounded-lg text-sm transition-colors"

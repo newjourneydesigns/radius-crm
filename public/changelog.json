@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
+    "id": "campaign-contact-date-and-offboarding",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "You can now track contact and off-board people right from a campaign's Unsubmitted list. Click a person to open their panel and set a Contacted date (use \"Mark contacted today\" for the quick case, or pick any date and change it later). And when someone shouldn't count against your completion — they've off-boarded as a leader, or you know they're not coming but can't RSVP — off-board them to move them out of the unsubmitted pool. Off-boarded people drop out of your Invited count and completion percentage and live under a new Off-boarded tab, where you can restore them anytime. Off-board decisions stick across reconciles. Off-board and Contacted also work in bulk from the selection bar.",
+    "page": "/campaigns"
+  },
+  {
     "date": "2026-07-07",
     "date_display": "July 7, 2026",
     "date_iso": "2026-07-07",

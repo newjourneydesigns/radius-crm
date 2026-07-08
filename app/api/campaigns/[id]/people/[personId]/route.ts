@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient, getUserFromAuthHeader } from '../../../../../../lib/server-supabase';
 import { normalizePhone } from '../../../../../../lib/phoneUtils';
+import { computeCounts } from '../../../../../../lib/campaigns/reconcile';
+import { fetchAllRows } from '../../../../../../lib/campaigns/fetchAllRows';
 
 export const dynamic = 'force-dynamic';
+
+// Turn a date-only string ('yyyy-MM-dd') into a stored timestamp at noon UTC so
+// the chosen calendar date renders the same in every US timezone. Full ISO
+// timestamps (e.g. from the bulk follow-up flow) are passed through as-is.
+function contactedTimestamp(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? `${value}T12:00:00.000Z`
+    : new Date(value).toISOString();
+}
 
 type AttrValue = string | string[];
 
@@ -48,6 +59,20 @@ export async function PATCH(
     updates.attributes = Object.keys(cleaned).length ? cleaned : null;
   }
 
+  // Manually set / change / clear the contact date. Clearing also drops the
+  // recorder so a re-contacted person is re-stamped correctly.
+  const contactedChanged = 'contacted_at' in body;
+  if (contactedChanged) {
+    const raw = body.contacted_at;
+    if (raw === null || raw === '') {
+      updates.contacted_at = null;
+      updates.contacted_by = null;
+    } else if (typeof raw === 'string') {
+      updates.contacted_at = contactedTimestamp(raw);
+      updates.contacted_by = user.id;
+    }
+  }
+
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
   }
@@ -62,6 +87,22 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Changing the contact date shifts the cached "Contacted" count — refresh it.
+  if (contactedChanged) {
+    const allPeople = await fetchAllRows<{ reconcile_status: string; contacted_at: string | null }>((from, to) =>
+      supabase
+        .from('follow_up_campaign_people')
+        .select('reconcile_status, contacted_at')
+        .eq('campaign_id', params.id)
+        .range(from, to),
+    );
+    const counts = computeCounts(allPeople);
+    await supabase
+      .from('follow_up_campaigns')
+      .update({ contacted_count: counts.contacted })
+      .eq('id', params.id);
+  }
 
   return NextResponse.json({ success: true, person: data });
 }
