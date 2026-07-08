@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (auth.response) return auth.response;
 
   const body = await req.json();
-  const { name, ccb_group_ids, ccb_event_ids, ccb_form_id, due_date, message_template, archived, favorite, group_campus_map } = body;
+  const { name, ccb_group_ids, ccb_event_ids, ccb_event_labels, ccb_form_id, due_date, message_template, archived, favorite, group_campus_map } = body;
 
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name.trim();
@@ -47,8 +47,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     updates.ccb_group_ids = ccb_group_ids.map((id: unknown) => String(id).trim()).filter(Boolean);
   }
   // Event IDs are optional; reconcile pulls day-of check-ins from them.
+  let cleanEventIds: string[] | null = null;
   if (Array.isArray(ccb_event_ids)) {
-    updates.ccb_event_ids = ccb_event_ids.map((id: unknown) => String(id).trim()).filter(Boolean);
+    cleanEventIds = ccb_event_ids.map((id: unknown) => String(id).trim()).filter(Boolean);
+    updates.ccb_event_ids = cleanEventIds;
+  }
+  // Human-readable label per event id; keep only labels for events on the campaign.
+  if (ccb_event_labels && typeof ccb_event_labels === 'object' && !Array.isArray(ccb_event_labels)) {
+    const clean: Record<string, string> = {};
+    for (const [k, v] of Object.entries(ccb_event_labels)) {
+      const key = String(k).trim();
+      const val = String(v ?? '').trim();
+      if (key && val && (cleanEventIds === null || cleanEventIds.includes(key))) clean[key] = val;
+    }
+    updates.ccb_event_labels = clean;
   }
   // Per-group campus overrides ({ group_id: campus }); groups without an entry
   // fall back to name-based auto-detection at reconcile.

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { DateTime } from 'luxon';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import EventSearchPicker from '../../../components/campaigns/EventSearchPicker';
 import { isEventAttendanceEnabled } from '../../../lib/campaigns/event-attendance-flag';
 import { supabase } from '../../../lib/supabase';
 import { useCampaigns } from '../../../hooks/useCampaigns';
@@ -154,6 +153,8 @@ function NewCampaignForm() {
 
   const [formId, setFormId] = useState('');
   const [eventIds, setEventIds] = useState<string[]>(['']);
+  // Optional per-row label so the opaque event IDs are recognizable later.
+  const [eventLabels, setEventLabels] = useState<string[]>(['']);
   const [dueDate, setDueDate] = useState('');
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   const [saving, setSaving] = useState(false);
@@ -225,16 +226,6 @@ function NewCampaignForm() {
     setGroupIds(prev => prev.map((id, i) => (i === index ? value : id)));
   }
 
-  // Add an event id from the picker: fill the first blank slot, else append.
-  function addEventId(evId: string) {
-    setEventIds(prev => {
-      if (prev.map(x => x.trim()).includes(evId)) return prev;
-      const blank = prev.findIndex(x => !x.trim());
-      if (blank >= 0) return prev.map((x, i) => (i === blank ? evId : x));
-      return [...prev, evId];
-    });
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const cleanGroupIds = groupIds.map(id => id.trim()).filter(Boolean);
@@ -257,10 +248,19 @@ function NewCampaignForm() {
     setSaving(true);
     setErr(null);
     try {
+      // Map each non-blank event id to its note (last one wins on duplicate ids).
+      const eventLabelMap: Record<string, string> = {};
+      eventIds.forEach((id, i) => {
+        const key = id.trim();
+        const label = (eventLabels[i] ?? '').trim();
+        if (key && label) eventLabelMap[key] = label;
+      });
+
       const campaign = await createCampaign({
         name: name.trim(),
         ccb_group_ids: sourceMode === 'groups' ? cleanGroupIds : [],
         ccb_event_ids: eventIds.map(id => id.trim()).filter(Boolean),
+        ccb_event_labels: eventLabelMap,
         group_campus_map: sourceMode === 'groups' && dupeCampusMap ? dupeCampusMap : undefined,
         ccb_form_id: formId.trim(),
         due_date: dueDate,
@@ -556,25 +556,32 @@ function NewCampaignForm() {
               <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
                 CCB Event IDs <span className="text-slate-600 normal-case">(optional — tracks day-of check-ins)</span>
               </label>
-              <div className="mb-3">
-                <EventSearchPicker selectedIds={eventIds} onAdd={addEventId} />
-              </div>
               <div className="space-y-2">
                 {eventIds.map((eid, i) => (
                   <div key={i} className="flex gap-2">
                     <input
                       type="text"
                       inputMode="numeric"
-                      className={inputCls}
-                      placeholder={i === 0 ? 'e.g. 9876' : 'e.g. 5432'}
+                      className={`${inputCls} w-28 flex-shrink-0`}
+                      placeholder={i === 0 ? 'ID 9876' : 'ID 5432'}
                       value={eid}
                       onChange={e => setEventIds(prev => prev.map((v, idx) => idx === i ? e.target.value : v))}
+                    />
+                    <input
+                      type="text"
+                      className={inputCls}
+                      placeholder="Note — e.g. LVT Fuel the Fire 7/12"
+                      value={eventLabels[i] ?? ''}
+                      onChange={e => setEventLabels(prev => prev.map((v, idx) => idx === i ? e.target.value : v))}
                     />
                     {eventIds.length > 1 && (
                       <button
                         type="button"
                         className="text-slate-500 hover:text-red-400 transition-colors px-2"
-                        onClick={() => setEventIds(prev => prev.filter((_, idx) => idx !== i))}
+                        onClick={() => {
+                          setEventIds(prev => prev.filter((_, idx) => idx !== i));
+                          setEventLabels(prev => prev.filter((_, idx) => idx !== i));
+                        }}
                       >
                         ✕
                       </button>
@@ -587,7 +594,7 @@ function NewCampaignForm() {
                 <button
                   type="button"
                   className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                  onClick={() => setEventIds(prev => [...prev, ''])}
+                  onClick={() => { setEventIds(prev => [...prev, '']); setEventLabels(prev => [...prev, '']); }}
                 >
                   + Add another event
                 </button>

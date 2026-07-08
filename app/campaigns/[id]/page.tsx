@@ -12,7 +12,6 @@ import { Campaign, CampaignPerson } from '../../../hooks/useCampaigns';
 import { normalizePhone } from '../../../lib/phoneUtils';
 import { useMacCompanion } from '../../../hooks/useMacCompanion';
 import CompanionGuideModal from '../../../components/companion/CompanionGuideModal';
-import EventSearchPicker from '../../../components/campaigns/EventSearchPicker';
 import { isEventAttendanceEnabled } from '../../../lib/campaigns/event-attendance-flag';
 import { attrValues } from '../../../lib/campaigns/parseRoster';
 import { guessCampusFromGroupName } from '../../../lib/campaigns/campus';
@@ -542,6 +541,8 @@ export default function CampaignDetailPage() {
   const [editName, setEditName] = useState('');
   const [editGroupIds, setEditGroupIds] = useState<string[]>(['']);
   const [editEventIds, setEditEventIds] = useState<string[]>(['']);
+  // Optional per-row label so opaque event IDs stay recognizable.
+  const [editEventLabels, setEditEventLabels] = useState<string[]>(['']);
   // Per-group campus overrides ({ group_id: campus }); blank = auto-detect
   const [editCampusMap, setEditCampusMap] = useState<Record<string, string>>({});
   const [editFormId, setEditFormId] = useState('');
@@ -1411,21 +1412,13 @@ export default function CampaignDetailPage() {
     poll();
   }
 
-  // Add an event id from the picker: fill the first blank slot, else append.
-  function addEditEventId(evId: string) {
-    setEditEventIds(prev => {
-      if (prev.map(x => x.trim()).includes(evId)) return prev;
-      const blank = prev.findIndex(x => !x.trim());
-      if (blank >= 0) return prev.map((x, i) => (i === blank ? evId : x));
-      return [...prev, evId];
-    });
-  }
-
   function openEdit() {
     if (!campaign) return;
     setEditName(campaign.name);
     setEditGroupIds(campaign.ccb_group_ids?.length ? [...campaign.ccb_group_ids] : ['']);
-    setEditEventIds(campaign.ccb_event_ids?.length ? [...campaign.ccb_event_ids] : ['']);
+    const evIds = campaign.ccb_event_ids?.length ? [...campaign.ccb_event_ids] : [''];
+    setEditEventIds(evIds);
+    setEditEventLabels(evIds.map(id => campaign.ccb_event_labels?.[id] ?? ''));
     setEditCampusMap({ ...(campaign.group_campus_map ?? {}) });
     setEditFormId(campaign.ccb_form_id ?? '');
     setEditDueDate(campaign.due_date ?? '');
@@ -1445,6 +1438,13 @@ export default function CampaignDetailPage() {
       const v = (editCampusMap[gid] ?? '').trim();
       if (v) cleanCampusMap[gid] = v;
     }
+    // Map each non-blank event id to its note (last one wins on duplicate ids).
+    const cleanEventLabels: Record<string, string> = {};
+    editEventIds.forEach((id, i) => {
+      const key = id.trim();
+      const label = (editEventLabels[i] ?? '').trim();
+      if (key && label) cleanEventLabels[key] = label;
+    });
     setSaving(true);
     setSaveError(null);
     try {
@@ -1456,6 +1456,7 @@ export default function CampaignDetailPage() {
           name: editName.trim(),
           ccb_group_ids: cleanGroupIds,
           ccb_event_ids: cleanEventIds,
+          ccb_event_labels: cleanEventLabels,
           group_campus_map: cleanCampusMap,
           ccb_form_id: editFormId.trim(),
           due_date: editDueDate,
@@ -2844,25 +2845,32 @@ export default function CampaignDetailPage() {
           {eventAttendanceEnabled && (
           <div>
             <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">CCB Event IDs <span className="text-slate-600 normal-case">(optional — tracks day-of check-ins)</span></label>
-            <div className="mb-3">
-              <EventSearchPicker selectedIds={editEventIds} onAdd={addEditEventId} />
-            </div>
             <div className="space-y-2">
               {editEventIds.map((eid, i) => (
                 <div key={i} className="flex gap-2">
                   <input
                     type="text"
                     inputMode="numeric"
-                    className={inputCls}
-                    placeholder={i === 0 ? 'e.g. 9876' : 'e.g. 5432'}
+                    className={`${inputCls} w-28 flex-shrink-0`}
+                    placeholder={i === 0 ? 'ID 9876' : 'ID 5432'}
                     value={eid}
                     onChange={e => setEditEventIds(prev => prev.map((v, idx) => idx === i ? e.target.value : v))}
+                  />
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="Note — e.g. LVT Fuel the Fire 7/12"
+                    value={editEventLabels[i] ?? ''}
+                    onChange={e => setEditEventLabels(prev => prev.map((v, idx) => idx === i ? e.target.value : v))}
                   />
                   {editEventIds.length > 1 && (
                     <button
                       type="button"
                       className="text-slate-500 hover:text-red-400 transition-colors px-2"
-                      onClick={() => setEditEventIds(prev => prev.filter((_, idx) => idx !== i))}
+                      onClick={() => {
+                        setEditEventIds(prev => prev.filter((_, idx) => idx !== i));
+                        setEditEventLabels(prev => prev.filter((_, idx) => idx !== i));
+                      }}
                     >
                       ✕
                     </button>
@@ -2875,7 +2883,7 @@ export default function CampaignDetailPage() {
               <button
                 type="button"
                 className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                onClick={() => setEditEventIds(prev => [...prev, ''])}
+                onClick={() => { setEditEventIds(prev => [...prev, '']); setEditEventLabels(prev => [...prev, '']); }}
               >
                 + Add another event
               </button>

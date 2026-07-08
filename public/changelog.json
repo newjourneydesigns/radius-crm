@@ -173,20 +173,20 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
-    "id": "campaign-header-actions-polish",
+    "id": "campaign-event-id-notes",
     "type": "improvement",
     "category": "Campaigns",
-    "description": "Small polish on the campaign header: the action buttons now right-align cleanly, and Check Attendance shares the green styling of Reconcile Now so the two primary actions read as a pair.",
+    "description": "Each CCB Event ID now has a note field next to it (create form and Edit Campaign) so you can label an otherwise-cryptic ID — e.g. \"LVT Fuel the Fire 7/12\" — and remember which event is which. Notes are saved with the campaign and shown whenever you edit it.",
     "page": "/campaigns"
   },
   {
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
-    "id": "campaign-event-name-search",
+    "id": "campaign-header-actions-polish",
     "type": "improvement",
     "category": "Campaigns",
-    "description": "No more hunting event IDs out of CCB URLs. The CCB Event IDs section (create form and Edit Campaign) now has a search box — type part of an event's name, like \"Fuel the Fire\", and every matching event appears with its date and ID. Click Add and the ID drops into the list. Word order doesn't matter (\"fuel lvt\" works), and dated series like a gathering with 7/12, 7/19, and 7/26 events all show so you can add each one. Searches cover events created or edited in the last 6 months to stay fast — a \"Search all events\" link widens to the full history if what you need is older. The first search warms up the list and may take a few seconds; after that it's instant.",
+    "description": "Small polish on the campaign header: the action buttons now right-align cleanly, and Check Attendance shares the green styling of Reconcile Now so the two primary actions read as a pair.",
     "page": "/campaigns"
   },
   {

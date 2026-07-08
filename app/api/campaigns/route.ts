@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   if (auth.response) return auth.response;
 
   const body = await req.json();
-  const { name, ccb_group_ids, ccb_event_ids, ccb_form_id, due_date, message_template, people, group_campus_map } = body;
+  const { name, ccb_group_ids, ccb_event_ids, ccb_event_labels, ccb_form_id, due_date, message_template, people, group_campus_map } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: 'Campaign name is required' }, { status: 400 });
 
@@ -98,6 +98,16 @@ export async function POST(req: NextRequest) {
   const cleanEventIds = Array.isArray(ccb_event_ids)
     ? ccb_event_ids.map((id: unknown) => String(id).trim()).filter(Boolean)
     : [];
+  // Optional human-readable label per event id; keep only labels for events
+  // that are actually on the campaign.
+  const cleanEventLabels: Record<string, string> = {};
+  if (ccb_event_labels && typeof ccb_event_labels === 'object' && !Array.isArray(ccb_event_labels)) {
+    for (const [k, v] of Object.entries(ccb_event_labels)) {
+      const key = String(k).trim();
+      const val = String(v ?? '').trim();
+      if (key && val && cleanEventIds.includes(key)) cleanEventLabels[key] = val;
+    }
+  }
 
   // The invite list can come from CCB groups OR a pasted roster — require at least one.
   const pastedPeople: PastedPersonInput[] = Array.isArray(people) ? people : [];
@@ -133,6 +143,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       ccb_group_ids: cleanGroupIds,
       ccb_event_ids: cleanEventIds,
+      ccb_event_labels: cleanEventLabels,
       group_campus_map: cleanCampusMap,
       ccb_form_id: String(ccb_form_id).trim(),
       // Form link is always derived from the form ID (same URL shape every time)
