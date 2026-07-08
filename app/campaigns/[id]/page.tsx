@@ -1247,7 +1247,10 @@ export default function CampaignDetailPage() {
     }
   }
 
-  const showCheckboxes = activeTab === 'missing' || activeTab === 'needs_review' || activeTab === 'excluded';
+  // Tabs with row selection + bulk actions. Submitted is selectable too so
+  // responders can get texts (reminders, details) and be tracked as contacted.
+  const showCheckboxes =
+    activeTab === 'missing' || activeTab === 'submitted' || activeTab === 'needs_review' || activeTab === 'excluded';
 
   if (loadingCampaign) {
     return (
@@ -1897,8 +1900,8 @@ export default function CampaignDetailPage() {
                               <div className="mt-1.5 text-xs text-slate-500">{facetSummary(p)}</div>
                             )}
 
-                            {/* Last contacted (Unsubmitted) */}
-                            {activeTab === 'missing' && p.contacted_at && (
+                            {/* Last contacted — shown on every tab so outreach history follows the person */}
+                            {p.contacted_at && (
                               <div className="mt-1.5 text-xs text-indigo-400">
                                 Contacted {DateTime.fromISO(p.contacted_at).toFormat('MMM d · h:mm a')}
                               </div>
@@ -2017,9 +2020,7 @@ export default function CampaignDetailPage() {
                         {facets.length >= 1 && (
                           <SortTh col="group" label="Groups" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         )}
-                        {activeTab === 'missing' && (
-                          <SortTh col="last_contacted" label="Last Contacted" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
-                        )}
+                        <SortTh col="last_contacted" label="Last Contacted" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
                         {activeTab === 'needs_review' && (
                           <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wide px-4 py-3">Form Name</th>
                         )}
@@ -2076,13 +2077,11 @@ export default function CampaignDetailPage() {
                                 {facetSummary(p) || '—'}
                               </td>
                             )}
-                            {activeTab === 'missing' && (
-                              <td className="px-4 py-3 text-xs whitespace-nowrap">
-                                {p.contacted_at
-                                  ? <span className="text-indigo-400">{DateTime.fromISO(p.contacted_at).toFormat('MMM d · h:mm a')}</span>
-                                  : <span className="text-slate-600">—</span>}
-                              </td>
-                            )}
+                            <td className="px-4 py-3 text-xs whitespace-nowrap">
+                              {p.contacted_at
+                                ? <span className="text-indigo-400">{DateTime.fromISO(p.contacted_at).toFormat('MMM d · h:mm a')}</span>
+                                : <span className="text-slate-600">—</span>}
+                            </td>
                             {activeTab === 'needs_review' && (
                               <td className="px-4 py-3 text-xs">
                                 <div className="text-amber-400 mb-1.5">
@@ -2160,7 +2159,7 @@ export default function CampaignDetailPage() {
                           )}
                           {activeTab === 'submitted' && expandedRows.has(p.id) && (
                             <tr key={`${p.id}-detail`} className="bg-zinc-900/60">
-                              <td colSpan={facets.length >= 1 ? 6 : 5} className="px-6 py-4">
+                              <td colSpan={99} className="px-6 py-4">
                                 {renderSubmissionPanel(p)}
                               </td>
                             </tr>
@@ -2214,14 +2213,17 @@ export default function CampaignDetailPage() {
                 >
                   Follow Up
                 </button>
-                <button
-                  className="bg-zinc-700 hover:bg-amber-600 text-slate-200 hover:text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                  onClick={() => setExcluded(Array.from(selected), true)}
-                  disabled={excluding}
-                  title="Remove from the unsubmitted pool so they don't count against completion"
-                >
-                  Off-board
-                </button>
+                {/* Off-boarding only applies to the unsubmitted pool */}
+                {activeTab === 'missing' && (
+                  <button
+                    className="bg-zinc-700 hover:bg-amber-600 text-slate-200 hover:text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    onClick={() => setExcluded(Array.from(selected), true)}
+                    disabled={excluding}
+                    title="Remove from the unsubmitted pool so they don't count against completion"
+                  >
+                    Off-board
+                  </button>
+                )}
               </>
             )}
             <button

@@ -3,6 +3,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "campaign-submitted-followup-and-contact-everywhere",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "The Submitted tab now has the same texting tools as Unsubmitted: select people who've responded and use Follow Up to send iMessages (or Auto Send) — handy for event reminders and details to everyone who RSVP'd. And contact tracking now follows people across tabs: the Last Contacted date shows on every tab (desktop column and mobile cards), so outreach you logged while someone was unsubmitted stays visible after they submit.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-filter-multiselect",
     "type": "improvement",
     "category": "Campaigns",
