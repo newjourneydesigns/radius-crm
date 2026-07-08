@@ -213,6 +213,7 @@ To keep deploy credits down:
 | `WEB_PUSH_VAPID_PRIVATE_KEY` | VAPID private key for Web Push | Yes |
 | `WEB_PUSH_VAPID_SUBJECT` | VAPID subject (`mailto:` or URL). Falls back to `NEXT_PUBLIC_APP_URL` | No |
 | `NEXT_PUBLIC_COACHING_AUTOMATIONS_ENABLED` | Feature flag for the Circle Leader coaching automations. **Default OFF** — when unset (or not exactly `"true"`) the daily nudge triggers no-op, the Coaching Automations admin page + nav link are hidden, and the per-leader coaching Timeline is hidden. Set to `"true"` to roll the feature out. | No |
+| `NEXT_PUBLIC_EVENT_ATTENDANCE_ENABLED` | Feature flag for campaign event-attendance tracking (CCB event check-ins). **Default OFF** — when unset (or not exactly `"true"`) the Check Attendance button, the Checked In / Attendance % stat cards, the Checked In filter and columns, the By Campus attendance columns on the Summary, and the CCB Event IDs input on the create/edit campaign forms are all hidden, regardless of whether a campaign has event IDs. Set to `"true"` to roll the feature out. | No |
 
 All secrets live in `.env.local` — never hardcode them.
 

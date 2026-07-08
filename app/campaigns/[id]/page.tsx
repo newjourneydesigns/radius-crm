@@ -13,6 +13,7 @@ import { normalizePhone } from '../../../lib/phoneUtils';
 import { useMacCompanion } from '../../../hooks/useMacCompanion';
 import CompanionGuideModal from '../../../components/companion/CompanionGuideModal';
 import EventSearchPicker from '../../../components/campaigns/EventSearchPicker';
+import { isEventAttendanceEnabled } from '../../../lib/campaigns/event-attendance-flag';
 import { attrValues } from '../../../lib/campaigns/parseRoster';
 import { guessCampusFromGroupName } from '../../../lib/campaigns/campus';
 import { StickyNote, ChevronDown, ChevronUp, Download, Trash2, Check, X } from 'lucide-react';
@@ -785,7 +786,12 @@ export default function CampaignDetailPage() {
     return out;
   }, [formAnswersById]);
 
-  const hasEvents = (campaign?.ccb_event_ids?.length ?? 0) > 0;
+  // Event attendance (Check Attendance button, Checked In / Attendance % cards,
+  // Checked In filter/columns, Event IDs field) is behind a feature flag,
+  // default off — hidden everywhere until NEXT_PUBLIC_EVENT_ATTENDANCE_ENABLED
+  // is "true", regardless of whether a campaign has CCB event IDs.
+  const eventAttendanceEnabled = isEventAttendanceEnabled();
+  const hasEvents = eventAttendanceEnabled && (campaign?.ccb_event_ids?.length ?? 0) > 0;
 
   // Invite-column facets + check-in facet (event campaigns) + form-answer facets.
   // Summary uses `facets` only.
@@ -2737,6 +2743,7 @@ export default function CampaignDetailPage() {
             </div>
           )}
 
+          {eventAttendanceEnabled && (
           <div>
             <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">CCB Event IDs <span className="text-slate-600 normal-case">(optional — tracks day-of check-ins)</span></label>
             <div className="mb-3">
@@ -2776,6 +2783,7 @@ export default function CampaignDetailPage() {
               </button>
             </div>
           </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

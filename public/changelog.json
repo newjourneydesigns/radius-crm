@@ -3,6 +3,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "campaign-auto-send-delivery-tracking",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "Auto Send now reaches everyone — iPhone and Android — and tells you which texts actually delivered. Before, it forced every message through iMessage, so texts to non-iPhone (green-bubble) numbers quietly failed while still being counted as sent. Now it routes per person: a blue iMessage to Apple users and, once Text Message Forwarding is on, an automatic green text message to everyone else. As a safety net, after a batch sends RADIUS checks your Mac's delivery receipts in the background and flags anything that didn't go through: a \"32 delivered · 3 not delivered\" summary, a red \"Not delivered\" badge on each one, and those people floated to the top with a tap-to-send link. Not-delivered people are left unmarked so they resurface for follow-up instead of being buried as contacted. This needs the updated Mac Companion; the setup guide now walks you through turning on Text Message Forwarding (to reach Android) and Full Disk Access (for delivery tracking) — RADIUS only ever reads delivery status, never your message contents.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-event-name-search",
     "type": "improvement",
     "category": "Campaigns",
