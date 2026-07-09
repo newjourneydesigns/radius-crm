@@ -1213,7 +1213,7 @@ export default function EventSummaryTrackerPage() {
               <select
                 value={campusFilter}
                 onChange={e => setCampusFilter(e.target.value)}
-                className="bg-zinc-700 border border-zinc-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 w-full sm:w-auto min-w-0"
+                className="bg-zinc-700 border border-zinc-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 w-full sm:w-auto min-w-0 [color-scheme:dark]"
               >
                 <option value="">All campuses</option>
                 {campuses.map(c => <option key={c} value={c}>{c}</option>)}
@@ -1221,7 +1221,7 @@ export default function EventSummaryTrackerPage() {
               <select
                 value={acpdFilter}
                 onChange={e => setAcpdFilter(e.target.value)}
-                className="bg-zinc-700 border border-zinc-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 w-full sm:w-auto min-w-0"
+                className="bg-zinc-700 border border-zinc-600 text-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-vc-500 w-full sm:w-auto min-w-0 [color-scheme:dark]"
               >
                 <option value="">All ACPDs</option>
                 {acpds.map(a => <option key={a} value={a}>{a}</option>)}

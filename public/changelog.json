@@ -3,6 +3,16 @@
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
+    "id": "event-tracker-dropdown-dark",
+    "type": "fix",
+    "category": "Events",
+    "description": "Fixed the Campus and ACPD filter dropdowns on the Event Summary Tracker rendering with a white background, which made the options hard to read. They now open with the app's dark styling like the rest of the filters.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-07-08",
+    "date_display": "July 8, 2026",
+    "date_iso": "2026-07-08",
     "id": "campaign-check-attendance-button-color",
     "type": "improvement",
     "category": "Campaigns",
