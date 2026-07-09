@@ -2,17 +2,44 @@
 """RADIUS iMessage Companion — local bridge for auto-sending via Mac Messages."""
 
 import json
+import os
+import sqlite3
 import subprocess
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 5123
-VERSION = '1.3.0'
+VERSION = '1.5.0'
+
+# Apple's Messages database. Reading it is the only way to learn whether a
+# message actually delivered (vs. merely being queued to iMessage) — the send
+# AppleScript exits 0 even for a green-bubble number that can never receive an
+# iMessage. Opening chat.db requires Full Disk Access on the process running
+# this companion (the python3 interpreter launched by the LaunchAgent).
+CHAT_DB = os.path.expanduser('~/Library/Messages/chat.db')
+
+# message.date is nanoseconds since the "Mac absolute time" epoch (2001-01-01);
+# this is the offset from the Unix epoch in seconds.
+MAC_EPOCH_OFFSET = 978307200
 
 
 def messages_is_running() -> bool:
     return subprocess.run(['pgrep', '-x', 'Messages'], capture_output=True).returncode == 0
+
+
+def sms_relay_available() -> bool:
+    """True when a Mac has an SMS service — i.e. Text Message Forwarding is on,
+    so the Mac can relay texts to non-iMessage (Android / green-bubble) numbers
+    through the paired iPhone. Without it, only iMessage users are reachable."""
+    result = subprocess.run(
+        ['osascript', '-e',
+         'tell application "Messages" to return (count of (services whose service type = SMS)) > 0'],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return result.returncode == 0 and result.stdout.strip() == 'true'
 
 
 def messages_state() -> dict:
@@ -32,25 +59,80 @@ def messages_state() -> dict:
         return {'ok': False, 'error': 'Messages is not signed in to iMessage. Sign in via Messages → Settings → iMessage, then try again.'}
     if result.stdout.strip() != 'true':
         return {'ok': False, 'error': 'Your iMessage account is turned off in Messages. Enable it via Messages → Settings → iMessage, then try again.'}
-    return {'ok': True}
+    # Informational (never blocks sending) — lets RADIUS warn that non-iPhone
+    # numbers can't be reached until Text Message Forwarding is turned on.
+    return {'ok': True, 'sms_available': sms_relay_available()}
 
 
-def send_imessage(phone: str, message: str) -> dict:
+def imessage_capability(phone: str):
+    """Whether a number is known to be on iMessage, from Messages' own handle
+    records in chat.db. Returns True (on iMessage), False (known non-iMessage or
+    never seen), or None when chat.db can't be read (Full Disk Access missing) —
+    in which case routing can't improve on the iMessage default."""
+    key = _last10(phone)
+    if not key:
+        return None
+    try:
+        con = _open_chat_db()
+    except (sqlite3.Error, OSError):
+        return None
+    try:
+        rows = con.execute('SELECT id, service FROM handle').fetchall()
+    except sqlite3.Error:
+        return None
+    finally:
+        con.close()
+    services = {(svc or '').upper() for hid, svc in rows if _last10(hid or '') == key}
+    if 'IMESSAGE' in services:
+        return True
+    return False  # known SMS-only, or no handle yet → not a confirmed iMessage user
+
+
+def send_message(phone: str, message: str) -> dict:
+    """Send one text, routing per recipient: iMessage (blue) for confirmed
+    iMessage users, SMS (green) for everyone else so Android numbers are
+    reached. SMS requires Text Message Forwarding; when it's off the AppleScript
+    falls back to iMessage. Returns the service actually used."""
     # Cheap re-check per message: if Messages quits mid-batch, report real
     # failures instead of letting AppleScript exit 0 into the void.
     if not messages_is_running():
         return {'success': False, 'error': 'Messages is not open'}
-    # Pass phone/message as argv so emoji and special chars never touch AppleScript source
+
+    # Prefer SMS unless the number is a confirmed iMessage user. When we can't
+    # read capability at all (no Full Disk Access, capability is None), keep the
+    # old iMessage default rather than flipping every send to green.
+    capable = imessage_capability(phone)
+    prefer_sms = '1' if capable is False else '0'
+
+    # Pass phone/message/preference as argv so emoji and special chars never
+    # touch AppleScript source. preferSMS=1 tries the SMS service first and
+    # falls back to iMessage if Text Message Forwarding isn't set up.
     script = (
         'on run argv\n'
+        '  set targetPhone to item 1 of argv\n'
+        '  set targetMessage to item 2 of argv\n'
+        '  set preferSMS to item 3 of argv\n'
         '  tell application "Messages"\n'
-        '    set svc to 1st service whose service type = iMessage\n'
-        '    send (item 2 of argv) to buddy (item 1 of argv) of svc\n'
+        '    set svc to missing value\n'
+        '    if preferSMS is "1" then\n'
+        '      try\n'
+        '        set svc to 1st service whose service type = SMS\n'
+        '      end try\n'
+        '    end if\n'
+        '    if svc is missing value then\n'
+        '      set svc to 1st service whose service type = iMessage\n'
+        '    end if\n'
+        '    send targetMessage to buddy targetPhone of svc\n'
+        '    if (service type of svc) is SMS then\n'
+        '      return "SMS"\n'
+        '    else\n'
+        '      return "iMessage"\n'
+        '    end if\n'
         '  end tell\n'
         'end run'
     )
     result = subprocess.run(
-        ['osascript', '-', phone, message],
+        ['osascript', '-', phone, message, prefer_sms],
         input=script,
         capture_output=True,
         text=True,
@@ -58,7 +140,100 @@ def send_imessage(phone: str, message: str) -> dict:
     )
     if result.returncode != 0:
         return {'success': False, 'error': result.stderr.strip() or 'AppleScript failed'}
-    return {'success': True}
+    return {'success': True, 'service': result.stdout.strip() or None}
+
+
+def _last10(num: str) -> str:
+    """Reduce a phone number to its last 10 digits so the various formats
+    Messages and RADIUS use ("+12145551234", "2145551234", "(214) 555-1234")
+    all match. Good enough for US numbers, which is all this feature targets."""
+    digits = ''.join(ch for ch in num if ch.isdigit())
+    return digits[-10:]
+
+
+def _open_chat_db():
+    """Open chat.db read-only. Raises sqlite3.Error (or PermissionError) when
+    Full Disk Access hasn't been granted — the caller treats that as no_access.
+    Opened read-write-capable (query_only guards against writes) because a
+    strict ?mode=ro connection can't read messages still sitting in the WAL,
+    which is exactly where a just-sent message lives."""
+    con = sqlite3.connect(CHAT_DB, timeout=5)
+    con.execute('PRAGMA query_only = ON')
+    return con
+
+
+def can_verify() -> bool:
+    try:
+        con = _open_chat_db()
+    except (sqlite3.Error, OSError):
+        return False
+    con.close()
+    return True
+
+
+def verify_delivery(phones: list, since_ms: int) -> dict:
+    """Classify the most recent outgoing message to each phone as delivered /
+    failed / pending by reading Apple's delivery receipts from chat.db.
+
+    Returns {'ok': False, 'error': 'no_access'} when chat.db can't be read
+    (Full Disk Access missing) so RADIUS can prompt the user to grant it."""
+    targets = {}  # last-10-digits -> original phone string (the response key)
+    for p in phones:
+        key = _last10(p)
+        if key:
+            targets.setdefault(key, p)
+    if not targets:
+        return {'ok': True, 'results': {}}
+
+    # Rewind a few seconds so a message that landed as the batch started isn't
+    # missed to clock granularity.
+    since_mac_ns = int((since_ms / 1000 - MAC_EPOCH_OFFSET - 5) * 1_000_000_000)
+
+    try:
+        con = _open_chat_db()
+    except (sqlite3.Error, OSError):
+        return {'ok': False, 'error': 'no_access'}
+    try:
+        rows = con.execute(
+            'SELECT h.id, m.service, m.error, m.is_sent, m.is_delivered, m.date '
+            'FROM message m JOIN handle h ON m.handle_id = h.ROWID '
+            'WHERE m.is_from_me = 1 AND m.date > ?',
+            (since_mac_ns,),
+        ).fetchall()
+    except sqlite3.Error:
+        return {'ok': False, 'error': 'no_access'}
+    finally:
+        con.close()
+
+    # Keep only the latest message per target number.
+    latest = {}
+    for handle, service, error, is_sent, is_delivered, date in rows:
+        key = _last10(handle or '')
+        if key not in targets:
+            continue
+        prev = latest.get(key)
+        if prev is None or date > prev[4]:
+            latest[key] = (service, error or 0, is_sent, is_delivered, date)
+
+    results = {}
+    for key, original in targets.items():
+        row = latest.get(key)
+        if row is None:
+            # No matching message yet — still queued, or the handle hasn't been
+            # written. Caller keeps polling; unresolved at timeout = unconfirmed.
+            results[original] = {'status': 'unknown', 'service': None, 'error': 0}
+            continue
+        service, error, is_sent, is_delivered, _date = row
+        if error != 0:
+            status = 'failed'
+        elif (service or '').upper() == 'IMESSAGE':
+            # iMessage carries a real delivery receipt — trust it.
+            status = 'delivered' if is_delivered else 'pending'
+        else:
+            # SMS/RCS give no delivery receipt; "sent" is the best signal there is.
+            status = 'delivered' if is_sent else 'pending'
+        results[original] = {'status': status, 'service': service, 'error': error}
+    return {'ok': True, 'results': results}
 
 
 def fire_notification(sent: int, failed: int) -> None:
@@ -99,6 +274,11 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == '/preflight':
             state = messages_state()
             self._json(200 if state['ok'] else 503, state)
+        elif self.path == '/verify-capable':
+            # Tells RADIUS whether delivery verification is available (Full Disk
+            # Access granted). python_path is the exact binary the user must add
+            # to Full Disk Access, surfaced in the setup guide.
+            self._json(200, {'capable': can_verify(), 'python_path': sys.executable})
         else:
             self.send_response(404)
             self.end_headers()
@@ -114,6 +294,15 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        if self.path == '/verify':
+            phones = body.get('phones') or []
+            since_ms = int(body.get('since_ms', 0))
+            if not isinstance(phones, list):
+                self._json(400, {'ok': False, 'error': 'phones must be a list'})
+                return
+            self._json(200, verify_delivery(phones, since_ms))
+            return
+
         if self.path != '/send':
             self.send_response(404)
             self.end_headers()
@@ -127,7 +316,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {'success': False, 'error': 'phone and message required'})
             return
 
-        result = send_imessage(phone, message)
+        result = send_message(phone, message)
         self._json(200 if result['success'] else 500, result)
 
         if delay_ms > 0:

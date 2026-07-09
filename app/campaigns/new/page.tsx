@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { DateTime } from 'luxon';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import EventSearchPicker from '../../../components/campaigns/EventSearchPicker';
+import { isEventAttendanceEnabled } from '../../../lib/campaigns/event-attendance-flag';
 import { supabase } from '../../../lib/supabase';
 import { useCampaigns } from '../../../hooks/useCampaigns';
 import {
@@ -549,7 +550,8 @@ function NewCampaignForm() {
               </div>
             </div>
 
-            {/* CCB Event IDs — optional day-of attendance tracking */}
+            {/* CCB Event IDs — optional day-of attendance tracking (feature-flagged) */}
+            {isEventAttendanceEnabled() && (
             <div>
               <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
                 CCB Event IDs <span className="text-slate-600 normal-case">(optional — tracks day-of check-ins)</span>
@@ -591,6 +593,7 @@ function NewCampaignForm() {
                 </button>
               </div>
             </div>
+            )}
 
 
             {/* Message template */}

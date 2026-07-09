@@ -15,6 +15,10 @@ interface CompanionGuideModalProps {
   /** Re-ping the companion so the user sees the result without leaving the guide. */
   onRecheck?: () => void;
   checking?: boolean;
+  /** The python binary to add to Full Disk Access, for delivery tracking. */
+  pythonPath?: string;
+  /** Whether delivery tracking (Full Disk Access) is already granted. */
+  deliveryTrackingOn?: boolean;
 }
 
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
@@ -46,8 +50,11 @@ export default function CompanionGuideModal({
   statusLabel,
   onRecheck,
   checking = false,
+  pythonPath,
+  deliveryTrackingOn,
 }: CompanionGuideModalProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedPath, setCopiedPath] = useState(false);
 
   const copy = async () => {
     try {
@@ -56,6 +63,17 @@ export default function CompanionGuideModal({
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard blocked — the command is visible for manual copy.
+    }
+  };
+
+  const copyPath = async () => {
+    if (!pythonPath) return;
+    try {
+      await navigator.clipboard.writeText(pythonPath);
+      setCopiedPath(true);
+      setTimeout(() => setCopiedPath(false), 2000);
+    } catch {
+      // Clipboard blocked — the path is visible for manual copy.
     }
   };
 
@@ -129,7 +147,38 @@ export default function CompanionGuideModal({
             signed in and turned on.
           </Step>
 
-          <Step n={6} title="Come back here and check the connection">
+          <Step n={6} title="Turn on delivery tracking (Full Disk Access)">
+            {deliveryTrackingOn ? (
+              <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                ✓ Delivery tracking is on — RADIUS will flag any text that doesn’t go through.
+              </span>
+            ) : (
+              <>
+                This lets RADIUS tell you which texts actually delivered — including ones to non-iPhone
+                numbers that quietly fail. Open{' '}
+                <span className="font-semibold">System Settings → Privacy &amp; Security → Full Disk Access</span>,
+                click the <span className="font-semibold">+</span> button, press{' '}
+                <Key>⌘ Command</Key> + <Key>⇧ Shift</Key> + <Key>G</Key>, paste the path below, press{' '}
+                <Key>Return</Key>, then flip the switch <span className="font-semibold">on</span>. It only
+                ever reads delivery receipts — never your message contents.
+                {pythonPath && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <code className="flex-1 min-w-0 text-xs font-mono text-emerald-700 dark:text-emerald-400 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg overflow-x-auto whitespace-nowrap">
+                      {pythonPath}
+                    </code>
+                    <button
+                      onClick={copyPath}
+                      className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                    >
+                      {copiedPath ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </Step>
+
+          <Step n={7} title="Come back here and check the connection">
             Click <span className="font-semibold">Check again</span> below. When it shows{' '}
             <span className="font-semibold">“Running — up to date,”</span> you’re all set and can close
             this window.
@@ -154,6 +203,18 @@ export default function CompanionGuideModal({
               {checking ? 'Checking…' : 'Check again'}
             </button>
           )}
+        </div>
+
+        <div className="rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-900/20 px-4 py-3">
+          <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+            To reach non-iPhone (Android) numbers
+          </p>
+          <p className="text-sm text-blue-800/90 dark:text-blue-200/80 mt-0.5 leading-relaxed">
+            Turn on <span className="font-semibold">Text Message Forwarding</span> on your iPhone
+            (Settings → Messages → Text Message Forwarding → enable your Mac). RADIUS then sends iMessage
+            to Apple users and automatically a green text message to everyone else — so every recipient
+            gets it. Without this, your Mac can only send to iMessage users.
+          </p>
         </div>
 
         <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
