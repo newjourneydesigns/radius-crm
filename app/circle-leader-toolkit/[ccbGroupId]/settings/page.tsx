@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useMarkCircleAppEntered } from '../../../../lib/circle-leader-toolkit/appEntered';
 import { setCircleSummaryAppBadge } from '../../../../lib/circle-leader-toolkit/badging';
+import { useInstallEnv } from '../../../../lib/circle-leader-toolkit/installEnv';
+import InstallAppGuide from '../../InstallAppGuide';
 
 type Preferences = {
   inbox_push_enabled: boolean;
@@ -79,9 +81,16 @@ export default function CircleSummaryNotificationSettingsPage() {
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testEmailLoading, setTestEmailLoading] = useState(false);
 
+  const installEnv = useInstallEnv();
+
   const pushAvailable = useMemo(() => {
     return typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && Boolean(publicKey);
   }, [publicKey]);
+
+  // When push can't run here and it's simply because the app isn't installed,
+  // the install guide IS the call to action — so we swap the disabled "Enable
+  // push" button and the "Unsupported" badge for step-by-step instructions.
+  const showInstallGuide = !thisDeviceEnabled && !pushAvailable && !installEnv.isStandalone;
 
   async function loadSettings() {
     setLoading(true);
@@ -362,10 +371,16 @@ export default function CircleSummaryNotificationSettingsPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-extrabold text-neutral-900">This device</p>
-                      <PermissionPill permission={permission} enabled={thisDeviceEnabled} />
+                      {(pushAvailable || installEnv.isStandalone) && (
+                        <PermissionPill permission={permission} enabled={thisDeviceEnabled} />
+                      )}
                     </div>
                     <p className="text-xs text-neutral-500 mt-1.5 leading-relaxed">
-                      {thisDeviceEnabled ? 'This browser is set up to receive push notifications.' : devicePushNote}
+                      {thisDeviceEnabled
+                        ? 'This browser is set up to receive push notifications.'
+                        : showInstallGuide
+                          ? 'Add Circles to your Home Screen to turn on notifications on this device.'
+                          : devicePushNote}
                     </p>
                   </div>
                   {thisDeviceEnabled ? (
@@ -375,23 +390,26 @@ export default function CircleSummaryNotificationSettingsPage() {
                       </svg>
                       Push on
                     </span>
-                  ) : (
+                  ) : pushAvailable ? (
                     <button
                       type="button"
-                      disabled={busy || !pushAvailable}
+                      disabled={busy}
                       onClick={enablePush}
                       className="inline-flex h-11 min-w-[8.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-[#34B233] px-5 text-sm font-extrabold text-white shadow-sm ring-1 ring-[#2ca52b]/20 transition-colors hover:bg-[#2fa62e] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {busy ? 'Working…' : 'Enable push'}
                     </button>
-                  )}
+                  ) : null}
                 </div>
                 {thisDeviceEnabled && (
                   <button type="button" disabled={busy} onClick={disableCurrentDevice} className="text-xs font-semibold text-neutral-500 underline underline-offset-2 transition-colors hover:text-neutral-700 disabled:opacity-50">
                     {busy ? 'Working…' : 'Disable push on this browser'}
                   </button>
                 )}
-                {!pushAvailable && <p className="text-xs text-amber-700">Push is unavailable here or VAPID keys are not configured.</p>}
+                {showInstallGuide && <InstallAppGuide />}
+                {!thisDeviceEnabled && !pushAvailable && installEnv.isStandalone && (
+                  <p className="text-xs text-neutral-500">Notifications aren&apos;t available on this device right now.</p>
+                )}
               </div>
 
               <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-100">

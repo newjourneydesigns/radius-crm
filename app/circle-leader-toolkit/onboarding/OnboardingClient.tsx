@@ -22,11 +22,7 @@ import {
   normalizeQuestionResponseKey,
   type QuestionResponseKey,
 } from '../../../lib/circle-leader-toolkit/dynamic-question-response-keys';
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-};
+import InstallAppGuide from '../InstallAppGuide';
 
 type ToolkitOnboardingState = {
   homeScreenCompletedAt: string | null;
@@ -73,14 +69,6 @@ type CcbSearchResult = {
   phone?: string;
 };
 
-declare global {
-  interface Window {
-    installPWA?: () => void;
-    deferredPrompt?: BeforeInstallPromptEvent | null;
-    __radiusPwaInstallAvailable?: boolean;
-  }
-}
-
 const FAKE_ROSTER: PracticePerson[] = [
   { id: 'u-001', firstName: 'Avery', lastName: 'Brooks', email: 'avery@example.com', phone: '555-0101' },
   { id: 'u-002', firstName: 'Jordan', lastName: 'Miles', email: 'jordan@example.com', phone: '555-0102' },
@@ -93,11 +81,6 @@ function isStandaloneApp() {
   if (typeof window === 'undefined') return false;
   const nav = window.navigator as Navigator & { standalone?: boolean };
   return window.matchMedia('(display-mode: standalone)').matches || nav.standalone === true;
-}
-
-function isIOS() {
-  if (typeof window === 'undefined') return false;
-  return /iPad|iPhone|iPod/.test(window.navigator.userAgent);
 }
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -144,7 +127,6 @@ export default function OnboardingClient({
   const router = useRouter();
   const [onboarding, setOnboarding] = useState(initialOnboarding);
   const [installed, setInstalled] = useState(false);
-  const [installAvailable, setInstallAvailable] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('unsupported');
   const [busy, setBusy] = useState<string | null>(null);
@@ -216,20 +198,13 @@ export default function OnboardingClient({
   );
 
   useEffect(() => {
-    const standalone = isStandaloneApp();
-    setInstalled(standalone);
-    setInstallAvailable(Boolean(window.__radiusPwaInstallAvailable || window.deferredPrompt || isIOS()));
+    setInstalled(isStandaloneApp());
     setPermission('Notification' in window ? Notification.permission : 'unsupported');
 
-    const onInstallAvailable = () => setInstallAvailable(true);
-    const onInstalled = () => {
-      setInstalled(true);
-    };
-    window.addEventListener('pwaInstallAvailable', onInstallAvailable);
+    const onInstalled = () => setInstalled(true);
     window.addEventListener('appinstalled', onInstalled);
     window.addEventListener('pwaInstalled', onInstalled);
     return () => {
-      window.removeEventListener('pwaInstallAvailable', onInstallAvailable);
       window.removeEventListener('appinstalled', onInstalled);
       window.removeEventListener('pwaInstalled', onInstalled);
     };
@@ -305,21 +280,6 @@ export default function OnboardingClient({
 
     return () => clearTimeout(timer);
   }, [addOpen, editingManualIdx, searchQuery]);
-
-  async function handleInstallPrompt() {
-    setError(null);
-    setMessage(null);
-    if (window.installPWA && (window.__radiusPwaInstallAvailable || window.deferredPrompt)) {
-      window.installPWA();
-      setMessage('After the install finishes, come back here and tap I added it.');
-      return;
-    }
-    if (isIOS()) {
-      setMessage('Use Share, then Add to Home Screen. Come back here when it is added.');
-      return;
-    }
-    setMessage('Use your browser install button, then tap I added it.');
-  }
 
   async function enableNotifications() {
     setBusy('notifications:enable');
@@ -603,40 +563,46 @@ export default function OnboardingClient({
               <span className="cs-step-title">Add this to your Home Screen</span>
             </div>
             <p className="text-sm leading-relaxed text-neutral-600">
-              The Toolkit works best as an app. Add it to your Home Screen so your summary,
-              roster, messages, and resources are one tap away.
+              The Toolkit works best as an app. Adding it to your Home Screen keeps your summary,
+              roster, messages, and resources one tap away — and it&apos;s what lets notifications work
+              on iPhone and iPad.
             </p>
-            {installed && (
-              <div className="rounded-lg border border-[#34B233]/30 bg-[#34B233]/10 px-3 py-2 text-sm font-semibold text-neutral-800">
-                You are already using the installed app.
-              </div>
-            )}
-            <div className="grid gap-2 sm:grid-cols-3">
-              <button
-                type="button"
-                onClick={handleInstallPrompt}
-                disabled={!installAvailable || busy !== null}
-                className="cs-btn cs-btn-primary sm:col-span-1 disabled:opacity-50"
-              >
-                {isIOS() ? 'Show me how' : 'Install'}
-              </button>
+
+            <InstallAppGuide />
+
+            {installed ? (
               <button
                 type="button"
                 onClick={() => markStep('home_screen', 'complete')}
                 disabled={busy !== null}
-                className="cs-btn cs-btn-outline sm:col-span-1 disabled:opacity-50"
+                className="cs-btn cs-btn-primary w-full disabled:opacity-50"
               >
-                I added it
+                Continue
               </button>
-              <button
-                type="button"
-                onClick={() => markStep('home_screen', 'dismiss')}
-                disabled={busy !== null}
-                className="cs-btn cs-btn-ghost sm:col-span-1 disabled:opacity-50"
-              >
-                Skip for now
-              </button>
-            </div>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => markStep('home_screen', 'complete')}
+                  disabled={busy !== null}
+                  className="cs-btn cs-btn-outline disabled:opacity-50"
+                >
+                  I&apos;ve added it
+                </button>
+                <button
+                  type="button"
+                  onClick={() => markStep('home_screen', 'dismiss')}
+                  disabled={busy !== null}
+                  className="cs-btn cs-btn-ghost disabled:opacity-50"
+                >
+                  Skip for now
+                </button>
+              </div>
+            )}
+            <p className="text-xs leading-relaxed text-neutral-400">
+              Already added it? Open <strong className="font-semibold text-neutral-500">Circles</strong> from
+              your Home Screen and this step finishes on its own.
+            </p>
           </section>
         )}
 

@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-07-09",
+    "date_display": "July 9, 2026",
+    "date_iso": "2026-07-09",
+    "id": "toolkit-add-to-home-screen-guide",
+    "type": "improvement",
+    "category": "Circles Toolkit",
+    "description": "Getting the Toolkit onto your Home Screen is now spelled out step by step instead of a single line of text. Both the first-time setup and the notification settings show clear, illustrated instructions matched to your exact device — the Share → Add to Home Screen steps on iPhone and iPad, a one-tap Install button on Android and desktop when the browser offers it. On iPhone the steps now also remind you to leave the \"Open as Web App\" switch on, since turning it off adds a plain Safari bookmark that can't receive notifications. Most importantly, if you opened your invite link from a text or email (which lands you in an in-app browser where installing isn't possible), it now tells you to open it in Safari first — the step that used to silently trip people up. On the settings page, an un-installed iPhone no longer shows a confusing \"Unsupported\" notification state; it shows how to install instead.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-07-08",
     "date_display": "July 8, 2026",
     "date_iso": "2026-07-08",
