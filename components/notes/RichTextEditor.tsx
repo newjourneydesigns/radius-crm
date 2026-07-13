@@ -6,7 +6,23 @@ import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
+import { TextStyle, Color } from '@tiptap/extension-text-style';
 import { useEffect, useState, useCallback, useRef } from 'react';
+
+// Font colors offered by the toolbar swatch popover. Chosen to stay legible on
+// the notebook's near-black surface (#0f1117). `null` clears the color back to
+// the editor's default (white/theme) text.
+const TEXT_COLORS: { name: string; value: string | null }[] = [
+  { name: 'Default', value: null },
+  { name: 'Red', value: '#F87171' },
+  { name: 'Orange', value: '#FB923C' },
+  { name: 'Gold', value: '#FBBF24' },
+  { name: 'Green', value: '#4ADE80' },
+  { name: 'Cyan', value: '#22D3EE' },
+  { name: 'Blue', value: '#60A5FA' },
+  { name: 'Purple', value: '#A78BFA' },
+  { name: 'Pink', value: '#F472B6' },
+];
 
 // Converts bare URLs in HTML text nodes to <a> tags; idempotent (won't double-wrap).
 function linkifyHtml(html: string): string {
@@ -39,6 +55,8 @@ interface RichTextEditorProps {
   autoFocus?: boolean;
   /** Adds a "Button" toolbar action that inserts a styled anchor (`<a class="cs-button">`). */
   allowButton?: boolean;
+  /** Adds a font-color swatch popover to the toolbar. */
+  allowColors?: boolean;
   /**
    * Adds an image toolbar action. The callback uploads the picked file (e.g. to
    * /api/admin/resource-images) and resolves to the public URL to insert.
@@ -121,11 +139,13 @@ export default function RichTextEditor({
   borderless = false,
   autoFocus = false,
   allowButton = false,
+  allowColors = false,
   onUploadImage,
   toolkitSurface = false,
 }: RichTextEditorProps) {
   const [linkDialog, setLinkDialog] = useState({ visible: false, displayText: '', url: '', hasSelection: false });
   const [buttonDialog, setButtonDialog] = useState({ visible: false, label: '', url: '' });
+  const [colorMenuOpen, setColorMenuOpen] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -143,6 +163,11 @@ export default function RichTextEditor({
       // Registered unconditionally so existing <img> content round-trips even
       // in editors without an upload action.
       Image.configure({ inline: false }),
+      // TextStyle + Color power the font-color swatches. Registered
+      // unconditionally so any saved `<span style="color:…">` round-trips even
+      // in editors that don't expose the color button.
+      TextStyle,
+      Color,
       ClassyLink.configure({
         openOnClick: true,
         autolink: true,
@@ -284,6 +309,8 @@ export default function RichTextEditor({
 
   if (!editor) return null;
 
+  const currentColor = (editor.getAttributes('textStyle').color as string | undefined) || null;
+
   const containerClass = borderless
     ? toolkitSurface
       ? 'cs-canvas'
@@ -375,6 +402,88 @@ export default function RichTextEditor({
         >
           <span className="line-through">S</span>
         </ToolbarButton>
+
+        {allowColors && (
+          <div className="relative">
+            <button
+              type="button"
+              title="Font color"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setColorMenuOpen((v) => !v);
+              }}
+              disabled={disabled}
+              className={`flex flex-col items-center rounded px-2 py-1 leading-none transition-colors select-none
+                ${
+                  colorMenuOpen
+                    ? toolkitSurface
+                      ? 'bg-neutral-200 text-neutral-800'
+                      : 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-white'
+                    : toolkitSurface
+                      ? 'text-neutral-600 hover:bg-neutral-200'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }
+                disabled:opacity-40 disabled:cursor-not-allowed`}
+            >
+              <span className="text-sm font-semibold">A</span>
+              <span
+                className="mt-0.5 h-1 w-3.5 rounded-sm"
+                style={{ backgroundColor: currentColor || (toolkitSurface ? '#111827' : '#e5e7eb') }}
+              />
+            </button>
+
+            {colorMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setColorMenuOpen(false);
+                  }}
+                />
+                <div
+                  className={`absolute left-0 top-full z-40 mt-1 rounded-lg border p-2 shadow-xl ${
+                    toolkitSurface ? 'border-neutral-200 bg-white' : 'border-white/[0.1] bg-[#1e2130]'
+                  }`}
+                >
+                  <div className="grid grid-cols-[repeat(5,1.5rem)] gap-1.5">
+                    {TEXT_COLORS.map((c) => {
+                      const isActive = currentColor === c.value;
+                      return (
+                        <button
+                          key={c.name}
+                          type="button"
+                          title={c.name}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            if (c.value) {
+                              editor.chain().focus().setColor(c.value).run();
+                            } else {
+                              editor.chain().focus().unsetColor().run();
+                            }
+                            setColorMenuOpen(false);
+                          }}
+                          className={`relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-md border transition-transform hover:scale-110 ${
+                            isActive
+                              ? toolkitSurface
+                                ? 'border-neutral-800 ring-1 ring-neutral-800'
+                                : 'border-white ring-1 ring-white'
+                              : 'border-black/10 dark:border-white/15'
+                          } ${c.value === null ? (toolkitSurface ? 'bg-neutral-100' : 'bg-gray-200') : ''}`}
+                          style={c.value ? { backgroundColor: c.value } : undefined}
+                        >
+                          {c.value === null && (
+                            <span className="absolute h-[1.5px] w-8 rotate-45 bg-red-500" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className={`w-px h-4 mx-1 ${dividerClass}`} />
 

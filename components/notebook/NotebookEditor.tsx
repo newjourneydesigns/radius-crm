@@ -399,6 +399,7 @@ export default function NotebookEditor() {
                 minHeight="min(760px, calc(100vh - 360px))"
                 stickyToolbar
                 borderless
+                allowColors
               />
 
               {/* Dictate & AI Summarize */}

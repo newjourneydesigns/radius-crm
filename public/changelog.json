@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-07-13",
+    "date_display": "July 13, 2026",
+    "date_iso": "2026-07-13",
+    "id": "notebook-font-colors",
+    "type": "feature",
+    "category": "Notebook",
+    "description": "You can now change the color of text in your notebook pages. Select any text, click the new A button in the formatting toolbar, and pick from eight colors chosen to stay easy to read on the dark page — red, orange, gold, green, cyan, blue, purple, and pink. The slashed tile clears a color back to the default white, and your colors are saved with the page.",
+    "page": "/notebook"
+  },
+  {
     "date": "2026-07-09",
     "date_display": "July 9, 2026",
     "date_iso": "2026-07-09",
