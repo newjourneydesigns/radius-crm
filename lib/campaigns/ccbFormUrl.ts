@@ -6,6 +6,10 @@
 export function ccbFormUrl(formId: string | number | null | undefined): string {
   const id = String(formId ?? '').trim();
   if (!id) return '';
-  const subdomain = process.env.CCB_SUBDOMAIN || 'valleycreekchurch';
+  let subdomain = (process.env.CCB_SUBDOMAIN || 'valleycreekchurch').trim();
+  // CCB's short login alias `valleycreek` doesn't serve /goto/forms links — the
+  // church's public form host is the full `valleycreekchurch` subdomain. Normalize
+  // so a stale/short CCB_SUBDOMAIN can't produce a broken form link.
+  if (subdomain === 'valleycreek') subdomain = 'valleycreekchurch';
   return `https://${subdomain}.ccbchurch.com/goto/forms/${id}/responses/new`;
 }

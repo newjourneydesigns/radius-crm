@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-07-14",
+    "date_display": "July 14, 2026",
+    "date_iso": "2026-07-14",
+    "id": "campaign-form-link-subdomain-fix",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "The \"Open form\" link and the {{form_link}} used in campaign messages now point to the correct CCB address (valleycreekchurch.ccbchurch.com). Some campaigns had been saved with a shorter web address that didn't open the form; those have been corrected and new campaigns will always use the right one.",
+    "page": "/campaigns"
+  },
+  {
     "date": "2026-07-13",
     "date_display": "July 13, 2026",
     "date_iso": "2026-07-13",
