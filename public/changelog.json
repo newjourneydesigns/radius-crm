@@ -3,6 +3,16 @@
     "date": "2026-07-14",
     "date_display": "July 14, 2026",
     "date_iso": "2026-07-14",
+    "id": "companion-full-disk-access-guide",
+    "type": "improvement",
+    "category": "Auto Send",
+    "description": "The Mac Companion setup guide makes the trickiest step — turning on delivery tracking — much easier to follow. There's now a one-click \"Open Full Disk Access settings\" button that jumps straight to the right screen in System Settings, and the remaining instructions are broken into clear lettered steps instead of one long paragraph. A short note reassures you it only ever reads delivery receipts, never the contents of your messages.",
+    "page": "/settings"
+  },
+  {
+    "date": "2026-07-14",
+    "date_display": "July 14, 2026",
+    "date_iso": "2026-07-14",
     "id": "campaign-form-link-subdomain-fix",
     "type": "fix",
     "category": "Campaigns",

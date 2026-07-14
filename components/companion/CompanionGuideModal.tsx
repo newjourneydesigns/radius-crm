@@ -43,6 +43,26 @@ function Key({ children }: { children: React.ReactNode }) {
   );
 }
 
+function SubStep({ letter, children }: { letter: string; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-2.5">
+      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[11px] font-bold flex items-center justify-center mt-0.5">
+        {letter}
+      </span>
+      <div className="min-w-0 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{children}</div>
+    </li>
+  );
+}
+
+function CogIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
 export default function CompanionGuideModal({
   isOpen,
   onClose,
@@ -154,26 +174,57 @@ export default function CompanionGuideModal({
               </span>
             ) : (
               <>
-                This lets RADIUS tell you which texts actually delivered — including ones to non-iPhone
-                numbers that quietly fail. Open{' '}
-                <span className="font-semibold">System Settings → Privacy &amp; Security → Full Disk Access</span>,
-                click the <span className="font-semibold">+</span> button, press{' '}
-                <Key>⌘ Command</Key> + <Key>⇧ Shift</Key> + <Key>G</Key>, paste the path below, press{' '}
-                <Key>Return</Key>, then flip the switch <span className="font-semibold">on</span>. It only
-                ever reads delivery receipts — never your message contents.
-                {pythonPath && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <code className="flex-1 min-w-0 text-xs font-mono text-emerald-700 dark:text-emerald-400 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg overflow-x-auto whitespace-nowrap">
-                      {pythonPath}
-                    </code>
-                    <button
-                      onClick={copyPath}
-                      className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-                    >
-                      {copiedPath ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
-                )}
+                <p>
+                  This lets RADIUS tell you which texts actually delivered — including ones to
+                  non-iPhone numbers that quietly fail. It takes about 30 seconds:
+                </p>
+
+                <a
+                  href="x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+                  className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                >
+                  <CogIcon />
+                  Open Full Disk Access settings
+                </a>
+                <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  Opens System Settings to the exact screen. If nothing happens, open it by hand:{' '}
+                  <span className="font-medium text-gray-600 dark:text-gray-300">
+                    System Settings → Privacy &amp; Security → Full Disk Access
+                  </span>
+                  .
+                </p>
+
+                <ol className="mt-3 space-y-2.5">
+                  <SubStep letter="a">
+                    Click the <span className="font-semibold">+</span> button, then confirm with your
+                    Mac password or Touch ID if asked.
+                  </SubStep>
+                  <SubStep letter="b">
+                    Press <Key>⌘ Command</Key> + <Key>⇧ Shift</Key> + <Key>G</Key>, paste this path,
+                    and press <Key>Return</Key>:
+                    {pythonPath && (
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <code className="flex-1 min-w-0 text-xs font-mono text-emerald-700 dark:text-emerald-400 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg overflow-x-auto whitespace-nowrap">
+                          {pythonPath}
+                        </code>
+                        <button
+                          onClick={copyPath}
+                          className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                        >
+                          {copiedPath ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
+                    )}
+                  </SubStep>
+                  <SubStep letter="c">
+                    <span className="font-mono text-xs">python</span> now shows up in the list — flip
+                    its switch <span className="font-semibold">on</span>.
+                  </SubStep>
+                </ol>
+
+                <p className="mt-2.5 text-xs text-gray-500 dark:text-gray-400">
+                  🔒 This only ever reads delivery receipts — never the contents of your messages.
+                </p>
               </>
             )}
           </Step>
