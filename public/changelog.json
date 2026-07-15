@@ -3,6 +3,16 @@
     "date": "2026-07-15",
     "date_display": "July 15, 2026",
     "date_iso": "2026-07-15",
+    "id": "boards-search-filters-current-board",
+    "type": "improvement",
+    "category": "Boards",
+    "description": "Searching from the board search bar now also filters the board you're on. Matching cards stay visible in their columns while everything else fades out of the way, and the dropdown still surfaces hits from your other boards.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-07-15",
+    "date_display": "July 15, 2026",
+    "date_iso": "2026-07-15",
     "id": "toolkit-summary-reminder-one-hour",
     "type": "fix",
     "category": "Circles Toolkit",

@@ -99,6 +99,7 @@ function isPublicRoute(pathname: string, isDedicatedToolkitHost = false) {
   // Strip a trailing slash so '/login/' matches '/login' (Netlify can add one).
   const p = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
   return (
+    p === '/dev-color-preview' || // TEMP dev-only preview route — remove
     p === '/login' ||
     p === '/search' ||
     p.startsWith('/auth') ||
@@ -119,6 +120,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const isPublic = isPublicRoute(pathname, isDedicatedToolkitHost);
   const hideChrome =
     isDedicatedToolkitHost ||
+    pathname === '/dev-color-preview' || // TEMP dev-only preview route — remove
     pathname === '/login' ||
     pathname.startsWith('/auth') ||
     pathname.startsWith('/circle-leader-toolkit') ||

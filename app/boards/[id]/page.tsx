@@ -1885,7 +1885,6 @@ function BoardPage() {
     createNextRepeatCard,
   } = useProjectBoard();
 
-  const [search] = useState('');
   const [filterPriority, setFilterPriority] = useState<CardPriority | ''>('');
   const [filterLabel, setFilterLabel] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -2210,8 +2209,11 @@ function BoardPage() {
   const filteredCards = useMemo(() => {
     if (!board) return [];
     let cards = board.cards;
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    // The cross-board search bar (cardSearch) also filters the current board in
+    // place, so matching cards stay visible in their columns while the dropdown
+    // surfaces hits on other boards.
+    if (cardSearch.trim()) {
+      const q = cardSearch.toLowerCase();
       cards = cards.filter(c =>
         c.title.toLowerCase().includes(q) ||
         c.description?.toLowerCase().includes(q) ||
@@ -2246,7 +2248,7 @@ function BoardPage() {
       });
     }
     return cards;
-  }, [board, search, filterPriority, filterLabel, filterDate]);
+  }, [board, cardSearch, filterPriority, filterLabel, filterDate]);
 
   const getColumnCards = useCallback((colId: string) => {
     return filteredCards.filter(c => c.column_id === colId).sort((a, b) => a.position - b.position);
