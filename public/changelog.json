@@ -3,6 +3,16 @@
     "date": "2026-07-15",
     "date_display": "July 15, 2026",
     "date_iso": "2026-07-15",
+    "id": "architecture-page",
+    "type": "feature",
+    "category": "Help",
+    "description": "New Architecture page: a visual chart of how RADIUS is put together — who uses it, the app layers, what lives in the database, every scheduled job, and a close-up of the CCB integration (v1 XML + v2 REST, the daily call budget, and what gets cached). Handy for onboarding anyone new to the project.",
+    "page": "/architecture.html"
+  },
+  {
+    "date": "2026-07-15",
+    "date_display": "July 15, 2026",
+    "date_iso": "2026-07-15",
     "id": "boards-search-filters-current-board",
     "type": "improvement",
     "category": "Boards",

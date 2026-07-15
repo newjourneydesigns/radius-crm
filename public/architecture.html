@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>RADIUS System Architecture</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+  :root {
+    --paper: #F4F5F2;
+    --card: #FFFFFF;
+    --ink: #22302C;
+    --muted: #5C6B66;
+    --line: #D9DFDA;
+    --pine: #2E7D6A;
+    --pine-soft: #E4EFEB;
+    --amber: #B26B24;
+    --amber-soft: #F5EADC;
+    --slate: #4E5F8A;
+    --slate-soft: #E6E9F2;
+    --neutral-soft: #ECEEEA;
+    --shadow: 0 1px 2px rgba(34,48,44,.06), 0 4px 14px rgba(34,48,44,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #141B19;
+      --card: #1C2523;
+      --ink: #E7EDEA;
+      --muted: #94A49E;
+      --line: #2D3934;
+      --pine: #5FB89F;
+      --pine-soft: #1E3630;
+      --amber: #D99B55;
+      --amber-soft: #38291A;
+      --slate: #93A5D8;
+      --slate-soft: #232B41;
+      --neutral-soft: #242E2B;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141B19; --card: #1C2523; --ink: #E7EDEA; --muted: #94A49E;
+    --line: #2D3934; --pine: #5FB89F; --pine-soft: #1E3630;
+    --amber: #D99B55; --amber-soft: #38291A; --slate: #93A5D8; --slate-soft: #232B41;
+    --neutral-soft: #242E2B; --shadow: none;
+  }
+  :root[data-theme="light"] {
+    --paper: #F4F5F2; --card: #FFFFFF; --ink: #22302C; --muted: #5C6B66;
+    --line: #D9DFDA; --pine: #2E7D6A; --pine-soft: #E4EFEB;
+    --amber: #B26B24; --amber-soft: #F5EADC; --slate: #4E5F8A; --slate-soft: #E6E9F2;
+    --neutral-soft: #ECEEEA;
+    --shadow: 0 1px 2px rgba(34,48,44,.06), 0 4px 14px rgba(34,48,44,.05);
+  }
+
+  html { background: var(--paper); }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Charter, 'Bitstream Charter', 'Iowan Old Style', Georgia, serif;
+    font-size: 17px;
+    line-height: 1.55;
+    margin: 0;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  h1, h2, h3, .sans {
+    font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif;
+  }
+  h1 { font-size: 2.1rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 6px; text-wrap: balance; }
+  h2 { font-size: 1.35rem; font-weight: 700; margin: 0 0 4px; }
+  h3 { font-size: 1.02rem; font-weight: 600; margin: 0 0 6px; }
+  p { margin: 0 0 1em; max-width: 68ch; }
+  code, .mono {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.82em;
+    background: var(--neutral-soft);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  a { color: var(--pine); }
+
+  .eyebrow {
+    font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--pine); margin: 0 0 10px;
+  }
+  .lede { color: var(--muted); font-size: 1.05rem; max-width: 62ch; }
+
+  section { margin-top: 64px; }
+  section > .section-head { border-top: 2px solid var(--ink); padding-top: 14px; margin-bottom: 22px; }
+  section > .section-head .sub { color: var(--muted); font-size: 0.95rem; max-width: 68ch; }
+
+  /* ---------- legend ---------- */
+  .legend { display: flex; flex-wrap: wrap; gap: 14px 22px; margin: 26px 0 10px;
+    font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif; font-size: 0.82rem; }
+  .legend .key { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+  .swatch.pine { background: var(--pine); }
+  .swatch.amber { background: var(--amber); }
+  .swatch.slate { background: var(--slate); }
+  .swatch.neutral { background: var(--muted); }
+
+  /* ---------- diagram ---------- */
+  .diagram { margin-top: 18px; }
+  .layer {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px 20px;
+    box-shadow: var(--shadow);
+  }
+  .layer-label {
+    font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 12px;
+  }
+  .node-row { display: grid; gap: 12px; }
+  .node-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .node-row.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .node-row.cols-5 { grid-template-columns: repeat(5, 1fr); }
+  @media (max-width: 760px) {
+    .node-row.cols-3, .node-row.cols-5 { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) {
+    .node-row.cols-3, .node-row.cols-5, .node-row.cols-2 { grid-template-columns: 1fr; }
+  }
+  .node {
+    border: 1.5px solid var(--line);
+    border-radius: 9px;
+    padding: 11px 13px;
+    background: var(--card);
+  }
+  .node .name {
+    font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif;
+    font-weight: 600; font-size: 0.92rem; line-height: 1.3; margin-bottom: 3px;
+  }
+  .node .desc { font-size: 0.82rem; color: var(--muted); line-height: 1.4; }
+  .node.pine   { border-color: var(--pine);  background: var(--pine-soft); }
+  .node.amber  { border-color: var(--amber); background: var(--amber-soft); }
+  .node.slate  { border-color: var(--slate); background: var(--slate-soft); }
+  .node.pine .name  { color: var(--pine); }
+  .node.amber .name { color: var(--amber); }
+  .node.slate .name { color: var(--slate); }
+
+  .flow-link {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 6px 0;
+    font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.75rem; color: var(--muted);
+  }
+  .flow-link::before, .flow-link::after {
+    content: ""; width: 1.5px; height: 22px; background: var(--line); flex: none;
+  }
+  .flow-link .arrow { color: var(--muted); font-size: 0.9rem; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
+
+  /* ---------- ccb pipeline ---------- */
+  .pipe { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 0; align-items: stretch; margin: 20px 0; }
+  .pipe .stage { display: flex; flex-direction: column; gap: 10px; }
+  .pipe .joint {
+    display: flex; align-items: center; padding: 0 8px;
+    color: var(--muted); font-size: 1.15rem;
+  }
+  @media (max-width: 760px) {
+    .pipe { grid-template-columns: 1fr; }
+    .pipe .joint { justify-content: center; transform: rotate(90deg); padding: 2px 0; }
+  }
+
+  /* ---------- tables ---------- */
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  th {
+    font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; white-space: nowrap;
+  }
+  td.mono-cell { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem; white-space: nowrap; }
+  td .cron { font-variant-numeric: tabular-nums; }
+
+  /* ---------- domain grid ---------- */
+  .domain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 860px) { .domain-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 540px) { .domain-grid { grid-template-columns: 1fr; } }
+  .domain {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .domain h3 { font-size: 0.9rem; }
+  .domain .tables { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.74rem; line-height: 1.7; color: var(--muted); word-break: break-word; }
+  .domain.slate-top { border-top: 3px solid var(--slate); }
+  .domain.amber-top { border-top: 3px solid var(--amber); }
+
+  .callout {
+    border-left: 3px solid var(--amber);
+    background: var(--amber-soft);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    font-size: 0.92rem;
+    max-width: 72ch;
+  }
+  .callout.pine-c { border-left-color: var(--pine); background: var(--pine-soft); }
+
+  ul.tight { margin: 0 0 1em; padding-left: 1.2em; }
+  ul.tight li { margin-bottom: 6px; max-width: 66ch; }
+
+  footer { margin-top: 72px; padding-top: 16px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 0.82rem;
+    font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Valley Creek &middot; Internal Tools</p>
+    <h1>How RADIUS Is Put Together</h1>
+    <p class="lede">RADIUS is the CRM the ACPD team uses to shepherd Circle Leaders &mdash; profiles, follow-ups, boards, scorecards, and weekly circle summaries. It's one Next.js codebase that serves three different audiences from three hostnames, stores everything in Supabase, and leans heavily on Church Community Builder (CCB) as the source of truth for people, groups, and attendance.</p>
+    <div class="legend">
+      <span class="key"><span class="swatch pine"></span> RADIUS application code</span>
+      <span class="key"><span class="swatch slate"></span> Data layer (Supabase)</span>
+      <span class="key"><span class="swatch amber"></span> External services</span>
+      <span class="key"><span class="swatch neutral"></span> People &amp; clients</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <h2>The big picture</h2>
+      <p class="sub">Every request enters through one Next.js 14 app hosted on Netlify. Middleware looks at the hostname to decide which "face" of the app you get. All three faces share the same Supabase database and the same CCB integration.</p>
+    </div>
+
+    <div class="diagram">
+      <div class="layer">
+        <div class="layer-label">Who uses it</div>
+        <div class="node-row cols-3">
+          <div class="node">
+            <div class="name">ACPD staff &amp; directors</div>
+            <div class="desc">Full RADIUS app on the main domain. Role <code>ACPD</code> = admin; anyone else is a viewer.</div>
+          </div>
+          <div class="node">
+            <div class="name">Circle Leaders</div>
+            <div class="desc">Circle Leader Toolkit on its own hostname (<code>LEADER_TOOLKIT_HOST</code>). Magic-link + OTP sessions, installable as a PWA.</div>
+          </div>
+          <div class="node">
+            <div class="name">Team Leaders</div>
+            <div class="desc">Teams Toolkit on a second hostname (<code>TEAMS_TOOLKIT_HOST</code>), feature-flagged. Mirrors the leader toolkit.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-link"><span>HTTPS &middot; PWA + service worker on all three</span><span class="arrow">&#9660;</span></div>
+
+      <div class="layer">
+        <div class="layer-label">The application &mdash; Next.js 14 on Netlify</div>
+        <div class="node-row cols-3">
+          <div class="node pine">
+            <div class="name">middleware.ts &mdash; host router</div>
+            <div class="desc">Matches the hostname and rewrites to the right portal. Each toolkit host only exposes its own pages and API namespace; everything else 404s.</div>
+          </div>
+          <div class="node pine">
+            <div class="name">App Router pages (/app)</div>
+            <div class="desc">Dashboard, Today, Boards, Calendar, Campaigns, Circles, Scorecards, Prayer, Event Summary Tracker, messaging, admin, CCB explorer, and the two toolkits.</div>
+          </div>
+          <div class="node pine">
+            <div class="name">API routes (/app/api/**/route.ts)</div>
+            <div class="desc">All server logic. Around 50 of these routes talk to CCB; the rest read/write Supabase directly with the service-role key.</div>
+          </div>
+        </div>
+        <div class="flow-link" style="padding-top:12px"><span>hooks (<code>/hooks/use*.ts</code>) fetch data &middot; realtime via Supabase subscriptions</span></div>
+        <div class="node-row cols-3">
+          <div class="node pine">
+            <div class="name">/lib &mdash; shared services</div>
+            <div class="desc"><code>lib/ccb/</code> clients, <code>emailService.ts</code>, push helpers, AI prompt/tools, toolkit data layers.</div>
+          </div>
+          <div class="node pine">
+            <div class="name">AuthContext (client)</div>
+            <div class="desc">Supabase passwordless magic-link auth; tokens in the URL hash for cross-tab support. RLS enforces access server-side.</div>
+          </div>
+          <div class="node pine">
+            <div class="name">Scheduled functions (/netlify/functions)</div>
+            <div class="desc">11 cron jobs: CCB syncs, digest emails, push reminders, coaching automations. Run only on the main site.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-link"><span class="arrow">&#9660;</span><span>server-side only &mdash; service-role key never reaches the browser</span><span class="arrow">&#9660;</span></div>
+
+      <div class="split">
+        <div class="layer">
+          <div class="layer-label">Data &mdash; Supabase</div>
+          <div class="node-row" style="grid-template-columns:1fr">
+            <div class="node slate">
+              <div class="name">Postgres + RLS (~100 tables)</div>
+              <div class="desc">Everything RADIUS owns: leaders, notes, boards, campaigns, summaries, toolkit sessions &mdash; plus cached CCB data. Every table has row-level security.</div>
+            </div>
+            <div class="node slate">
+              <div class="name">Auth</div>
+              <div class="desc">Magic-link (passwordless) for staff. Leader/team sessions are separate, HMAC-signed with <code>LEADER_SESSION_SECRET</code>.</div>
+            </div>
+            <div class="node slate">
+              <div class="name">Realtime</div>
+              <div class="desc">Postgres-changes channels for live prayer banners and toolkit onboarding state.</div>
+            </div>
+          </div>
+        </div>
+        <div class="layer">
+          <div class="layer-label">External services</div>
+          <div class="node-row" style="grid-template-columns:1fr">
+            <div class="node amber">
+              <div class="name">CCB &mdash; Church Community Builder</div>
+              <div class="desc">Source of truth for people, groups, events, attendance. Two APIs in parallel: legacy v1 XML and v2 OAuth REST (migration in progress). Detailed below.</div>
+            </div>
+            <div class="node amber">
+              <div class="name">Resend (email)</div>
+              <div class="desc">Daily digests, toolkit reminders, coaching sends. Separate API keys/senders per portal, falling back to the RADIUS key.</div>
+            </div>
+            <div class="node amber">
+              <div class="name">AI &mdash; Gemini 2.5 Flash, OpenAI fallback</div>
+              <div class="desc">Meeting prep, note summaries, weekly AI summaries, the assistant chat. Gemini is primary; <code>gpt-4o-mini</code> is the fallback.</div>
+            </div>
+            <div class="node amber">
+              <div class="name">Web Push (VAPID)</div>
+              <div class="desc">Reminder and notification pushes to staff and leaders; subscriptions stored per audience in Supabase.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>The CCB connection, up close</h2>
+      <p class="sub">This is the most intricate part of RADIUS. CCB is read-mostly from the app's perspective (the writes are narrow: attendance, notes, group membership). Every CCB call flows through a gateway that enforces a daily budget so RADIUS never blows through CCB's rate limits.</p>
+    </div>
+
+    <div class="pipe">
+      <div class="stage">
+        <div class="node pine">
+          <div class="name">~50 API routes</div>
+          <div class="desc"><code>/app/api/ccb/*</code>, campaigns, toolkits, event-summary tracker, admin tools.</div>
+        </div>
+        <div class="node pine">
+          <div class="name">Cron jobs</div>
+          <div class="desc"><code>sync-attendance</code> (daily) and <code>prewarm-circle-summary</code> (daily) pull CCB data on a schedule.</div>
+        </div>
+      </div>
+      <div class="joint">&rarr;</div>
+      <div class="stage">
+        <div class="node pine">
+          <div class="name">ccb-api-gateway.ts</div>
+          <div class="desc">Atomic daily call budget &mdash; default 9,500 calls/day, reset at midnight Central via a Postgres RPC. Logs every request and raises alerts on 429s or high usage.</div>
+        </div>
+        <div class="node slate">
+          <div class="name">Telemetry tables</div>
+          <div class="desc"><code>ccb_api_requests</code>, <code>_rate_limits</code>, <code>_daily_status</code>, <code>_alerts</code> &mdash; visible in the in-app CCB usage dashboard.</div>
+        </div>
+      </div>
+      <div class="joint">&rarr;</div>
+      <div class="stage">
+        <div class="node amber">
+          <div class="name">v1 &mdash; XML API (legacy)</div>
+          <div class="desc"><code>ccb-client.ts</code>. Basic-auth XML services: group profiles &amp; participants, event/attendance profiles, individual search, queues, forms, notes, calendar listings.</div>
+        </div>
+        <div class="node amber">
+          <div class="name">v2 &mdash; REST API (migration target)</div>
+          <div class="desc"><code>ccb-v2-client.ts</code> + OAuth manager. Authorization-code grant once, then a stored refresh token mints ~2-hour access tokens (<code>ccb_oauth_tokens</code>). Powers OAuth routes, scheduling, group rosters, campaign reconcile, and the whole Teams Toolkit data layer.</div>
+        </div>
+      </div>
+    </div>
+
+    <p>Reads are a <strong>hybrid</strong>: some flows hit CCB live per request, but anything hot gets cached into Supabase so pages stay fast and the budget stays safe &mdash; individual profiles (<code>ccb_individual_profiles</code>), group events (<code>ccb_group_events_cache</code>), circle rosters (<code>circle_roster_cache</code>), and custom-field dictionaries (<code>ccb_custom_field_definitions</code> / <code>_options</code>, harvested from v1 so v2's opaque field IDs can be resolved without extra calls). Sync bookkeeping lives in <code>ccb_week_sync_log</code>, <code>ccb_orphan_summaries</code>, and related audit tables.</p>
+
+    <div class="callout">
+      <strong>Where the migration stands:</strong> v1 and v2 run side by side today. v2 already carries OAuth, scheduling categories, rosters, campaign reconciliation, and Teams Toolkit; the bulk of circle-summary and attendance sync still rides v1 XML. The v2 clients deliberately mirror v1 method shapes so flows can be moved over one at a time.
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Scheduled jobs</h2>
+      <p class="sub">Netlify scheduled functions, defined inline in <code>/netlify/functions/</code>. They only run on the main site &mdash; the toolkit sites set <code>DISABLE_SCHEDULED_FUNCTIONS=true</code> so reminders never fire twice.</p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Function</th><th>Schedule</th><th>What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono-cell">sync-attendance</td><td class="cron">Daily, 11:00 UTC</td><td>Pulls CCB attendance into Supabase.</td></tr>
+          <tr><td class="mono-cell">prewarm-circle-summary</td><td class="cron">Daily, 9:00 UTC</td><td>Bulk pre-warms the CCB data circle summaries need.</td></tr>
+          <tr><td class="mono-cell">daily-summary</td><td class="cron">Hourly</td><td>Sends each user's digest email at their chosen hour (Resend).</td></tr>
+          <tr><td class="mono-cell">notification-daily-alerts</td><td class="cron">Daily, 12:00 UTC</td><td>Creates the day's notification alerts.</td></tr>
+          <tr><td class="mono-cell">notification-dispatch-push</td><td class="cron">Every 30 min</td><td>Dispatches queued web-push notifications.</td></tr>
+          <tr><td class="mono-cell">today-push-reminders</td><td class="cron">Every 5 min</td><td>Push reminders for the Today page.</td></tr>
+          <tr><td class="mono-cell">circle-reminders</td><td class="cron">Every 15 min</td><td>Circle Leader reminder sends.</td></tr>
+          <tr><td class="mono-cell">circle-summary-push-reminders</td><td class="cron">Every 5 min</td><td>Nudges leaders to submit circle summaries (1 hour after start).</td></tr>
+          <tr><td class="mono-cell">deliver-scheduled-inbox</td><td class="cron">Every 5 min</td><td>Delivers due scheduled Circle Summary inbox messages.</td></tr>
+          <tr><td class="mono-cell">coaching-automations</td><td class="cron">Daily, 13:00 UTC</td><td>Coaching automation runs and sends (feature-flagged, default off).</td></tr>
+          <tr><td class="mono-cell">reap-leader-sessions</td><td class="cron">Weekly, Sun 8:00 UTC</td><td>Expires stale leader sessions.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>What lives in the database</h2>
+      <p class="sub">Roughly 100 Supabase tables, all with row-level security. Grouped by feature so you can see the domains at a glance &mdash; amber cards hold cached or logged CCB data, everything else is RADIUS-native.</p>
+    </div>
+    <div class="domain-grid">
+      <div class="domain slate-top">
+        <h3>Core CRM</h3>
+        <div class="tables">circle_leaders &middot; users &middot; campuses &middot; acpd_list &middot; connections &middot; communications &middot; notes &middot; statuses &middot; circle_types &middot; frequencies</div>
+      </div>
+      <div class="domain slate-top">
+        <h3>Circles &amp; summaries</h3>
+        <div class="tables">circle_visits &middot; circle_meeting_occurrences &middot; circle_event_summaries (+ drafts) &middot; circle_summary_inbox_messages &middot; circle_reminder_sends &middot; circle_roster_cache</div>
+      </div>
+      <div class="domain slate-top">
+        <h3>Circle Leader Toolkit</h3>
+        <div class="tables">leader_sessions &middot; leader_otp_codes &middot; leader_pro_tips &middot; circle_leader_resources &middot; circle_leader_push_subscriptions &middot; notification prefs/deliveries</div>
+      </div>
+      <div class="domain slate-top">
+        <h3>Boards &amp; campaigns</h3>
+        <div class="tables">project_boards &middot; board_columns &middot; board_cards &middot; board_forms &middot; card_checklists &middot; form_submissions &middot; follow_up_campaigns (+ people)</div>
+      </div>
+      <div class="domain slate-top">
+        <h3>Development &amp; scorecards</h3>
+        <div class="tables">leadership_snapshots (+ revisions/templates) &middot; scorecard_questions &middot; scorecard_score_history &middot; leader_category_evaluations &middot; coaching_automation_*</div>
+      </div>
+      <div class="domain slate-top">
+        <h3>Messaging &amp; prayer</h3>
+        <div class="tables">acpd_conversations &middot; acpd_messages &middot; acpd_prayer_points &middot; general_prayer_points &middot; prayer_session_logs &middot; notifications &middot; reminder_templates</div>
+      </div>
+      <div class="domain slate-top">
+        <h3>Today &amp; personal</h3>
+        <div class="tables">today_big_three_slots &middot; today_done_marks &middot; todo_items &middot; touchpoints &middot; notebook_pages &middot; ai_conversations &middot; weekly_ai_summaries</div>
+      </div>
+      <div class="domain amber-top">
+        <h3>CCB cache</h3>
+        <div class="tables">ccb_individual_profiles &middot; ccb_group_events_cache &middot; ccb_custom_field_definitions/_options &middot; ccb_oauth_tokens &middot; event_summary_snapshots</div>
+      </div>
+      <div class="domain amber-top">
+        <h3>CCB telemetry &amp; audit</h3>
+        <div class="tables">ccb_api_requests &middot; ccb_api_rate_limits &middot; ccb_api_daily_status &middot; ccb_api_alerts &middot; ccb_week_sync_log &middot; ccb_orphan_summaries</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Hosting &amp; deployment notes</h2>
+      <p class="sub">Three Netlify sites run the same repo; the hostname decides which portal a visitor sees.</p>
+    </div>
+    <ul class="tight">
+      <li><strong>Main site</strong> &mdash; the full RADIUS app. Pushing to <code>main</code> auto-deploys; all cron jobs run here.</li>
+      <li><strong>Circle Leader Toolkit site</strong> &mdash; serves the leader portal at its host root and exposes only <code>/api/circle-leader-toolkit/*</code>. Cron disabled.</li>
+      <li><strong>Teams Toolkit site</strong> &mdash; same pattern for team leaders, behind a feature flag. Cron disabled.</li>
+      <li>Magic links are <em>signed on the main site and verified on the toolkit sites</em>, so <code>LEADER_SESSION_SECRET</code> must be byte-identical across all three.</li>
+      <li>The toolkit sites currently have Netlify builds stopped &mdash; shipping a toolkit fix means manually unstopping, building, and re-stopping those sites.</li>
+    </ul>
+    <div class="callout pine-c">
+      <strong>The one rule that protects everything:</strong> the Supabase service-role key and all CCB/AI/Resend credentials are server-side only. The browser only ever holds the public Supabase anon key &mdash; row-level security does the real enforcement.
+    </div>
+  </section>
+
+  <footer>
+    Generated from the RADIUS codebase &middot; July 2026 &middot; Stack: Next.js 14 &middot; Supabase &middot; Netlify &middot; Tailwind + DaisyUI &middot; Luxon &middot; CCB v1/v2
+  </footer>
+</div>
+</body>
+</html>

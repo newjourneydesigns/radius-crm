@@ -49,7 +49,7 @@ Don't ship the first render. The screenshot loop exists to catch what code alone
 | Hosting | Netlify |
 | Styling | Tailwind CSS + DaisyUI |
 | Realtime | Supabase subscriptions |
-| AI | Google Gemini 2.0 Flash (primary) / Groq Llama 3.3 (fallback) |
+| AI | Google Gemini 2.5 Flash (primary) / OpenAI gpt-4o-mini (fallback) |
 | Email | Resend |
 | External | Church Community Builder (CCB) API |
 | Date/Time | Luxon (not native Date) |
@@ -101,7 +101,7 @@ Internal Valley Creek app for tracking Circle Leader interactions and developmen
 - Use `Luxon` for all date/time work — not native `Date`
 - Use `Fuse.js` for client-side search — don't add server round-trips for filtering
 - Realtime updates use `useRealtimeSubscription` hook — follow the established pattern
-- All AI calls go through `/api/ai-summarize` — Gemini primary, Groq fallback
+- All AI calls go through `/api/ai-summarize` — Gemini primary, OpenAI fallback
 
 **Auth:**
 - Passwordless magic link flow
@@ -123,8 +123,8 @@ Internal Valley Creek app for tracking Circle Leader interactions and developmen
 
 ## AI Integration Rules
 
-- Gemini 2.0 Flash is the primary model (free tier) — use it for summarization and meeting prep
-- Groq (Llama 3.3 70B) is the fallback — 30 req/min rate limit
+- Gemini 2.5 Flash is the primary model (free tier) — use it for summarization and meeting prep
+- OpenAI (`gpt-4o-mini` via `OPENAI_API_KEY`) is the fallback — note: helper names in `lib/ai-tools.ts` still say "Groq" but it's the OpenAI-compatible format hitting `api.openai.com`; there is no live Groq endpoint
 - **AI API calls cost credits/quota** — pause and confirm before triggering any new AI endpoint in development
 - AI routes are in `/app/api/ai-summarize/` — route new AI features through here or follow the same pattern
 
@@ -198,7 +198,7 @@ To keep deploy credits down:
 | `CCB_SUBDOMAIN` | CCB organization subdomain | Yes |
 | `CCB_API_USERNAME` / `CCB_API_PASSWORD` | CCB credentials | Yes |
 | `GEMINI_API_KEY` | Google AI | Yes |
-| `GROQ_API_KEY` | Fallback AI | Yes |
+| `OPENAI_API_KEY` | Fallback AI (`gpt-4o-mini`) | Yes |
 | `RESEND_API_KEY` | Email service | Yes |
 | `CRON_SECRET` | Netlify cron auth | Yes |
 | `NEXT_PUBLIC_APP_URL` | Production domain | No |
