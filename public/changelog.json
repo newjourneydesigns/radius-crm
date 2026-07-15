@@ -3,6 +3,16 @@
     "date": "2026-07-15",
     "date_display": "July 15, 2026",
     "date_iso": "2026-07-15",
+    "id": "toolkit-summary-reminder-one-hour",
+    "type": "fix",
+    "category": "Circles Toolkit",
+    "description": "Circle summary reminders now arrive 1 hour after your Circle starts instead of 30 minutes, so the nudge lands after your Circle wraps up rather than in the middle of it. This applies to both the phone notification and the reminder email. (Thanks for the report, Amanda!)",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-07-15",
+    "date_display": "July 15, 2026",
+    "date_iso": "2026-07-15",
     "id": "toolkit-summary-typing-scroll-jump-fix",
     "type": "fix",
     "category": "Circles Toolkit",

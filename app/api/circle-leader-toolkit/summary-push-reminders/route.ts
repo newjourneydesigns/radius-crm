@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       for (const event of events || []) {
         const start = parseCcbDateTime(event.startDateTime);
         if (!start) continue;
-        const dueAt = start.plus({ minutes: 30 });
+        const dueAt = start.plus({ hours: 1 });
         if (dueAt > now || start < now.minus({ hours: LOOKBACK_HOURS })) continue;
 
         const { data: submitted } = await supabase

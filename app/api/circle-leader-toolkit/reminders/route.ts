@@ -3,7 +3,7 @@
  *
  * Called by the Netlify scheduled function every 15 minutes. Loads leaders
  * with email reminders enabled, looks at their CCB group calendar, and sends a
- * single reminder ~30 minutes after each Circle starts, nudging the leader to
+ * single reminder ~1 hour after each Circle starts, nudging the leader to
  * submit their summary. One email per leader/event/occurrence — never repeats.
  *
  * Authorization: Bearer ${CRON_SECRET} header.
@@ -21,11 +21,11 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const TZ = 'America/Chicago';
-// Fire a single reminder ~30 minutes after the Circle starts. The window is
+// Fire a single reminder ~1 hour after the Circle starts. The window is
 // wider than the 15-minute cron cadence so a tick always lands inside it; the
 // circle_reminder_sends check below guarantees exactly one email per occurrence.
-const POST_MEETING_MIN_MINUTES = 30;
-const POST_MEETING_MAX_MINUTES = 50;
+const POST_MEETING_MIN_MINUTES = 60;
+const POST_MEETING_MAX_MINUTES = 80;
 const REMINDER_KIND = 'summary_reminder';
 const LEGACY_REMINDER_KINDS = ['follow_up', 'pre_meeting'];
 
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, eligibleLeaders: 0, sent, skipped, errors });
   }
 
-  // We only care about Circles that started within the last hour. Read each
+  // We only care about Circles that started within the last ~80 minutes. Read each
   // leader's calendar from the shared ccb_group_events_cache (warmed daily by
   // the prewarm job) instead of calling CCB live per leader — this cron fires
   // every 15 minutes, and per-leader CCB calls here were a top quota burner.
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
         });
         if (!startDt.isValid) continue;
 
-        // Only the ~30-minutes-after-start window.
+        // Only the ~1-hour-after-start window.
         const minutesSince = now.diff(startDt, 'minutes').minutes;
         if (minutesSince < POST_MEETING_MIN_MINUTES || minutesSince > POST_MEETING_MAX_MINUTES) {
           continue;

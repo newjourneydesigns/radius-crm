@@ -4,7 +4,7 @@ import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctions
 /**
  * Netlify Scheduled Function — Circle Summary reminders.
  *
- * Runs every 15 minutes. Sends a single reminder email ~30 minutes after each
+ * Runs every 15 minutes. Sends a single reminder email ~1 hour after each
  * Circle starts, nudging the leader to submit their summary.
  *
  * Idempotent: backed by the circle_reminder_sends table (one email per occurrence).
