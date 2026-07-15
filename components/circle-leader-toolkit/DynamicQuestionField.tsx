@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { QuestionResponseKey } from '../../lib/circle-leader-toolkit/dynamic-question-response-keys';
 
 // Shared renderer + option helpers for the admin-configured dynamic questions.
@@ -79,11 +79,23 @@ export function AutoGrowTextarea({
   id?: string;
 }) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // Re-measuring requires collapsing to `auto`, which momentarily shortens
+    // the whole page; the browser then clamps the scroll position to the
+    // shorter page and the screen jumps on every keystroke (worst on mobile
+    // with the keyboard open). Measure before paint and put the scroll
+    // position back so typing never moves the page.
+    const { scrollX, scrollY } = window;
     el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    // scrollHeight excludes borders, but with border-box sizing the height
+    // must include them or the content stays clipped by the border width.
+    const borders = el.offsetHeight - el.clientHeight;
+    el.style.height = `${el.scrollHeight + borders}px`;
+    // 'instant' — the site sets scroll-behavior: smooth, which would turn
+    // this restore into an animated glide on every keystroke.
+    window.scrollTo({ left: scrollX, top: scrollY, behavior: 'instant' });
   }, [value]);
   return (
     <textarea

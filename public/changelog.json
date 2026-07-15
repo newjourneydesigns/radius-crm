@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-07-15",
+    "date_display": "July 15, 2026",
+    "date_iso": "2026-07-15",
+    "id": "toolkit-summary-typing-scroll-jump-fix",
+    "type": "fix",
+    "category": "Circles Toolkit",
+    "description": "Typing a Circle summary no longer makes the screen jump around. The text boxes that grow as you type were momentarily collapsing on every keystroke, which yanked the page's scroll position — especially noticeable on a phone with the keyboard open. They now grow and shrink smoothly while the page stays exactly where you left it. (Thanks for the report, Amanda!)",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-07-14",
     "date_display": "July 14, 2026",
     "date_iso": "2026-07-14",
