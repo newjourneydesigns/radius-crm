@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (auth.response) return auth.response;
 
   const body = await req.json();
-  const { name, ccb_group_ids, ccb_event_ids, ccb_form_id, due_date, message_template, archived, group_campus_map } = body;
+  const { name, ccb_group_ids, ccb_event_ids, ccb_form_id, due_date, message_template, archived, favorite, group_campus_map } = body;
 
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name.trim();
@@ -70,6 +70,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (message_template !== undefined) updates.message_template = message_template.trim();
   if (archived === true) updates.archived_at = new Date().toISOString();
   if (archived === false) updates.archived_at = null;
+  if (favorite === true) updates.favorited_at = new Date().toISOString();
+  if (favorite === false) updates.favorited_at = null;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 });

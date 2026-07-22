@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Fuse from 'fuse.js';
 import Image from 'next/image';
+import { DateTime } from 'luxon';
 import { supabase, CircleLeader } from '../../lib/supabase';
 
 // Static Fuse tuning — hoisted so the memoized indexes below don't rebuild just
@@ -34,9 +35,15 @@ interface CardResult {
   board_title: string;
 }
 
+interface CampaignResult {
+  id: string;
+  name: string;
+  due_date: string | null;
+}
+
 interface SearchResult {
-  type: 'leader' | 'board' | 'card';
-  item: CircleLeader | BoardResult | CardResult;
+  type: 'leader' | 'board' | 'card' | 'campaign';
+  item: CircleLeader | BoardResult | CardResult | CampaignResult;
   score?: number;
   matches?: any[];
 }
@@ -51,7 +58,8 @@ export default function GlobalSearch() {
     leaders: CircleLeader[];
     boards: BoardResult[];
     cards: CardResult[];
-  }>({ leaders: [], boards: [], cards: [] });
+    campaigns: CampaignResult[];
+  }>({ leaders: [], boards: [], cards: [], campaigns: [] });
 
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +107,10 @@ export default function GlobalSearch() {
     () => new Fuse(searchData.cards, { ...FUSE_OPTIONS, keys: ['title', 'description', 'board_title'] }),
     [searchData.cards]
   );
+  const campaignsFuse = useMemo(
+    () => new Fuse(searchData.campaigns, { ...FUSE_OPTIONS, keys: ['name'] }),
+    [searchData.campaigns]
+  );
 
   // Load search data
   const loadSearchData = useCallback(async () => {
@@ -107,10 +119,12 @@ export default function GlobalSearch() {
         { data: leaders, error: leadersError },
         { data: boardRows },
         { data: cardRows },
+        { data: campaignRows },
       ] = await Promise.all([
         supabase.from('circle_leaders').select('id, name, circle_name, team_name, leader_type, email, phone, campus, acpd, status, additional_leader_name'),
         supabase.from('project_boards').select('id, title, description').eq('is_archived', false),
         supabase.from('board_cards').select('id, title, description, board_id').eq('is_archived', false),
+        supabase.from('follow_up_campaigns').select('id, name, due_date').is('archived_at', null),
       ]);
 
       if (leadersError) {
@@ -132,7 +146,13 @@ export default function GlobalSearch() {
         board_title: boardMap.get(c.board_id) || '',
       }));
 
-      setSearchData({ leaders: leaders || [], boards, cards });
+      const campaigns: CampaignResult[] = (campaignRows || []).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        due_date: c.due_date ?? null,
+      }));
+
+      setSearchData({ leaders: leaders || [], boards, cards, campaigns });
     } catch (error) {
       console.error('Error loading search data:', error);
     }
@@ -174,6 +194,12 @@ export default function GlobalSearch() {
         ...cardsFuse.search(query).slice(0, 5).map(r => ({
           type: 'card' as const,
           item: r.item as CardResult,
+          score: r.score,
+          matches: r.matches ? [...r.matches] : undefined,
+        })),
+        ...campaignsFuse.search(query).slice(0, 3).map(r => ({
+          type: 'campaign' as const,
+          item: r.item as CampaignResult,
           score: r.score,
           matches: r.matches ? [...r.matches] : undefined,
         })),
@@ -264,6 +290,8 @@ export default function GlobalSearch() {
     } else if (result.type === 'card') {
       const card = result.item as CardResult;
       router.push(`/boards/${card.board_id}?card=${card.id}`);
+    } else if (result.type === 'campaign') {
+      router.push(`/campaigns/${(result.item as CampaignResult).id}`);
     }
     setIsOpen(false);
     setQuery('');
@@ -382,7 +410,7 @@ export default function GlobalSearch() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search leaders, boards, cards..."
+                placeholder="Search leaders, boards, cards, campaigns..."
                 autoFocus
                 style={{
                   flex: 1,
@@ -450,9 +478,11 @@ export default function GlobalSearch() {
                     const leaderItems = results.filter(r => r.type === 'leader');
                     const boardItems = results.filter(r => r.type === 'board');
                     const cardItems = results.filter(r => r.type === 'card');
+                    const campaignItems = results.filter(r => r.type === 'campaign');
 
-                    // Flat ordered list for keyboard index tracking
-                    const flatResults = [...leaderItems, ...boardItems, ...cardItems];
+                    // Flat ordered list for keyboard index tracking — must match
+                    // both the combined-results order and the section render order
+                    const flatResults = [...leaderItems, ...boardItems, ...cardItems, ...campaignItems];
 
                     const sectionHeaderStyle = {
                       padding: '4px 12px 8px',
@@ -613,6 +643,38 @@ export default function GlobalSearch() {
                         );
                       }
 
+                      if (result.type === 'campaign') {
+                        const campaign = result.item as CampaignResult;
+                        return (
+                          <button
+                            key={`campaign-${campaign.id}`}
+                            data-search-item
+                            onClick={() => handleResultClick(result)}
+                            onMouseEnter={() => setSelectedIndex(flatIndex)}
+                            style={btnStyle}
+                          >
+                            <div style={iconWrapStyle}>
+                              <svg style={{ width: 18, height: 18, color: iconColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18a23.848 23.848 0 018.835 2.535m-8.835-2.535a23.74 23.74 0 00-.476-4.59m.476 4.59c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 5.395c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46" />
+                              </svg>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '14px', fontWeight: 500, color: isSelected ? '#eef4ed' : 'rgba(238, 244, 237, 0.85)', lineHeight: '1.3', transition: 'color 0.12s ease', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {campaign.name}
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)', marginTop: '3px', lineHeight: '1.3' }}>
+                                {campaign.due_date
+                                  ? `Campaign · Due ${DateTime.fromISO(campaign.due_date).toFormat('MMM d, yyyy')}`
+                                  : 'Campaign'}
+                              </div>
+                            </div>
+                            <svg style={chevronStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        );
+                      }
+
                       return null;
                     };
 
@@ -634,6 +696,12 @@ export default function GlobalSearch() {
                           <>
                             <div style={{ ...sectionHeaderStyle, paddingTop: (leaderItems.length + boardItems.length) > 0 ? '12px' : '4px' }}>Cards · {cardItems.length}</div>
                             {cardItems.map((r, i) => renderItem(r, leaderItems.length + boardItems.length + i))}
+                          </>
+                        )}
+                        {campaignItems.length > 0 && (
+                          <>
+                            <div style={{ ...sectionHeaderStyle, paddingTop: (leaderItems.length + boardItems.length + cardItems.length) > 0 ? '12px' : '4px' }}>Campaigns · {campaignItems.length}</div>
+                            {campaignItems.map((r, i) => renderItem(r, leaderItems.length + boardItems.length + cardItems.length + i))}
                           </>
                         )}
                       </>
@@ -661,7 +729,7 @@ export default function GlobalSearch() {
                     No results for &ldquo;{query}&rdquo;
                   </p>
                   <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.22)' }}>
-                    Try a different name, campus, or board title
+                    Try a different name, campus, board, or campaign
                   </p>
                 </div>
               ) : (

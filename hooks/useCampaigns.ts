@@ -16,6 +16,8 @@ export interface Campaign {
   due_date: string;
   message_template: string;
   archived_at: string | null;
+  // NULL = not favorited; set = pinned to the Favorites section (shared across the team)
+  favorited_at: string | null;
   last_reconciled_at: string | null;
   expected_count: number | null;
   submitted_count: number | null;
@@ -140,6 +142,19 @@ export function useCampaigns() {
     await fetchCampaigns(true);
   }, [fetchCampaigns]);
 
+  const toggleFavorite = useCallback(async (id: string, favorite: boolean) => {
+    const headers = await authHeader();
+    const res = await fetch(`/api/campaigns/${id}`, {
+      method: 'PATCH',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ favorite }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to update favorite');
+    const json = await res.json();
+    const updated: Campaign = json.campaign;
+    setCampaigns(prev => prev.map(c => c.id === id ? updated : c));
+  }, []);
+
   const updateCampaign = useCallback(async (
     id: string,
     payload: Partial<Pick<Campaign, 'name' | 'ccb_group_ids' | 'ccb_event_ids' | 'group_campus_map' | 'ccb_form_id' | 'form_link' | 'due_date' | 'message_template'>>,
@@ -157,5 +172,5 @@ export function useCampaigns() {
     return updated;
   }, []);
 
-  return { campaigns, loading, error, fetchCampaigns, createCampaign, updateCampaign, archiveCampaign, restoreCampaign };
+  return { campaigns, loading, error, fetchCampaigns, createCampaign, updateCampaign, archiveCampaign, restoreCampaign, toggleFavorite };
 }

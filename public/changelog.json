@@ -1,5 +1,25 @@
 [
   {
+    "date": "2026-07-21",
+    "date_display": "July 21, 2026",
+    "date_iso": "2026-07-21",
+    "id": "campaign-favorites",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "You can now favorite a campaign — tap the star on any campaign card or table row and it pins to a new Favorites section at the top of the Campaigns page. Favorites are shared with the whole team, so the campaigns everyone is actively working stay front and center.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-21",
+    "date_display": "July 21, 2026",
+    "date_iso": "2026-07-21",
+    "id": "campaigns-in-global-search",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Campaigns now show up in the global search (⌘K). Search by campaign name and jump straight to it — results show the due date so you can tell similar campaigns apart.",
+    "page": "/campaigns"
+  },
+  {
     "date": "2026-07-15",
     "date_display": "July 15, 2026",
     "date_iso": "2026-07-15",
