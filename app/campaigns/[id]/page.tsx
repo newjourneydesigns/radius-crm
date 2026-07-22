@@ -16,7 +16,7 @@ import EventSearchPicker from '../../../components/campaigns/EventSearchPicker';
 import { isEventAttendanceEnabled } from '../../../lib/campaigns/event-attendance-flag';
 import { attrValues } from '../../../lib/campaigns/parseRoster';
 import { guessCampusFromGroupName } from '../../../lib/campaigns/campus';
-import { StickyNote, ChevronDown, ChevronUp, Download, Trash2, Check, X } from 'lucide-react';
+import { StickyNote, ChevronDown, ChevronUp, Download, Trash2, Check, X, MessageCircle, Phone } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,6 +69,16 @@ const STATUS_LABELS: Record<string, string> = {
   contacted: 'Contacted',
   expected: 'Expected',
   excluded: 'Off-boarded',
+};
+
+// Status pill colors, keyed by the tab a person lands on.
+const STATUS_BADGES: Record<TabKey, string> = {
+  summary: '',
+  missing: 'bg-red-500/15 text-red-400',
+  submitted: 'bg-green-500/15 text-green-400',
+  not_in_group: 'bg-slate-500/20 text-slate-400',
+  needs_review: 'bg-amber-500/15 text-amber-400',
+  excluded: 'bg-zinc-500/20 text-zinc-400',
 };
 
 // Quote a CSV cell only when it contains a comma, quote, or newline.
@@ -483,6 +493,8 @@ export default function CampaignDetailPage() {
   const [contactNote, setContactNote] = useState('');
   const [contacting, setContacting] = useState(false);
   const [contactSuccess, setContactSuccess] = useState(false);
+  // Person currently being marked contacted from a card's quick actions.
+  const [contactingId, setContactingId] = useState<string | null>(null);
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const companion = useMacCompanion();
   const [isAutoSending, setIsAutoSending] = useState(false);
@@ -511,7 +523,6 @@ export default function CampaignDetailPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [globalSearch, setGlobalSearch] = useState('');
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const globalSearchRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   // Delete campaign confirmation
@@ -552,16 +563,19 @@ export default function CampaignDetailPage() {
   const [addingId, setAddingId] = useState<string | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Global people search across all tabs
-  const globalSearchResults = useMemo(() => {
+  // Global people search across all tabs. While a query is active the list
+  // area shows these matches directly (with per-person actions) instead of
+  // the current tab — on a phone, looking someone up IS the page's main job.
+  const searchActive = globalSearch.trim().length >= 2;
+  const searchMatches = useMemo(() => {
     const q = globalSearch.trim().toLowerCase();
-    if (!q || q.length < 2) return [];
-    return allPeople
-      .filter(p =>
-        `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) ||
-        (p.email || '').toLowerCase().includes(q)
-      )
-      .slice(0, 8);
+    if (q.length < 2) return [];
+    const qDigits = q.replace(/\D/g, '');
+    return allPeople.filter(p =>
+      `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) ||
+      (p.email || '').toLowerCase().includes(q) ||
+      (qDigits.length >= 3 && bestPhone(p).replace(/\D/g, '').includes(qDigits))
+    );
   }, [globalSearch, allPeople]);
 
   function tabForPerson(p: CampaignPerson): TabKey {
@@ -590,17 +604,6 @@ export default function CampaignDetailPage() {
     }, 80);
     setTimeout(() => setHighlightedId(null), 2000);
   }
-
-  // Close global search dropdown on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (globalSearchRef.current && !globalSearchRef.current.contains(e.target as Node)) {
-        setGlobalSearch('');
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
 
   const loadCampaign = useCallback(async () => {
     const headers = await authHeader();
@@ -1092,6 +1095,7 @@ export default function CampaignDetailPage() {
   // switch is visible; on larger screens the tabs are already in view.
   function goToTab(tab: TabKey) {
     setActiveTab(tab);
+    setGlobalSearch('');
     if (typeof window !== 'undefined' && window.innerWidth < 640) {
       setTimeout(() => {
         document.getElementById('campaign-people-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1265,6 +1269,26 @@ export default function CampaignDetailPage() {
       }
     } finally {
       setContacting(false);
+    }
+  }
+
+  // One-tap "Mark contacted" after texting someone from their card or a
+  // search result — the bulk Follow Up modal is overkill for a single person.
+  async function markContactedOne(personId: string) {
+    setContactingId(personId);
+    try {
+      const headers = await authHeader();
+      const res = await fetch(`/api/campaigns/${id}/contact`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ person_ids: [personId] }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to mark contacted');
+      await Promise.all([loadCampaign(), loadPeople()]);
+    } catch (err) {
+      setReconcileError(err instanceof Error ? err.message : 'Failed to mark contacted');
+    } finally {
+      setContactingId(null);
     }
   }
 
@@ -1670,6 +1694,46 @@ export default function CampaignDetailPage() {
     </>
   );
 
+  // Quick per-person outreach, shared by mobile cards and search results:
+  // Text opens Messages with the campaign message filled in (same resolve as
+  // the Follow Up modal), Call dials, and once a text went out admins get a
+  // one-tap Mark contacted.
+  const renderContactActions = (p: CampaignPerson) => {
+    const phone = normalizePhone(bestPhone(p));
+    if (!phone) return null;
+    const sent = sentIds.has(p.id);
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+          title="Opens Messages with the campaign message filled in"
+          onClick={() => sendMessage(p)}
+        >
+          <MessageCircle className="w-3.5 h-3.5" strokeWidth={2} /> {sent ? 'Text again' : 'Text'}
+        </button>
+        <a
+          href={`tel:${phone}`}
+          className="inline-flex items-center gap-1.5 bg-zinc-700/60 hover:bg-zinc-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+        >
+          <Phone className="w-3.5 h-3.5" strokeWidth={2} /> Call
+        </a>
+        {admin && sent && (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-indigo-300 px-2 py-1.5 transition-colors disabled:opacity-50"
+            onClick={() => markContactedOne(p.id)}
+            disabled={contactingId === p.id}
+          >
+            {contactingId === p.id
+              ? <><Spinner size="sm" /> Marking…</>
+              : <><Check className="w-3.5 h-3.5" strokeWidth={2} /> Mark contacted</>}
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <ProtectedRoute>
       <div className="p-4 sm:p-6 lg:p-8 max-w-screen-xl mx-auto pb-32">
@@ -1890,58 +1954,36 @@ export default function CampaignDetailPage() {
             <div id="campaign-people-anchor" className="scroll-mt-4" />
             {/* Tabs / view picker + global search */}
             <div className="mb-4 space-y-3">
-              {/* Find person — own full-width line on mobile, inline on desktop */}
+              {/* Find person — own full-width line on mobile, inline on desktop.
+                  Matches show directly in the list area below, not in a dropdown. */}
               {allPeople.length > 0 && (
-                <div ref={globalSearchRef} className="relative w-full sm:hidden">
+                <div className="relative w-full sm:hidden">
                   <input
                     type="text"
                     placeholder="Find person…"
                     value={globalSearch}
                     onChange={e => setGlobalSearch(e.target.value)}
-                    className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-9 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                   />
                   <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
                   </svg>
-                  {globalSearchResults.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
-                      {globalSearchResults.map(p => {
-                        const tab = TABS.find(t => t.key === tabForPerson(p));
-                        const badgeColor = {
-                          missing: 'bg-red-500/15 text-red-400',
-                          submitted: 'bg-green-500/15 text-green-400',
-                          not_in_group: 'bg-slate-500/20 text-slate-400',
-                          needs_review: 'bg-amber-500/15 text-amber-400',
-                          contacted: 'bg-indigo-500/15 text-indigo-400',
-                          excluded: 'bg-zinc-500/20 text-zinc-400',
-                        }[tabForPerson(p)];
-                        return (
-                          <button
-                            key={p.id}
-                            className="w-full text-left flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-zinc-800 transition-colors"
-                            onClick={() => jumpToPerson(p)}
-                          >
-                            <span className="text-sm text-slate-200 truncate">
-                              {p.first_name} {p.last_name}
-                            </span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${badgeColor}`}>
-                              {tab?.label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {globalSearch.trim().length >= 2 && globalSearchResults.length === 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 px-3 py-3">
-                      <p className="text-xs text-slate-500">No matches found</p>
-                    </div>
+                  {globalSearch && (
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-white transition-colors"
+                      aria-label="Clear search"
+                      onClick={() => setGlobalSearch('')}
+                    >
+                      <X className="w-4 h-4" strokeWidth={2} />
+                    </button>
                   )}
                 </div>
               )}
 
-              {/* View picker — dropdown on mobile, underline tabs on tablet+ */}
-              <div className="sm:hidden">
+              {/* View picker — dropdown on mobile, underline tabs on tablet+.
+                  Hidden while searching: the results span every status. */}
+              <div className={searchActive ? 'hidden' : 'sm:hidden'}>
                 <label className="block text-xs text-slate-500 uppercase tracking-wide mb-1.5">View</label>
                 <select
                   value={activeTab}
@@ -1972,7 +2014,7 @@ export default function CampaignDetailPage() {
                         ? 'border-b-2 border-indigo-400 text-indigo-300 -mb-px'
                         : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent -mb-px'
                     }`}
-                    onClick={() => setActiveTab('summary')}
+                    onClick={() => { setGlobalSearch(''); setActiveTab('summary'); }}
                   >
                     Summary
                   </button>
@@ -1991,7 +2033,7 @@ export default function CampaignDetailPage() {
                             ? 'border-b-2 border-indigo-400 text-indigo-300 -mb-px'
                             : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent -mb-px'
                         }`}
-                        onClick={() => setActiveTab(t.key)}
+                        onClick={() => { setGlobalSearch(''); setActiveTab(t.key); }}
                       >
                         {t.label}
                         {count !== null && (
@@ -2002,64 +2044,116 @@ export default function CampaignDetailPage() {
                   })}
                 </div>
 
-                {/* Global people search */}
+                {/* Global people search — matches show in the list area below */}
                 {allPeople.length > 0 && (
-                  <div ref={globalSearchRef} className="relative flex-shrink-0 pb-0.5">
+                  <div className="relative flex-shrink-0 pb-0.5">
                     <input
                       type="text"
                       placeholder="Find person…"
                       value={globalSearch}
                       onChange={e => setGlobalSearch(e.target.value)}
-                      className="bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg pl-8 pr-3 py-1.5 text-sm w-44 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                      className="bg-zinc-800 border border-zinc-700 text-white placeholder-slate-500 rounded-lg pl-8 pr-8 py-1.5 text-sm w-52 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                     />
                     <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
                     </svg>
-                    {globalSearchResults.length > 0 && (
-                      <div className="absolute right-0 top-full mt-1 w-72 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
-                        {globalSearchResults.map(p => {
-                          const tab = TABS.find(t => t.key === tabForPerson(p));
-                          const badgeColor = {
-                            missing: 'bg-red-500/15 text-red-400',
-                            submitted: 'bg-green-500/15 text-green-400',
-                            not_in_group: 'bg-slate-500/20 text-slate-400',
-                            needs_review: 'bg-amber-500/15 text-amber-400',
-                            contacted: 'bg-indigo-500/15 text-indigo-400',
-                          }[tabForPerson(p)];
-                          return (
-                            <button
-                              key={p.id}
-                              className="w-full text-left flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-zinc-800 transition-colors"
-                              onClick={() => jumpToPerson(p)}
-                            >
-                              <span className="text-sm text-slate-200 truncate">
-                                {p.first_name} {p.last_name}
-                              </span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${badgeColor}`}>
-                                {tab?.label}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {globalSearch.trim().length >= 2 && globalSearchResults.length === 0 && (
-                      <div className="absolute right-0 top-full mt-1 w-56 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-30 px-3 py-3">
-                        <p className="text-xs text-slate-500">No matches found</p>
-                      </div>
+                    {globalSearch && (
+                      <button
+                        type="button"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-white transition-colors"
+                        aria-label="Clear search"
+                        onClick={() => setGlobalSearch('')}
+                      >
+                        <X className="w-3.5 h-3.5" strokeWidth={2} />
+                      </button>
                     )}
                   </div>
                 )}
               </div>
             </div>{/* end tabs row */}
 
+            {/* Search results — replace the tab view while a query is active.
+                Every status is searched, and each match carries its own
+                Text / Call actions so lookup → outreach is one screen. */}
+            {searchActive && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">
+                    {searchMatches.length === 0
+                      ? 'No matches'
+                      : `${searchMatches.length} ${searchMatches.length === 1 ? 'match' : 'matches'} · all statuses`}
+                  </p>
+                  <button
+                    type="button"
+                    className="text-xs text-slate-400 hover:text-white transition-colors"
+                    onClick={() => setGlobalSearch('')}
+                  >
+                    Clear search
+                  </button>
+                </div>
+                {searchMatches.length === 0 && (
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 py-12 text-center">
+                    <p className="text-slate-500 text-sm">No one matches &ldquo;{globalSearch.trim()}&rdquo;.</p>
+                    <p className="text-slate-600 text-xs mt-1">Search checks name, email, and phone across every tab.</p>
+                  </div>
+                )}
+                {searchMatches.slice(0, 30).map(p => {
+                  const tab = TABS.find(t => t.key === tabForPerson(p));
+                  return (
+                    <div key={p.id} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-slate-100">{p.first_name} {p.last_name}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGES[tabForPerson(p)]}`}>
+                              {tab?.label}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 space-y-0.5 text-sm text-slate-400">
+                            {p.email
+                              ? <div className="break-all">{p.email}</div>
+                              : <div className="text-slate-600">No email</div>}
+                            {bestPhone(p)
+                              ? <div>{bestPhone(p)}</div>
+                              : <div className="text-slate-600">No phone</div>}
+                          </div>
+                          {facets.length >= 1 && facetSummary(p) && (
+                            <div className="mt-1.5 text-xs text-slate-500">{facetSummary(p)}</div>
+                          )}
+                          {p.contacted_at && (
+                            <div className="mt-1.5 text-xs text-indigo-400">
+                              Contacted {DateTime.fromISO(p.contacted_at).toFormat('MMM d · h:mm a')}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="flex-shrink-0 text-xs text-slate-500 hover:text-indigo-300 transition-colors py-1"
+                          title="Jump to this person in their tab"
+                          onClick={() => jumpToPerson(p)}
+                        >
+                          Show in list →
+                        </button>
+                      </div>
+                      {bestPhone(p) && <div className="mt-3">{renderContactActions(p)}</div>}
+                    </div>
+                  );
+                })}
+                {searchMatches.length > 30 && (
+                  <p className="text-xs text-slate-600 text-center">
+                    Showing the first 30 — keep typing to narrow it down.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Campaign summary (exec view) */}
-            {activeTab === 'summary' && (
+            {activeTab === 'summary' && !searchActive && (
               <CampaignSummary people={allPeople} facets={facets} showAttendance={hasEvents} />
             )}
 
             {/* Column filter bar — one dropdown per filterable column; selections AND together */}
-            {activeTab !== 'summary' && filterFacets.length >= 1 && (
+            {activeTab !== 'summary' && !searchActive && filterFacets.length >= 1 && (
               <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3.5 mb-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {filterFacets.map(f => (
@@ -2115,19 +2209,19 @@ export default function CampaignDetailPage() {
             )}
 
             {/* People list */}
-            {activeTab !== 'summary' && loadingPeople && (
+            {activeTab !== 'summary' && !searchActive && loadingPeople && (
               <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 flex justify-center items-center py-12">
                 <Spinner />
               </div>
             )}
-            {activeTab !== 'summary' && !loadingPeople && filteredPeople.length === 0 && (
+            {activeTab !== 'summary' && !searchActive && !loadingPeople && filteredPeople.length === 0 && (
               <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 py-14 text-center">
                 <p className="text-slate-500 text-sm">No people in this bucket.</p>
               </div>
             )}
 
             {/* Mobile cards */}
-            {activeTab !== 'summary' && !loadingPeople && filteredPeople.length > 0 && (
+            {activeTab !== 'summary' && !searchActive && !loadingPeople && filteredPeople.length > 0 && (
               <div className="sm:hidden space-y-3">
                 {showCheckboxes && (
                   <label className="flex items-center gap-2.5 px-1 text-sm text-slate-400 select-none">
@@ -2141,7 +2235,6 @@ export default function CampaignDetailPage() {
                   </label>
                 )}
                 {sortedPeople.map(p => {
-                  const expandable = isNoteTab || activeTab === 'submitted';
                   const isOpen = expandedRows.has(p.id);
                   return (
                     <div
@@ -2277,6 +2370,11 @@ export default function CampaignDetailPage() {
                             </button>
                           </div>
                         )}
+
+                        {/* Quick outreach — text the campaign message or call, right from the card */}
+                        {bestPhone(p) && (
+                          <div className="mt-3">{renderContactActions(p)}</div>
+                        )}
                       </div>
 
                       {/* Expanded: note editor */}
@@ -2298,7 +2396,7 @@ export default function CampaignDetailPage() {
             )}
 
             {/* Desktop table */}
-            {activeTab !== 'summary' && !loadingPeople && filteredPeople.length > 0 && (
+            {activeTab !== 'summary' && !searchActive && !loadingPeople && filteredPeople.length > 0 && (
               <div className="hidden sm:block rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">

@@ -1,5 +1,25 @@
 [
   {
+    "date": "2026-07-22",
+    "date_display": "July 22, 2026",
+    "date_iso": "2026-07-22",
+    "id": "campaign-person-quick-text",
+    "type": "feature",
+    "category": "Campaigns",
+    "description": "Text or call a person straight from their card on a campaign. The Text button opens Messages with the campaign message already filled in for them — the same one-tap outreach as a leader's profile page — and after you send, a one-tap Mark contacted logs it without opening the bulk Follow Up flow.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-22",
+    "date_display": "July 22, 2026",
+    "date_iso": "2026-07-22",
+    "id": "campaign-search-inline-results",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "Finding a person on a campaign now works the way you'd expect on a phone: type a name, email, or phone number and the matching people appear right in the list, each with their status and Text / Call actions. This replaces the dropdown that wouldn't pull up the person's row on mobile.",
+    "page": "/campaigns"
+  },
+  {
     "date": "2026-07-21",
     "date_display": "July 21, 2026",
     "date_iso": "2026-07-21",
