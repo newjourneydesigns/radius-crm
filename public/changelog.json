@@ -3,6 +3,16 @@
     "date": "2026-07-21",
     "date_display": "July 21, 2026",
     "date_iso": "2026-07-21",
+    "id": "campaign-scorecard-reorder",
+    "type": "improvement",
+    "category": "Campaigns",
+    "description": "The campaign scorecard now leads with what needs action: Unsubmitted first, then Total Submitted, then Invited, with Completion last. On phones that puts Unsubmitted and Submitted side by side on the top row.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-07-21",
+    "date_display": "July 21, 2026",
+    "date_iso": "2026-07-21",
     "id": "campaign-favorites",
     "type": "feature",
     "category": "Campaigns",

@@ -1800,9 +1800,15 @@ export default function CampaignDetailPage() {
                 Showing stats for: {activeFilters.map(([, vals]) => vals.join(' / ')).join(' · ')}
               </p>
             )}
-            {/* Row 1 — primary headline numbers */}
+            {/* Row 1 — primary headline numbers, in follow-up priority order */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Invited" value={(filteredStats?.expected ?? expectedCount) || null} />
+              <StatCard
+                label="Unsubmitted"
+                value={filteredStats?.missing ?? campaign.missing_count}
+                accent="text-red-400"
+                onClick={() => goToTab('missing')}
+                active={activeTab === 'missing'}
+              />
               <StatCard
                 label="Total Submitted"
                 value={
@@ -1814,13 +1820,7 @@ export default function CampaignDetailPage() {
                 onClick={() => goToTab('submitted')}
                 active={activeTab === 'submitted'}
               />
-              <StatCard
-                label="Unsubmitted"
-                value={filteredStats?.missing ?? campaign.missing_count}
-                accent="text-red-400"
-                onClick={() => goToTab('missing')}
-                active={activeTab === 'missing'}
-              />
+              <StatCard label="Invited" value={(filteredStats?.expected ?? expectedCount) || null} />
               <StatCard
                 label="Completion"
                 value={(filteredStats?.completion_pct ?? campaign.completion_pct) !== null
