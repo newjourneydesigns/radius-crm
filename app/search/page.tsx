@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { CircleLeader } from '../../lib/supabase';
 import { formatTimeToAMPM } from '../../lib/timeUtils';
 import DashboardFilterAdapter from '../../components/dashboard/DashboardFilterAdapter';
+import MultiSelectFilter from '../../components/dashboard/MultiSelectFilter';
 import ExportModal from '../../components/dashboard/ExportModal';
 import InviteToCircleModal from '../../components/modals/InviteToCircleModal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -337,12 +338,7 @@ export default function SearchPage() {
 
   const selectedStatuses = filters.status || [];
 
-  const handleStatusChange = (value: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      status: value === 'all' ? [] : [value],
-    }));
-  };
+  const formatStatus = (status: string) => status.charAt(0).toUpperCase() + status.slice(1);
 
   const acpdOptions = useMemo(() => {
     const names = circles
@@ -353,13 +349,6 @@ export default function SearchPage() {
   }, [circles]);
 
   const selectedAcpd = filters.acpd || [];
-
-  const handleAcpdChange = (value: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      acpd: value === 'all' ? [] : [value],
-    }));
-  };
 
   if (error) {
     return (
@@ -423,43 +412,22 @@ export default function SearchPage() {
         />
 
         {signedIn && (
-          <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
-            <div>
-              <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                Status
-              </label>
-              <select
-                id="status-filter"
-                value={selectedStatuses[0] || 'all'}
-                onChange={(event) => handleStatusChange(event.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-vc-500 focus:outline-none focus:ring-2 focus:ring-vc-500/30"
-              >
-                <option value="all">All Statuses</option>
-                {statusOptions.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="acpd-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                ACPD
-              </label>
-              <select
-                id="acpd-filter"
-                value={selectedAcpd[0] || 'all'}
-                onChange={(event) => handleAcpdChange(event.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:border-vc-500 focus:outline-none focus:ring-2 focus:ring-vc-500/30"
-              >
-                <option value="all">All ACPDs</option>
-                {acpdOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="relative z-30 mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+            <MultiSelectFilter
+              label="Status"
+              allLabel="All Statuses"
+              options={statusOptions}
+              selected={selectedStatuses}
+              onChange={(status) => setFilters((prev) => ({ ...prev, status }))}
+              formatOption={formatStatus}
+            />
+            <MultiSelectFilter
+              label="ACPD"
+              allLabel="All ACPDs"
+              options={acpdOptions}
+              selected={selectedAcpd}
+              onChange={(acpd) => setFilters((prev) => ({ ...prev, acpd }))}
+            />
           </div>
         )}
 

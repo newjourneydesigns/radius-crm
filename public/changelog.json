@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-07-23",
+    "date_display": "July 23, 2026",
+    "date_iso": "2026-07-23",
+    "id": "find-circle-status-acpd-multiselect",
+    "type": "improvement",
+    "category": "Find a Circle",
+    "description": "The Status and ACPD filters on Find a Circle now let you pick more than one at a time. Check off any combination — Active and Paused, or two ACPDs — and each one shows as a removable chip in the field. Pick \"All Statuses\" or \"All ACPDs\" to clear them.",
+    "page": "/search"
+  },
+  {
     "date": "2026-07-22",
     "date_display": "July 22, 2026",
     "date_iso": "2026-07-22",
