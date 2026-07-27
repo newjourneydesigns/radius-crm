@@ -115,8 +115,8 @@ function formatLastAttended(isoDate: string): string {
 
 async function fetchLastAttended(groupId: string): Promise<Record<string, string> | null> {
   const attendanceUrl = groupId
-    ? `/api/circle-leader-toolkit/roster/attendance?group_id=${encodeURIComponent(groupId)}`
-    : '/api/circle-leader-toolkit/roster/attendance';
+    ? `/api/circle-leader-toolkit/roster/attendance/?group_id=${encodeURIComponent(groupId)}`
+    : '/api/circle-leader-toolkit/roster/attendance/';
   const r = await fetch(attendanceUrl);
   if (!r.ok) return null;
   const d = await r.json();
@@ -364,11 +364,11 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
     (async () => {
       try {
         const [meRes, rosterRes, qRes, draftRes] = await Promise.all([
-          fetch('/api/circle-leader-toolkit/me'),
-          fetch('/api/circle-leader-toolkit/roster'),
-          fetch('/api/circle-leader-toolkit/dynamic-questions'),
+          fetch('/api/circle-leader-toolkit/me/'),
+          fetch('/api/circle-leader-toolkit/roster/'),
+          fetch('/api/circle-leader-toolkit/dynamic-questions/'),
           fetch(
-            `/api/circle-leader-toolkit/draft?event_id=${encodeURIComponent(eventId)}&occurrence=${encodeURIComponent(occurrence)}`
+            `/api/circle-leader-toolkit/draft/?event_id=${encodeURIComponent(eventId)}&occurrence=${encodeURIComponent(occurrence)}`
           ),
         ]);
 
@@ -507,7 +507,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
     if (loading) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      fetch('/api/circle-leader-toolkit/draft', {
+      fetch('/api/circle-leader-toolkit/draft/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ eventId, occurrence, payload: draftPayload }),
@@ -573,7 +573,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
 
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch('/api/circle-leader-toolkit/roster/search', {
+        const res = await fetch('/api/circle-leader-toolkit/roster/search/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: q }),
@@ -594,7 +594,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
 
   async function addFromCcb(individual: CcbSearchResult) {
     if (!individual.id) return;
-    const res = await fetch('/api/circle-leader-toolkit/roster/add', {
+    const res = await fetch('/api/circle-leader-toolkit/roster/add/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ individualId: individual.id }),
@@ -604,7 +604,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
       alert(data.error || 'Could not add to your Circle.');
       return;
     }
-    const rosterRes = await fetch('/api/circle-leader-toolkit/roster');
+    const rosterRes = await fetch('/api/circle-leader-toolkit/roster/');
     const rosterData = await rosterRes.json();
     setParticipants(rosterData.participants || []);
     setSelectedCcbIds((prev) => new Set(prev).add(String(individual.id)));
@@ -618,7 +618,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
     if (!confirm(`Remove ${name} from your Circle's roster?\n\nThis only removes them from this group. Their profile is not changed.`)) {
       return;
     }
-    const res = await fetch('/api/circle-leader-toolkit/roster/remove', {
+    const res = await fetch('/api/circle-leader-toolkit/roster/remove/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ individualId: p.id }),
@@ -830,7 +830,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
 
       const finalReason = finalDidNotMeetReason();
 
-      const res = await fetch('/api/circle-leader-toolkit/submit', {
+      const res = await fetch('/api/circle-leader-toolkit/submit/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

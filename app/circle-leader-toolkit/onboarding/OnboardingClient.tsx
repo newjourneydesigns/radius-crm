@@ -178,7 +178,7 @@ export default function OnboardingClient({
       setError(null);
       setMessage(null);
       try {
-        const res = await fetch('/api/circle-leader-toolkit/onboarding', {
+        const res = await fetch('/api/circle-leader-toolkit/onboarding/', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ step, action }),
@@ -262,7 +262,7 @@ export default function OnboardingClient({
 
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch('/api/circle-leader-toolkit/roster/search', {
+        const res = await fetch('/api/circle-leader-toolkit/roster/search/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: q }),

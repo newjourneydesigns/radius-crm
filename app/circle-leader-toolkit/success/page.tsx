@@ -122,7 +122,7 @@ function SuccessInner() {
       } catch {}
 
       try {
-        const res = await fetch(`/api/circle-leader-toolkit/submission?id=${encodeURIComponent(summaryId)}`);
+        const res = await fetch(`/api/circle-leader-toolkit/submission/?id=${encodeURIComponent(summaryId)}`);
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled) setSubmission(data.submission || null);

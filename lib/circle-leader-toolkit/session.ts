@@ -13,6 +13,7 @@ import {
   SESSION_COOKIE_MAX_AGE_SECONDS,
 } from '../leader-tokens';
 import { createServiceSupabaseClient } from '../server-supabase';
+import { ONBOARDING_SELECT_COLUMNS } from './onboarding';
 
 export type SessionLeader = {
   id: number | string;
@@ -32,9 +33,25 @@ export type SessionLeader = {
   // 'circle' | 'host_team' — selects which toolkit content (Message Center,
   // Resources) the leader sees. Defaults to 'circle' when unset.
   leader_type?: string | null;
+  // Toolkit onboarding timestamps, carried on the session row so the group
+  // layout can gate on them without a second `circle_leaders` lookup. Absent
+  // only on the pre-migration fallback path (see LEADER_SELECT_BASE below).
+  toolkit_home_screen_completed_at?: string | null;
+  toolkit_home_screen_dismissed_at?: string | null;
+  toolkit_notifications_completed_at?: string | null;
+  toolkit_notifications_dismissed_at?: string | null;
+  toolkit_practice_summary_completed_at?: string | null;
+  toolkit_onboarding_completed_at?: string | null;
 };
 
 const INELIGIBLE_STATUSES = new Set(['archive', 'archived']);
+
+/** Leader profile columns every toolkit request needs. */
+const LEADER_SELECT_BASE = [
+  'id', 'name', 'email', 'phone', 'campus', 'acpd', 'status', 'day', 'time',
+  'frequency', 'meeting_start_date', 'ccb_group_id', 'ccb_profile_link',
+  'circle_summary_access_enabled', 'leader_type',
+];
 const TEMP_SESSION_EXPIRES_COOKIE_NAME = `${SESSION_COOKIE_NAME}_expires`;
 
 // `last_seen_at` is telemetry, not auth state — don't block the request on it.
@@ -175,14 +192,41 @@ export const getSessionLeader = cache(async function getSessionLeader(): Promise
   // lookup. This is on the critical path of every toolkit page load, so the
   // saved round trip matters. PostgREST returns the embedded row as `leader`
   // (a to-one object, since the FK lives on leader_sessions).
-  const { data: session, error: sessionError } = await supabase
-    .from('leader_sessions')
-    .select(
-      'id, leader_id, last_seen_at, leader:circle_leaders(id, name, email, phone, campus, acpd, status, day, time, frequency, meeting_start_date, ccb_group_id, ccb_profile_link, circle_summary_access_enabled, leader_type)'
-    )
-    .eq('token_hash', tokenHash)
-    .is('revoked_at', null)
-    .maybeSingle();
+  //
+  // The embed also carries the toolkit onboarding timestamps so the group
+  // layout can gate on them from this same row — otherwise every toolkit page
+  // paid for a second, strictly sequential `circle_leaders` read.
+  const selectFor = (leaderColumns: string[]) =>
+    `id, leader_id, last_seen_at, leader:circle_leaders(${leaderColumns.join(', ')})`;
+
+  // The select list is assembled at runtime, so PostgREST can't infer the row
+  // shape from a string literal the way it normally does — state it explicitly.
+  type SessionRow = {
+    id: string;
+    leader_id: string | number | null;
+    last_seen_at: string | null;
+    leader?: SessionLeader | SessionLeader[] | null;
+  };
+
+  const runSessionQuery = (leaderColumns: string[]) =>
+    supabase
+      .from('leader_sessions')
+      .select(selectFor(leaderColumns))
+      .eq('token_hash', tokenHash)
+      .is('revoked_at', null)
+      .maybeSingle<SessionRow>();
+
+  let { data: session, error: sessionError } = await runSessionQuery([
+    ...LEADER_SELECT_BASE,
+    ...ONBOARDING_SELECT_COLUMNS,
+  ]);
+
+  // Sign-in must never depend on the onboarding migration having landed: if
+  // those columns aren't there yet, fall back to the base profile select and
+  // let the layout resolve onboarding the old way.
+  if (sessionError && isMigrationMissingError(sessionError)) {
+    ({ data: session, error: sessionError } = await runSessionQuery(LEADER_SELECT_BASE));
+  }
 
   if (sessionError) {
     if (!isMigrationMissingError(sessionError)) {

@@ -22,6 +22,28 @@ const SELECT_COLUMNS = `
   toolkit_onboarding_completed_at
 `;
 
+/**
+ * The same columns as a flat list, for callers that embed them in a larger
+ * `circle_leaders` select. The session lookup does exactly that so the toolkit
+ * layout can resolve onboarding state without a second sequential round trip.
+ */
+export const ONBOARDING_SELECT_COLUMNS = SELECT_COLUMNS.split(',')
+  .map((c) => c.trim())
+  .filter(Boolean);
+
+/** Onboarding state to assume when the columns aren't deployed yet. */
+export function onboardingStateWhenColumnsMissing(): ToolkitOnboardingState {
+  return {
+    homeScreenCompletedAt: null,
+    homeScreenDismissedAt: null,
+    notificationsCompletedAt: null,
+    notificationsDismissedAt: null,
+    practiceSummaryCompletedAt: null,
+    completedAt: new Date(0).toISOString(),
+    isComplete: true,
+  };
+}
+
 function isMissingOnboardingColumnsError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const maybe = err as { code?: string; message?: string; details?: string };
@@ -34,7 +56,9 @@ function isMissingOnboardingColumnsError(err: unknown): boolean {
   );
 }
 
-function stateFromRow(row: Record<string, string | null> | null): ToolkitOnboardingState {
+export function onboardingStateFromRow(
+  row: Record<string, string | null> | null
+): ToolkitOnboardingState {
   const homeScreenCompletedAt = row?.toolkit_home_screen_completed_at ?? null;
   const homeScreenDismissedAt = row?.toolkit_home_screen_dismissed_at ?? null;
   const notificationsCompletedAt = row?.toolkit_notifications_completed_at ?? null;
@@ -72,21 +96,11 @@ export async function getToolkitOnboardingState(
     .maybeSingle();
 
   if (error) {
-    if (isMissingOnboardingColumnsError(error)) {
-      return {
-        homeScreenCompletedAt: null,
-        homeScreenDismissedAt: null,
-        notificationsCompletedAt: null,
-        notificationsDismissedAt: null,
-        practiceSummaryCompletedAt: null,
-        completedAt: new Date(0).toISOString(),
-        isComplete: true,
-      };
-    }
+    if (isMissingOnboardingColumnsError(error)) return onboardingStateWhenColumnsMissing();
     throw error;
   }
 
-  return stateFromRow((data as Record<string, string | null> | null) ?? null);
+  return onboardingStateFromRow((data as Record<string, string | null> | null) ?? null);
 }
 
 export async function updateToolkitOnboardingState(
@@ -134,5 +148,5 @@ export async function updateToolkitOnboardingState(
     .single();
 
   if (error) throw error;
-  return stateFromRow(data as Record<string, string | null>);
+  return onboardingStateFromRow(data as Record<string, string | null>);
 }

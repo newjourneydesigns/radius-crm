@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
 import { useMarkCircleAppEntered } from '../../../../lib/circle-leader-toolkit/appEntered';
 
 type Participant = {
@@ -141,7 +140,7 @@ function normalizeParticipants(input: unknown): Participant[] {
 
 async function fetchProfileDetails(ids: string[]) {
   if (ids.length === 0) return [];
-  const r = await fetch('/api/circle-leader-toolkit/roster/refresh', {
+  const r = await fetch('/api/circle-leader-toolkit/roster/refresh/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ids }),
@@ -153,8 +152,8 @@ async function fetchProfileDetails(ids: string[]) {
 
 async function fetchLastAttended(groupId: string): Promise<Record<string, string> | null> {
   const attendanceUrl = groupId
-    ? `/api/circle-leader-toolkit/roster/attendance?group_id=${encodeURIComponent(groupId)}`
-    : '/api/circle-leader-toolkit/roster/attendance';
+    ? `/api/circle-leader-toolkit/roster/attendance/?group_id=${encodeURIComponent(groupId)}`
+    : '/api/circle-leader-toolkit/roster/attendance/';
   const r = await fetch(attendanceUrl);
   if (!r.ok) return null;
   const d = await r.json();
@@ -172,14 +171,19 @@ export default function RosterClient({
   initialParticipants,
   initialLastAttended,
   initialError,
+  initialStaleIds = [],
+  initialNeedsRosterRefresh = false,
 }: {
   groupId: string;
   initialParticipants: Participant[];
   initialLastAttended: Record<string, string>;
   initialError: string | null;
+  /** Members whose cached contact details are missing or past their TTL. */
+  initialStaleIds?: string[];
+  /** True when the server served a roster older than its TTL. */
+  initialNeedsRosterRefresh?: boolean;
 }) {
   useMarkCircleAppEntered();
-  const router = useRouter();
   const urlGroupId = groupId;
 
   const [participants, setParticipants] = useState<Participant[]>(initialParticipants);
@@ -236,7 +240,7 @@ export default function RosterClient({
     setRefreshing(true);
     try {
       let ids = participants.map((p) => p.id);
-      const rosterRes = await fetch('/api/circle-leader-toolkit/roster?refresh=1');
+      const rosterRes = await fetch('/api/circle-leader-toolkit/roster/?refresh=1');
       if (rosterRes.ok) {
         const rosterData = (await rosterRes.json()) as { participants?: Participant[] };
         const freshList = normalizeParticipants(rosterData.participants);
@@ -285,8 +289,17 @@ export default function RosterClient({
   useEffect(() => {
     let cancelled = false;
 
-    // Already seeded from the server; just revalidate attendance in the
-    // background so badges/alerts stay current.
+    // The server rendered this map from the same loader (and the same caches)
+    // the attendance endpoint uses, so re-requesting it on mount only bought a
+    // second identical answer. Adopt what we were given and reconcile the
+    // stored dismissals against it; only reach out when the server came up
+    // empty, which means its own lookup found nothing to seed with.
+    if (Object.keys(initialLastAttended).length > 0) {
+      applyLastAttended(initialLastAttended);
+      setAttendanceLoaded(true);
+      return;
+    }
+
     fetchLastAttended(urlGroupId)
       .then((fresh) => {
         if (cancelled || !fresh) return;
@@ -299,6 +312,7 @@ export default function RosterClient({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlGroupId]);
 
   useEffect(() => {
@@ -364,52 +378,44 @@ export default function RosterClient({
 
     (async () => {
       try {
-        const rosterRes = await fetch('/api/circle-leader-toolkit/roster');
-        if (rosterRes.status === 401) {
-          router.replace('/circle-leader-toolkit');
-          return;
-        }
-
-        let rosterData = (await rosterRes.json()) as {
-          participants?: Participant[];
-          staleIds?: string[];
-          needsRosterRefresh?: boolean;
-        };
-        let list = normalizeParticipants(rosterData.participants);
-        if (cancelled) return;
-        if (list.length > 0) {
-          setParticipants(list);
-          writeRosterCache(urlGroupId, list);
-        }
+        // The server already rendered this roster from the same loader the API
+        // route uses, and told us whether it was stale — so there's no reason to
+        // immediately re-request it. We pick up right at the follow-up work.
+        let list = initialParticipants;
+        let staleIds: string[] = initialStaleIds;
         setLoading(false);
 
-        if (rosterData.needsRosterRefresh) {
+        if (initialNeedsRosterRefresh) {
           try {
             setRefreshing(true);
-            const freshRes = await fetch('/api/circle-leader-toolkit/roster?refresh=1');
+            const freshRes = await fetch('/api/circle-leader-toolkit/roster/?refresh=1');
             if (freshRes.ok) {
-              rosterData = (await freshRes.json()) as {
+              const rosterData = (await freshRes.json()) as {
                 participants?: Participant[];
                 staleIds?: string[];
                 needsRosterRefresh?: boolean;
               };
-              list = normalizeParticipants(rosterData.participants);
-              if (!cancelled && list.length > 0) {
-                setParticipants(list);
-                writeRosterCache(urlGroupId, list);
+              const fresh = normalizeParticipants(rosterData.participants);
+              if (!cancelled && fresh.length > 0) {
+                list = fresh;
+                setParticipants(fresh);
+                writeRosterCache(urlGroupId, fresh);
               }
+              if (Array.isArray(rosterData.staleIds)) staleIds = rosterData.staleIds;
             }
           } finally {
             if (!cancelled) setRefreshing(false);
           }
         }
 
+        if (cancelled) return;
+
         // Revalidate stale or missing-profile members in one batched, parallel
         // request. The server fans out to CCB with bounded concurrency and
         // upserts the cache, so future page loads are instant.
-        const staleIds: string[] = Array.isArray(rosterData.staleIds)
-          ? rosterData.staleIds
-          : list.filter((p) => !p.detailsLoaded).map((p) => p.id);
+        if (staleIds.length === 0) {
+          staleIds = list.filter((p) => !p.detailsLoaded).map((p) => p.id);
+        }
 
         if (staleIds.length === 0) return;
 
@@ -452,7 +458,7 @@ export default function RosterClient({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, urlGroupId]);
+  }, [urlGroupId]);
 
   // Search for new members (mirrors the events form behavior).
   useEffect(() => {
@@ -469,7 +475,7 @@ export default function RosterClient({
     setSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch('/api/circle-leader-toolkit/roster/search', {
+        const res = await fetch('/api/circle-leader-toolkit/roster/search/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: q }),
@@ -487,7 +493,7 @@ export default function RosterClient({
 
   async function addFromCcb(individual: CcbSearchResult) {
     if (!individual.id) return;
-    const res = await fetch('/api/circle-leader-toolkit/roster/add', {
+    const res = await fetch('/api/circle-leader-toolkit/roster/add/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ individualId: individual.id }),
@@ -520,7 +526,7 @@ export default function RosterClient({
     setSearchResults([]);
 
     try {
-      const r = await fetch('/api/circle-leader-toolkit/roster/refresh', {
+      const r = await fetch('/api/circle-leader-toolkit/roster/refresh/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: [individual.id] }),
@@ -555,7 +561,7 @@ export default function RosterClient({
     if (removing) return;
     setRemoving(true);
     try {
-      const res = await fetch('/api/circle-leader-toolkit/roster/remove', {
+      const res = await fetch('/api/circle-leader-toolkit/roster/remove/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ individualId: p.id }),
