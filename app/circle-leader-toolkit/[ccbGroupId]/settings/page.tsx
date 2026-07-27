@@ -247,7 +247,7 @@ export default function CircleSummaryNotificationSettingsPage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch('/api/circle-leader-toolkit/notifications/test', { method: 'POST' });
+      const res = await fetch('/api/circle-leader-toolkit/notifications/test/', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send test push');
       setMessage('Test push sent! Check your enabled devices.');
@@ -263,7 +263,7 @@ export default function CircleSummaryNotificationSettingsPage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch('/api/circle-leader-toolkit/notifications/test-email', { method: 'POST' });
+      const res = await fetch('/api/circle-leader-toolkit/notifications/test-email/', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send test email');
       setMessage('Test email sent! Check your inbox.');

@@ -20,7 +20,7 @@ export default function CircleSummaryEventDetailRedirect() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/circle-leader-toolkit/me');
+        const res = await fetch('/api/circle-leader-toolkit/me/');
         if (cancelled) return;
         if (res.status !== 200) {
           router.replace('/circle-leader-toolkit');

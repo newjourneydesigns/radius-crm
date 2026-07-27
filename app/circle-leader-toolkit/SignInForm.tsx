@@ -20,7 +20,7 @@ export default function SignInForm() {
     setInfo(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/circle-leader-toolkit/auth/request-code', {
+      const res = await fetch('/api/circle-leader-toolkit/auth/request-code/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: email.trim() }),
@@ -44,7 +44,7 @@ export default function SignInForm() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/circle-leader-toolkit/auth/verify-code', {
+      const res = await fetch('/api/circle-leader-toolkit/auth/verify-code/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: email.trim(), code: code.trim() }),

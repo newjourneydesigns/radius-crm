@@ -140,7 +140,7 @@ function normalizeParticipants(input: unknown): Participant[] {
 
 async function fetchProfileDetails(ids: string[]) {
   if (ids.length === 0) return [];
-  const r = await fetch('/api/circle-leader-toolkit/roster/refresh', {
+  const r = await fetch('/api/circle-leader-toolkit/roster/refresh/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ids }),
@@ -152,8 +152,8 @@ async function fetchProfileDetails(ids: string[]) {
 
 async function fetchLastAttended(groupId: string): Promise<Record<string, string> | null> {
   const attendanceUrl = groupId
-    ? `/api/circle-leader-toolkit/roster/attendance?group_id=${encodeURIComponent(groupId)}`
-    : '/api/circle-leader-toolkit/roster/attendance';
+    ? `/api/circle-leader-toolkit/roster/attendance/?group_id=${encodeURIComponent(groupId)}`
+    : '/api/circle-leader-toolkit/roster/attendance/';
   const r = await fetch(attendanceUrl);
   if (!r.ok) return null;
   const d = await r.json();
@@ -240,7 +240,7 @@ export default function RosterClient({
     setRefreshing(true);
     try {
       let ids = participants.map((p) => p.id);
-      const rosterRes = await fetch('/api/circle-leader-toolkit/roster?refresh=1');
+      const rosterRes = await fetch('/api/circle-leader-toolkit/roster/?refresh=1');
       if (rosterRes.ok) {
         const rosterData = (await rosterRes.json()) as { participants?: Participant[] };
         const freshList = normalizeParticipants(rosterData.participants);
@@ -388,7 +388,7 @@ export default function RosterClient({
         if (initialNeedsRosterRefresh) {
           try {
             setRefreshing(true);
-            const freshRes = await fetch('/api/circle-leader-toolkit/roster?refresh=1');
+            const freshRes = await fetch('/api/circle-leader-toolkit/roster/?refresh=1');
             if (freshRes.ok) {
               const rosterData = (await freshRes.json()) as {
                 participants?: Participant[];
@@ -475,7 +475,7 @@ export default function RosterClient({
     setSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch('/api/circle-leader-toolkit/roster/search', {
+        const res = await fetch('/api/circle-leader-toolkit/roster/search/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: q }),
@@ -493,7 +493,7 @@ export default function RosterClient({
 
   async function addFromCcb(individual: CcbSearchResult) {
     if (!individual.id) return;
-    const res = await fetch('/api/circle-leader-toolkit/roster/add', {
+    const res = await fetch('/api/circle-leader-toolkit/roster/add/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ individualId: individual.id }),
@@ -526,7 +526,7 @@ export default function RosterClient({
     setSearchResults([]);
 
     try {
-      const r = await fetch('/api/circle-leader-toolkit/roster/refresh', {
+      const r = await fetch('/api/circle-leader-toolkit/roster/refresh/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: [individual.id] }),
@@ -561,7 +561,7 @@ export default function RosterClient({
     if (removing) return;
     setRemoving(true);
     try {
-      const res = await fetch('/api/circle-leader-toolkit/roster/remove', {
+      const res = await fetch('/api/circle-leader-toolkit/roster/remove/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ individualId: p.id }),
