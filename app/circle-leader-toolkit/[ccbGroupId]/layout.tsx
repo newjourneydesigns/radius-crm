@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getSessionLeader } from '../../../lib/circle-leader-toolkit/session';
-import { getToolkitOnboardingState } from '../../../lib/circle-leader-toolkit/onboarding';
+import {
+  getToolkitOnboardingState,
+  onboardingStateFromRow,
+} from '../../../lib/circle-leader-toolkit/onboarding';
 import CircleChrome from './CircleChrome';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +26,13 @@ export default async function CircleGroupLayout({
   if (leaderGroupId && leaderGroupId !== params.ccbGroupId) {
     redirect(`/circle-leader-toolkit/${leaderGroupId}/events`);
   }
-  const onboarding = await getToolkitOnboardingState(leader.id);
+  // The onboarding timestamps ride along on the session's embedded leader row,
+  // so the common path resolves with no extra query. The fallback only runs on
+  // the pre-migration session select, which omits them.
+  const onboarding =
+    leader.toolkit_onboarding_completed_at !== undefined
+      ? onboardingStateFromRow(leader as unknown as Record<string, string | null>)
+      : await getToolkitOnboardingState(leader.id);
   if (!onboarding.isComplete) {
     redirect('/circle-leader-toolkit/onboarding');
   }

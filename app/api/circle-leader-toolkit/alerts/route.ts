@@ -9,30 +9,29 @@ export async function GET() {
   const leader = await getSessionLeader();
   if (!leader) return unauthorized();
 
+  // The two counts are independent — the inbox tally and the 12-week event load
+  // ran back to back, so the request took the sum of both. Overlap them.
+  const [countsResult, eventsResult] = await Promise.allSettled([
+    getLeaderAlertCounts(leader.id),
+    loadLeaderEvents(leader),
+  ]);
+
   let counts = { unreadMessages: 0, pendingEventSummaries: 0, totalAlertCount: 0 };
-  try {
-    counts = await getLeaderAlertCounts(leader.id);
-  } catch (error) {
-    console.warn(
-      '[circle-summary/alerts] count lookup failed:',
-      error instanceof Error ? error.message : error
-    );
+  if (countsResult.status === 'fulfilled') {
+    counts = countsResult.value;
+  } else {
+    console.warn('[circle-summary/alerts] count lookup failed:', countsResult.reason);
   }
 
-  let pendingEventSummaries = 0;
-  try {
-    const eventsResult = await loadLeaderEvents(leader);
+  let pendingEventSummaries = counts.pendingEventSummaries;
+  if (eventsResult.status === 'fulfilled') {
     const now = Date.now();
-    pendingEventSummaries = (eventsResult.events || []).filter((event: any) => {
+    pendingEventSummaries = (eventsResult.value.events || []).filter((event: any) => {
       const eventTime = new Date((event.occurrenceDateTime || '').replace(' ', 'T')).getTime();
       return Number.isFinite(eventTime) && eventTime <= now && !event.submittedAt && !event.hasExistingAttendance;
     }).length;
-  } catch (error) {
-    console.warn(
-      '[circle-summary/alerts] event summary count failed:',
-      error instanceof Error ? error.message : error
-    );
-    pendingEventSummaries = counts.pendingEventSummaries;
+  } else {
+    console.warn('[circle-summary/alerts] event summary count failed:', eventsResult.reason);
   }
 
   return NextResponse.json({

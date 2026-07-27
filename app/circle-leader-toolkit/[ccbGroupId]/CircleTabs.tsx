@@ -10,6 +10,12 @@ type Tab = 'events' | 'roster' | 'inbox' | 'resources' | 'health' | 'settings';
 
 type ResourcePageLink = { id: string; slug: string; title: string };
 
+// `/alerts` has to price out the leader's 12-week event list to count pending
+// summaries, which can reach all the way through to CCB. Foregrounding the PWA
+// fires visibilitychange every time, so without a floor this ran that whole
+// pipeline on every app switch. Matches the events list's own focus throttle.
+const ALERTS_THROTTLE_MS = 15_000;
+
 export default function CircleTabs({
   urlGroupId,
   active,
@@ -19,52 +25,82 @@ export default function CircleTabs({
 }) {
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const [pendingSummaryCount, setPendingSummaryCount] = useState<number | null>(null);
-  const [totalAlertCount, setTotalAlertCount] = useState<number | null>(null);
   const [resourcePages, setResourcePages] = useState<ResourcePageLink[]>([]);
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const resourcesMenuRef = useRef<HTMLDivElement | null>(null);
+  const inFlightRef = useRef(false);
+  const lastFetchedAtRef = useRef(0);
+  // The badge preference is a user setting that only changes from the settings
+  // page (which fires an explicit refresh event), so it's read once and reused
+  // instead of riding along on every alert poll.
+  const badgeEnabledRef = useRef<boolean | null>(null);
   const pathname = usePathname() ?? '';
   const isDedicatedToolkitHost =
     typeof window !== 'undefined' && isToolkitHostName(window.location.hostname);
 
-  const refreshUnread = useCallback(async () => {
+  const refreshUnread = useCallback(async (opts: { force?: boolean } = {}) => {
+    const { force = false } = opts;
+    if (inFlightRef.current) return;
+    if (!force && Date.now() - lastFetchedAtRef.current < ALERTS_THROTTLE_MS) return;
+    inFlightRef.current = true;
+    // Stamped on attempt, not on success, so a failing endpoint gets the same
+    // backoff instead of being retried on every single app switch.
+    lastFetchedAtRef.current = Date.now();
+
     try {
-      const [inboxRes, alertsRes, settingsRes] = await Promise.all([
-        fetch('/api/circle-leader-toolkit/inbox/', { cache: 'no-store' }),
+      // `/alerts` already reports unread messages, so the separate /inbox call
+      // this used to make was pure overhead — its result was overwritten before
+      // it was ever rendered.
+      const needsSettings = force || badgeEnabledRef.current === null;
+      const [alertsRes, settingsRes] = await Promise.all([
         fetch('/api/circle-leader-toolkit/alerts/', { cache: 'no-store' }),
-        fetch('/api/circle-leader-toolkit/notifications/', { cache: 'no-store' }).catch(() => null),
+        needsSettings
+          ? fetch('/api/circle-leader-toolkit/notifications/', { cache: 'no-store' }).catch(
+              () => null
+            )
+          : Promise.resolve(null),
       ]);
-      if (inboxRes.ok) {
-        const data = await inboxRes.json();
-        setUnreadCount(Number(data.unreadCount || 0));
+      if (!alertsRes.ok) return;
+
+      const alerts = await alertsRes.json();
+      const unread = Number(alerts.unreadMessages || 0);
+      const pending = Number(alerts.pendingEventSummaries || 0);
+      setUnreadCount(unread);
+      setPendingSummaryCount(pending);
+
+      if (settingsRes?.ok) {
+        const settings = await settingsRes.json();
+        badgeEnabledRef.current = settings.preferences?.badge_count_enabled !== false;
       }
-      if (alertsRes.ok) {
-        const alerts = await alertsRes.json();
-        setUnreadCount(Number(alerts.unreadMessages || 0));
-        setPendingSummaryCount(Number(alerts.pendingEventSummaries || 0));
-        setTotalAlertCount(Number(alerts.totalAlertCount || 0));
-        let badgeEnabled = true;
-        if (settingsRes?.ok) {
-          const settings = await settingsRes.json();
-          badgeEnabled = settings.preferences?.badge_count_enabled !== false;
-        }
-        await setCircleSummaryAppBadge(Number(alerts.totalAlertCount || 0), badgeEnabled);
-      }
-    } catch {}
+      await setCircleSummaryAppBadge(unread + pending, badgeEnabledRef.current !== false);
+    } catch {
+    } finally {
+      inFlightRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
-    refreshUnread();
-    const onUpdate = () => refreshUnread();
+    refreshUnread({ force: true });
+    // An explicit update event means something just changed (a summary was
+    // submitted, a message was read) — bypass the throttle for those.
+    const onUpdate = () => refreshUnread({ force: true });
     const onVisible = () => {
       if (document.visibilityState === 'visible') refreshUnread();
     };
+    // The events list already computes the authoritative pending count while
+    // rendering; adopting it keeps the dot exact without a round trip.
+    const onPendingSummaries = (e: Event) => {
+      const detail = (e as CustomEvent<{ pending?: number }>).detail;
+      if (typeof detail?.pending === 'number') setPendingSummaryCount(detail.pending);
+    };
     window.addEventListener('circle-summary-inbox-updated', onUpdate);
     window.addEventListener('circle-summary-alerts-updated', onUpdate);
+    window.addEventListener('circle-summary-pending-summaries', onPendingSummaries);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.removeEventListener('circle-summary-inbox-updated', onUpdate);
       window.removeEventListener('circle-summary-alerts-updated', onUpdate);
+      window.removeEventListener('circle-summary-pending-summaries', onPendingSummaries);
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [refreshUnread]);
@@ -129,6 +165,12 @@ export default function CircleTabs({
   ];
   const hasUnreadMessages = unreadCount !== null && unreadCount > 0;
   const hasPendingSummaries = pendingSummaryCount !== null && pendingSummaryCount > 0;
+  // Derived rather than server-reported so a pending count pushed by the events
+  // list keeps the banner total consistent with the tab dots.
+  const totalAlertCount =
+    unreadCount === null && pendingSummaryCount === null
+      ? null
+      : (unreadCount ?? 0) + (pendingSummaryCount ?? 0);
   const hasAlerts = totalAlertCount !== null && totalAlertCount > 0;
   const unreadLabel = unreadCount === 1 ? '1 unread message' : `${unreadCount} unread messages`;
   const summaryLabel = pendingSummaryCount === 1 ? '1 summary needed' : `${pendingSummaryCount || 0} summaries needed`;

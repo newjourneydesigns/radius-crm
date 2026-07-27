@@ -37,6 +37,8 @@ export default async function CircleRosterPage() {
       initialParticipants={rosterResult.participants}
       initialLastAttended={attendanceResult.lastAttended}
       initialError={rosterResult.error ?? null}
+      initialStaleIds={rosterResult.staleIds}
+      initialNeedsRosterRefresh={rosterResult.needsRosterRefresh}
     />
   );
 }

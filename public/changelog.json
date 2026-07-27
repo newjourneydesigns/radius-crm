@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-07-27",
+    "date_display": "July 27, 2026",
+    "date_iso": "2026-07-27",
+    "id": "circle-leader-toolkit-speed",
+    "type": "improvement",
+    "category": "Circles Toolkit",
+    "description": "The Circles Toolkit is quicker to open and move around in. Tapping Submit on a summary no longer waits on an extra Church Community Builder lookup it never used, the Roster tab stops re-downloading the list it just showed you, and switching back to the app from another app no longer re-runs the whole alert check every single time. Nothing about what you see changed — the same events, roster, and alert dots, just with the duplicated work taken out.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-07-23",
     "date_display": "July 23, 2026",
     "date_iso": "2026-07-23",

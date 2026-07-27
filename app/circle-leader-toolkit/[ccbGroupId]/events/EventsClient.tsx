@@ -141,6 +141,29 @@ export default function EventsClient({
   const didNotMeet = submittedEvents.filter((e) => e.didNotMeet).length;
   const pending = events.filter((e) => !e.submittedAt && !e.hasExistingAttendance).length;
 
+  // This list is the authoritative view of what still needs a summary, and it's
+  // already resolved here. Publishing it lets the nav's Events dot stay exact
+  // without re-deriving the same 12-week window through /alerts. Counts only
+  // events that have already happened, matching how /alerts defines "pending" —
+  // a meeting later today isn't late yet.
+  const pendingForBadge =
+    events.length === 0
+      ? null
+      : events.filter((e) => {
+          if (e.submittedAt || e.hasExistingAttendance) return false;
+          const eventTime = new Date((e.occurrenceDateTime || '').replace(' ', 'T')).getTime();
+          return Number.isFinite(eventTime) && eventTime <= Date.now();
+        }).length;
+
+  useEffect(() => {
+    if (pendingForBadge === null) return;
+    window.dispatchEvent(
+      new CustomEvent('circle-summary-pending-summaries', {
+        detail: { pending: pendingForBadge },
+      })
+    );
+  }, [pendingForBadge]);
+
   return (
     <>
       {messages.length > 0 && (

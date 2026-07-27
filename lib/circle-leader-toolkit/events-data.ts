@@ -493,11 +493,58 @@ export async function loadLeaderEvents(
 }
 
 /**
+ * The leader's 12-week calendar, straight from the same three-tier cache
+ * `loadLeaderEvents` uses (in-memory → shared Supabase row → CCB) but without
+ * the attendance half.
+ */
+async function loadLeaderCalendar(leader: SessionLeader): Promise<CalendarEvent[]> {
+  const end = DateTime.now().setZone('America/Chicago');
+  const start = end.minus({ weeks: 12 });
+  const startStr = start.toFormat('yyyy-LL-dd');
+  const endStr = end.toFormat('yyyy-LL-dd');
+  const cacheKey = `${leader.ccb_group_id}|${startStr}|${endStr}`;
+
+  const cached = cacheGet(ccbCalCache, cacheKey);
+  if (cached) return cached;
+
+  const supabase = createServiceSupabaseClient();
+  const { data: cacheRow } = await supabase
+    .from('ccb_group_events_cache')
+    .select('calendar_events, synced_at')
+    .eq('group_id', String(leader.ccb_group_id))
+    .eq('start_date', startStr)
+    .eq('end_date', endStr)
+    .maybeSingle();
+
+  if (
+    cacheRow?.synced_at &&
+    Date.now() - new Date(cacheRow.synced_at).getTime() < 24 * 60 * 60_000 &&
+    Array.isArray(cacheRow.calendar_events)
+  ) {
+    const events = cacheRow.calendar_events as CalendarEvent[];
+    cacheSet(ccbCalCache, cacheKey, events, CCB_CAL_TTL_MS);
+    return events;
+  }
+
+  const ccb = createCCBClient({ module: 'circle-summary', action: 'list_events' });
+  const events = await ccb.getGroupCalendarEvents(String(leader.ccb_group_id), startStr, endStr);
+  cacheSet(ccbCalCache, cacheKey, events, CCB_CAL_TTL_MS);
+  return events;
+}
+
+/**
  * Ownership guard for the submit / draft endpoints. `eventId` and `occurrence`
  * arrive from the request body, so without this check a signed-in leader could
  * pass another Circle's eventId and read or overwrite that Circle's attendance
  * (CCB's create_event_attendance *overwrites*). Validates against the same
  * cached 12-week calendar the leader's own events list is built from.
+ *
+ * Membership in that list is decided by three things — the calendar, the
+ * ignored-events table, and the meeting-frequency filter — all of which are
+ * checked here. Attendance only decorates each row with submitted/head-count
+ * state and can never add or remove one, so this deliberately skips it: pulling
+ * it would put a live CCB `attendance_profiles` call (and its multi-second
+ * latency) in front of every summary submission for no change in the verdict.
  *
  * Fails closed: if the event isn't on the leader's calendar — or the calendar
  * can't be loaded — ownership is denied.
@@ -508,9 +555,41 @@ export async function leaderOwnsEvent(
   occurrence: string | undefined | null
 ): Promise<boolean> {
   if (!eventId || !occurrence) return false;
+  if (!leader.ccb_group_id) return false;
   const occurrenceDate = String(occurrence).slice(0, 10);
-  const { events } = await loadLeaderEvents(leader);
-  return events.some(
-    (e) => String(e.eventId) === String(eventId) && e.occurrenceDate === occurrenceDate
-  );
+
+  try {
+    const supabase = createServiceSupabaseClient();
+    const [calEvents, ignoredRes] = await Promise.all([
+      loadLeaderCalendar(leader),
+      supabase
+        .from('circle_summary_ignored_events')
+        .select('ccb_event_id, occurrence_date')
+        .eq('leader_id', leader.id)
+        .eq('ccb_event_id', String(eventId)),
+    ]);
+
+    const onCalendar = calEvents.some(
+      (e) => String(e.eventId) === String(eventId) && e.startDate === occurrenceDate
+    );
+    if (!onCalendar) return false;
+
+    if (!ignoredRes.error) {
+      const isIgnored = (ignoredRes.data ?? []).some(
+        (row: IgnoredEventRow) => String(row.occurrence_date).slice(0, 10) === occurrenceDate
+      );
+      if (isIgnored) return false;
+    } else if (!isMissingIgnoredEventsTableError(ignoredRes.error)) {
+      console.warn('[circle-summary/events] ownership ignored-events lookup failed:', ignoredRes.error.message);
+    }
+
+    return doesMeetingFrequencyIncludeDate({
+      date: occurrenceDate,
+      frequency: leader.frequency,
+      meetingStartDate: leader.meeting_start_date,
+    });
+  } catch (e: unknown) {
+    console.error('[circle-summary/events] ownership check failed:', e);
+    return false;
+  }
 }
