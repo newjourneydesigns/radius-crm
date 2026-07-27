@@ -6,7 +6,7 @@
     "id": "circle-leader-toolkit-speed",
     "type": "improvement",
     "category": "Circles Toolkit",
-    "description": "The Circles Toolkit is quicker to open and move around in. Tapping Submit on a summary no longer waits on an extra Church Community Builder lookup it never used, the Roster tab stops re-downloading the list it just showed you, and switching back to the app from another app no longer re-runs the whole alert check every single time. Nothing about what you see changed — the same events, roster, and alert dots, just with the duplicated work taken out.",
+    "description": "The Circles Toolkit is quicker to open and move around in. Tapping Submit on a summary no longer waits on an extra Church Community Builder lookup it never used, the Roster tab stops re-downloading the list it just showed you, and switching back to the app from another app no longer re-runs the whole alert check every time. The red \"needs summary\" dot on the Events tab is now counted from data already on hand instead of a fresh CCB call, so it can lag by a few minutes in one specific case: a summary entered directly in CCB rather than in the toolkit. Summaries submitted in the toolkit still clear it instantly, and opening the Events tab always shows the live, authoritative list.",
     "page": "/circle-leader-toolkit"
   },
   {

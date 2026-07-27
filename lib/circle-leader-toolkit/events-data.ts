@@ -185,7 +185,7 @@ export async function loadLeaderMessages(leader: SessionLeader): Promise<CircleM
  */
 export async function loadLeaderEvents(
   leader: SessionLeader,
-  opts: { forceRefresh?: boolean } = {}
+  opts: { forceRefresh?: boolean; allowStaleAttendance?: boolean } = {}
 ): Promise<LoadEventsResult> {
   if (!leader.ccb_group_id) {
     return {
@@ -195,6 +195,12 @@ export async function loadLeaderEvents(
   }
 
   const forceRefresh = !!opts.forceRefresh;
+  // Callers that only need a count (the alert badge) opt out of the live CCB
+  // attendance call: any cached attendance is accepted regardless of age and
+  // CCB is never contacted for it. Locally-submitted summaries are still read
+  // live from Supabase, so a leader's own submissions clear immediately — the
+  // only thing that can lag is a summary entered directly in CCB.
+  const allowStaleAttendance = !!opts.allowStaleAttendance;
   const timer = createTimer('loadLeaderEvents');
 
   const end = DateTime.now().setZone('America/Chicago');
@@ -243,6 +249,11 @@ export async function loadLeaderEvents(
     // Only consult shared cache when in-memory misses AND the caller didn't
     // ask for a forced refresh (post-submit invalidation must hit CCB).
     let sharedCache: { calendar_events?: CalendarEvent[]; attendance_xml?: unknown } | null = null;
+    // Whether the shared row's attendance met the normal freshness bar. The
+    // stale-attendance path accepts older data, but it must not seed the
+    // process-wide in-memory cache with it — the events page reads that same
+    // cache and is entitled to attendance no older than the window above.
+    let sharedAttendanceIsFresh = false;
     if (!forceRefresh && (calCached === undefined || attCached === undefined)) {
       const { data: cacheRow } = await supabase
         .from('ccb_group_events_cache')
@@ -260,8 +271,12 @@ export async function loadLeaderEvents(
             ? (cacheRow.calendar_events as CalendarEvent[])
             : [];
         }
-        if (ageMs < SHARED_ATTENDANCE_CACHE_FRESH_MS && cacheRow.attendance_xml) {
+        if (
+          (allowStaleAttendance || ageMs < SHARED_ATTENDANCE_CACHE_FRESH_MS) &&
+          cacheRow.attendance_xml
+        ) {
           sharedCache.attendance_xml = cacheRow.attendance_xml;
+          sharedAttendanceIsFresh = ageMs < SHARED_ATTENDANCE_CACHE_FRESH_MS;
         }
       }
     }
@@ -292,9 +307,15 @@ export async function loadLeaderEvents(
         ? Promise.resolve(attCached)
         : sharedCache?.attendance_xml !== undefined
         ? Promise.resolve(sharedCache.attendance_xml).then((v) => {
-            cacheSet(ccbAttendanceCache, cacheKey, v, CCB_ATTENDANCE_TTL_MS);
+            if (sharedAttendanceIsFresh) {
+              cacheSet(ccbAttendanceCache, cacheKey, v, CCB_ATTENDANCE_TTL_MS);
+            }
             return v;
           })
+        : allowStaleAttendance
+        ? // Nothing cached for this exact window. Don't reach for CCB — fall
+          // through to the any-age lookup below instead.
+          Promise.resolve(null)
         : ccb
             .getXml<unknown>({ srv: 'attendance_profiles', start_date: startStr, end_date: endStr })
             .then((v) => {
@@ -325,7 +346,7 @@ export async function loadLeaderEvents(
     timer.mark('fetch');
 
     const calSource = calCached !== undefined ? 'mem' : sharedCache?.calendar_events !== undefined ? 'shared' : 'ccb';
-    const attSource = attCached !== undefined ? 'mem' : sharedCache?.attendance_xml !== undefined ? 'shared' : attendanceFetchFailed ? 'failed' : 'ccb';
+    const attSource = attCached !== undefined ? 'mem' : sharedCache?.attendance_xml !== undefined ? 'shared' : allowStaleAttendance ? 'skipped' : attendanceFetchFailed ? 'failed' : 'ccb';
     timer.end({ groupId: String(leader.ccb_group_id), calSource, attSource, calFromCcb, attFromCcb });
 
     if (ignoredRes.error) {
@@ -342,7 +363,10 @@ export async function loadLeaderEvents(
     // re-hitting CCB. Skip if attendance is missing — we don't want to clobber
     // a potentially-good existing row with null. Not awaited — the response
     // can ship while the upsert lands.
-    if ((calFromCcb || attFromCcb) && bulkXml != null && Array.isArray(calEvents)) {
+    // Never write back on the stale-attendance path: `bulkXml` there may be
+    // attendance of any age, and stamping it with a fresh `synced_at` would
+    // make it look current to the events page's 5-minute freshness check.
+    if (!allowStaleAttendance && (calFromCcb || attFromCcb) && bulkXml != null && Array.isArray(calEvents)) {
       const groupId = String(leader.ccb_group_id);
       supabase
         .from('ccb_group_events_cache')
@@ -381,8 +405,11 @@ export async function loadLeaderEvents(
     // back to the most recent cached attendance for this group — even if it's
     // older than the normal freshness window. Showing slightly stale "received"
     // status beats flipping every already-reported summary to "Pending".
+    // Also covers the deliberate skip above: when no attendance is cached for
+    // this exact 12-week window, take the group's most recent cached
+    // attendance at any age rather than paying for a live CCB call.
     let bulkXmlResolved = bulkXml;
-    if (bulkXmlResolved == null && attendanceFetchFailed) {
+    if (bulkXmlResolved == null && (attendanceFetchFailed || allowStaleAttendance)) {
       const { data: fallbackRow } = await supabase
         .from('ccb_group_events_cache')
         .select('attendance_xml')
