@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-07-28",
+    "date_display": "July 28, 2026",
+    "date_iso": "2026-07-28",
+    "id": "footer-newjourneydesigns-com",
+    "type": "improvement",
+    "category": "General",
+    "description": "The New Journey Designs link in the footer now points to the new newjourneydesigns.com domain.",
+    "page": "/"
+  },
+  {
     "date": "2026-07-27",
     "date_display": "July 27, 2026",
     "date_iso": "2026-07-27",

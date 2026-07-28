@@ -27,12 +27,12 @@ export default function Footer() {
           <p className="text-xs text-gray-600 order-2 sm:order-1">
             © {currentYear}{' '}
             <a
-              href="https://newjourneydesigns.co"
+              href="https://newjourneydesigns.com"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-gray-400 transition-colors"
             >
-              NewJourneyDesigns.co
+              NewJourneyDesigns.com
             </a>
             {APP_VERSION ? <>{' '}· v{APP_VERSION}</> : null}
           </p>
