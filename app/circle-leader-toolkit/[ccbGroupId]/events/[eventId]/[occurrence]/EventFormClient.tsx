@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { DateTime } from 'luxon';
 import { setCircleSummaryAppBadge } from '../../../../../../lib/circle-leader-toolkit/badging';
+import SubmittingAnimation from '../../../../../../components/circle-leader-toolkit/SubmittingAnimation';
 import {
   DID_NOT_MEET_NOTES_KEY,
   DID_NOT_MEET_OTHER_VALUE,
@@ -1518,8 +1519,9 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
             type="button"
             onClick={handleSubmit}
             disabled={submitting || isBeforeMeetingTime}
-            className="cs-btn cs-btn-primary w-full text-lg py-4"
+            className="cs-btn cs-btn-primary w-full text-lg py-4 flex items-center justify-center gap-3"
           >
+            {submitting && <SubmittingAnimation />}
             {submitting
               ? 'Submitting…'
               : retryableFailure

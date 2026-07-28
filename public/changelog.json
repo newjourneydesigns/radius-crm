@@ -1,13 +1,23 @@
 [
   {
-    "date": "2026-07-28",
-    "date_display": "July 28, 2026",
-    "date_iso": "2026-07-28",
-    "id": "circle-summary-ccb-save-verification",
-    "type": "fix",
-    "category": "Circles Toolkit",
-    "description": "Submitting a Circle Summary now double-checks that it actually landed in Church Community Builder before showing success. Previously, CCB could occasionally accept a submission and quietly drop it — the toolkit said it worked, but the summary never appeared in CCB. Now the toolkit reads the summary back from CCB right after saving; if it isn't there, it automatically saves it a second time, and if CCB still doesn't have it you'll see a clear message asking you to tap Submit Again — with everything you typed kept in place, so nothing needs to be re-entered. Connection drops get the same treatment: your answers stay put and the button simply becomes “Submit Again.”",
-    "page": "/circle-leader-toolkit"
+    “date”: “2026-07-28”,
+    “date_display”: “July 28, 2026”,
+    “date_iso”: “2026-07-28”,
+    “id”: “circle-summary-submit-animation”,
+    “type”: “improvement”,
+    “category”: “Circles Toolkit”,
+    “description”: “The Circle Summary submit button now shows a radiating circle animation while your submission is being sent. The expanding circles give visual feedback that something is happening and reinforce the app's identity.”,
+    “page”: “/circle-leader-toolkit”
+  },
+  {
+    “date”: “2026-07-28”,
+    “date_display”: “July 28, 2026”,
+    “date_iso”: “2026-07-28”,
+    “id”: “circle-summary-ccb-save-verification”,
+    “type”: “fix”,
+    “category”: “Circles Toolkit”,
+    “description”: “Submitting a Circle Summary now double-checks that it actually landed in Church Community Builder before showing success. Previously, CCB could occasionally accept a submission and quietly drop it — the toolkit said it worked, but the summary never appeared in CCB. Now the toolkit reads the summary back from CCB right after saving; if it isn't there, it automatically saves it a second time, and if CCB still doesn't have it you'll see a clear message asking you to tap Submit Again — with everything you typed kept in place, so nothing needs to be re-entered. Connection drops get the same treatment: your answers stay put and the button simply becomes “Submit Again.””,
+    “page”: “/circle-leader-toolkit”
   },
   {
     "date": "2026-07-27",
