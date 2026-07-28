@@ -3,6 +3,16 @@
     "date": "2026-07-28",
     "date_display": "July 28, 2026",
     "date_iso": "2026-07-28",
+    "id": "auto-send-settings-page",
+    "type": "feature",
+    "category": "Settings",
+    "description": "Auto Send now has its own home in Settings. The new Auto Send tab checks everything in one place: whether the Mac Companion server is running and up to date, whether the Messages app is ready to send, whether Text Message Forwarding can reach non-iPhone numbers, and whether delivery tracking (Full Disk Access) is on. You can run all the checks with one click, walk through the guided setup, and send yourself a test text that confirms the whole pipeline -- including the delivery receipt. The setup prompts on Bulk Message and Campaigns now point here instead of each carrying their own copy of the wizard.",
+    "page": "/settings"
+  },
+  {
+    "date": "2026-07-28",
+    "date_display": "July 28, 2026",
+    "date_iso": "2026-07-28",
     "id": "circle-summary-submit-animation",
     "type": "improvement",
     "category": "Circles Toolkit",

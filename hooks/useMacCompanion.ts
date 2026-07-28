@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useEffect } from 'react';
 
-const BASE = 'http://localhost:5123';
+export const COMPANION_BASE = 'http://localhost:5123';
+const BASE = COMPANION_BASE;
 const PING_TIMEOUT_MS = 2000;
 
 // Bump this whenever server.py changes — RADIUS will prompt users to reinstall.
