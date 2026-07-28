@@ -3,6 +3,16 @@
     "date": "2026-07-28",
     "date_display": "July 28, 2026",
     "date_iso": "2026-07-28",
+    "id": "boards-in-app-delete-confirmations",
+    "type": "fix",
+    "category": "Boards",
+    "description": "Deleting a board, list, card, label, or checklist now shows Radius's own confirmation dialog instead of the browser's built-in popup. In some embedded browsers those built-in popups never appeared, which made delete buttons look broken -- clicking Delete did nothing. The new dialog always shows up, matches the app's dark styling, and supports Enter to confirm and Escape to cancel.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-07-28",
+    "date_display": "July 28, 2026",
+    "date_iso": "2026-07-28",
     "id": "boards-ccb-event-import",
     "type": "feature",
     "category": "Boards",

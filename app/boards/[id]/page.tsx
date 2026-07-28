@@ -26,6 +26,7 @@ import RichTextEditor from '../../../components/notes/RichTextEditor';
 import DictateAndSummarize from '../../../components/notes/DictateAndSummarize';
 import { extractTextContacts, type TextContact } from '../../../lib/textContacts';
 import { CardDetailModal, PRIORITY_CONFIG, formatTimeAmPm } from '../../../components/boards/CardDetailModal';
+import { useConfirm } from '../../../components/boards/ConfirmDialog';
 import { kanbanStyles } from '../../../components/boards/kanbanStyles';
 
 /* ═══════════════════════════════════════════════════════════
@@ -390,6 +391,7 @@ function LabelManagerModal({
   const [showNewColorPicker, setShowNewColorPicker] = useState(false);
   const [showEditColorPicker, setShowEditColorPicker] = useState(false);
   const newNameRef = useRef<HTMLInputElement>(null);
+  const { requestConfirm, confirmDialog } = useConfirm();
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -414,7 +416,10 @@ function LabelManagerModal({
   };
 
   const handleDelete = async (labelId: string, labelName: string) => {
-    if (!confirm(`Delete label "${labelName}"? It will be removed from all cards.`)) return;
+    if (!await requestConfirm({
+      title: 'Delete label?',
+      message: `"${labelName}" will be removed from all cards.`,
+    })) return;
     await onDeleteLabel(board.id, labelId);
     if (editingId === labelId) setEditingId(null);
   };
@@ -557,6 +562,7 @@ function LabelManagerModal({
           })()}
         </div>
       </div>
+      {confirmDialog}
     </div>
   );
 }
@@ -2233,6 +2239,7 @@ function BoardPage() {
     createNextRepeatCard,
   } = useProjectBoard();
 
+  const { requestConfirm, confirmDialog } = useConfirm();
   const [filterPriority, setFilterPriority] = useState<CardPriority | ''>('');
   const [filterLabel, setFilterLabel] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -2494,9 +2501,9 @@ function BoardPage() {
         openCardDetail(card);
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        if (confirm(`Delete "${card.title}"?`)) {
-          deleteCard(boardId, card.id);
-        }
+        requestConfirm({ title: 'Delete card?', message: `Delete "${card.title}"?` }).then(ok => {
+          if (ok) deleteCard(boardId, card.id);
+        });
       } else if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
         handleToggleComplete(card.id, !card.is_complete);
@@ -2540,7 +2547,7 @@ function BoardPage() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [hoveredCardId, board, boardId, selectedCard, user, openCardDetail, deleteCard, updateCard, assignCard, unassignCard]);
+  }, [hoveredCardId, board, boardId, selectedCard, user, openCardDetail, deleteCard, updateCard, assignCard, unassignCard, requestConfirm]);
 
   useEffect(() => {
     if (selectedCard) setDueDateCardId(null);
@@ -2888,6 +2895,7 @@ function BoardPage() {
   return (
     <div className="kb-root">
       <style>{kanbanStyles}</style>
+      {confirmDialog}
 
       {/* ── Top bar ── */}
       <div className="kb-topbar">
@@ -3086,7 +3094,11 @@ function BoardPage() {
                   <button
                     className="kb-dropdown-item danger"
                     onClick={async () => {
-                      if (confirm('Delete this board and all its cards? This cannot be undone.')) {
+                      if (await requestConfirm({
+                        title: 'Delete board?',
+                        message: 'This board and all its cards will be deleted. This cannot be undone.',
+                        confirmLabel: 'Delete Board',
+                      })) {
                         await deleteBoardFn(boardId);
                         localStorage.removeItem('boards-last-route');
                         router.push('/boards');
@@ -3495,9 +3507,12 @@ function BoardPage() {
                     </button>
                     <button
                       className="kb-btn-icon-sm"
-                      onClick={() => {
+                      onClick={async () => {
                         if (colCards.length > 0) {
-                          if (!confirm(`Delete "${col.title}" column and its ${colCards.length} cards?`)) return;
+                          if (!await requestConfirm({
+                            title: 'Delete list?',
+                            message: `Delete "${col.title}" and its ${colCards.length} card${colCards.length !== 1 ? 's' : ''}?`,
+                          })) return;
                         }
                         deleteColumn(boardId, col.id);
                       }}
