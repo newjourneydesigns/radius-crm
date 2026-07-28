@@ -1054,14 +1054,17 @@ function ImportCcbEventModal({
   onClose: () => void;
 }) {
   const [eventId, setEventId] = useState('');
-  const [createdAfter, setCreatedAfter] = useState(() => DateTime.now().minus({ days: 30 }).toISODate()!);
+  // Optional filter — empty means everybody who checked in.
+  const [createdAfter, setCreatedAfter] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     eventName: string;
+    createdAfter: string;
     totalAttendees: number;
     filteredOut: number;
     truncated: boolean;
+    contactGaps: number;
     matches: CcbEventImportPerson[];
   } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -1073,7 +1076,7 @@ function ImportCcbEventModal({
   const [showColorGrid, setShowColorGrid] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  const canSearch = /^\d+$/.test(eventId.trim()) && Boolean(createdAfter) && !loading;
+  const canSearch = /^\d+$/.test(eventId.trim()) && !loading;
 
   const handleSearch = async () => {
     if (!canSearch) return;
@@ -1092,9 +1095,11 @@ function ImportCcbEventModal({
       const matches: CcbEventImportPerson[] = data.matches || [];
       setResult({
         eventName: data.event?.name || `Event ${eventId.trim()}`,
+        createdAfter,
         totalAttendees: data.totalAttendees ?? 0,
         filteredOut: data.filteredOut ?? 0,
         truncated: Boolean(data.truncated),
+        contactGaps: data.contactGaps ?? 0,
         matches,
       });
       setSelected(new Set(matches.map(m => m.ccbId)));
@@ -1170,12 +1175,13 @@ function ImportCcbEventModal({
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 1 150px', minWidth: 140 }}>
-            <label className="kb-import-label">Profiles created after</label>
+            <label className="kb-import-label">Profiles created after (optional)</label>
             <input
               className="kb-input"
               type="date"
               value={createdAfter}
               onChange={e => setCreatedAfter(e.target.value)}
+              title="Leave blank to include everyone who checked in"
             />
           </div>
           <button
@@ -1198,8 +1204,11 @@ function ImportCcbEventModal({
             <div className="kb-import-leader-info" style={{ flex: 1 }}>
               <span className="kb-import-leader-name">{result.eventName}</span>
               <span className="kb-import-leader-meta" style={{ whiteSpace: 'normal' }}>
-                {result.matches.length} of {result.totalAttendees} attendee{result.totalAttendees !== 1 ? 's' : ''} with profiles created after {fmtDate(createdAfter)}
+                {result.createdAfter
+                  ? `${result.matches.length} of ${result.totalAttendees} attendee${result.totalAttendees !== 1 ? 's' : ''} with profiles created after ${fmtDate(result.createdAfter)}`
+                  : `${result.totalAttendees} attendee${result.totalAttendees !== 1 ? 's' : ''} checked in`}
                 {result.truncated ? ' · some profiles could not be checked' : ''}
+                {result.contactGaps > 0 ? ` · no contact info found for ${result.contactGaps}` : ''}
               </span>
             </div>
             {result.matches.length > 0 && (
@@ -1219,15 +1228,17 @@ function ImportCcbEventModal({
             <div className="kb-import-empty">Reading event check-ins from CCB...</div>
           ) : !result ? (
             <div className="kb-import-empty">
-              Enter a CCB event ID and a date, then Find People.
+              Enter a CCB event ID, then Find People.
               <br />
               The event ID is in the CCB event page URL (event_id=...).
+              <br />
+              Add a date to only pull people whose profile was created after it.
             </div>
           ) : result.matches.length === 0 ? (
             <div className="kb-import-empty">
               {result.totalAttendees === 0
                 ? 'No recorded check-ins found for this event.'
-                : `None of the ${result.totalAttendees} attendees have a profile created after ${fmtDate(createdAfter)}.`}
+                : `None of the ${result.totalAttendees} attendees have a profile created after ${fmtDate(result.createdAfter)}.`}
             </div>
           ) : (
             result.matches.map(person => (

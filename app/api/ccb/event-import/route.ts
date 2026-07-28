@@ -9,7 +9,12 @@ export const dynamic = 'force-dynamic';
 // Above this many attendees, per-person profile lookups would crowd the CCB
 // circuit breaker (40 calls/min), so we switch to the bulk
 // individual_profiles?modified_since sweep instead.
-const PER_PERSON_LOOKUP_LIMIT = 20;
+const PER_PERSON_LOOKUP_LIMIT = 35;
+
+// Without a created-after cutoff, large events still get contact info from a
+// bulk sweep of profiles modified in this window — people not active in CCB
+// recently come back without contacts rather than costing a call each.
+const NO_CUTOFF_SWEEP_DAYS = 90;
 
 export interface EventImportPerson {
   ccbId: string;
@@ -26,9 +31,10 @@ export interface EventImportPerson {
 }
 
 // POST /api/ccb/event-import
-// Body: { eventId: string, createdAfter: 'YYYY-MM-DD' }
-// Returns the event's checked-in attendees whose CCB profile was created on or
-// after `createdAfter`, with contact info — the preview for the boards import.
+// Body: { eventId: string, createdAfter?: 'YYYY-MM-DD' }
+// Returns the event's checked-in attendees with contact info — the preview for
+// the boards import. When `createdAfter` is set, only attendees whose CCB
+// profile was created on or after that date are returned; otherwise everybody.
 export async function POST(request: Request) {
   try {
     const user = await getUserFromAuthHeader(request);
@@ -43,11 +49,14 @@ export async function POST(request: Request) {
     if (!/^\d+$/.test(eventId)) {
       return NextResponse.json({ error: 'eventId must be the numeric CCB event ID' }, { status: 400 });
     }
-    const cutoff = DateTime.fromISO(createdAfter);
-    if (!cutoff.isValid) {
-      return NextResponse.json({ error: 'createdAfter must be a date (YYYY-MM-DD)' }, { status: 400 });
+    let cutoffStart: DateTime | null = null;
+    if (createdAfter) {
+      const cutoff = DateTime.fromISO(createdAfter);
+      if (!cutoff.isValid) {
+        return NextResponse.json({ error: 'createdAfter must be a date (YYYY-MM-DD)' }, { status: 400 });
+      }
+      cutoffStart = cutoff.startOf('day');
     }
-    const cutoffStart = cutoff.startOf('day');
 
     const ccb = createCCBClient(await getCCBRequestContext(request, {
       module: 'Boards',
@@ -66,6 +75,7 @@ export async function POST(request: Request) {
         matches: [],
         filteredOut: 0,
         truncated: false,
+        contactGaps: 0,
       });
     }
 
@@ -74,6 +84,7 @@ export async function POST(request: Request) {
     let profilesResolved = 0;
     let profilesWithCreated = 0;
     let truncated = false;
+    let contactGaps = 0;
 
     const withId = attendees.filter(a => a.id);
 
@@ -85,20 +96,39 @@ export async function POST(request: Request) {
         const profiles = await Promise.all(chunk.map(a => ccb.getIndividualProfile(a.id)));
         chunk.forEach((a, j) => {
           const p = profiles[j];
-          if (!p) return;
-          profilesResolved++;
-          if (!p.created) return;
-          profilesWithCreated++;
-          if (DateTime.fromISO(p.created) < cutoffStart) return;
+          if (p) {
+            profilesResolved++;
+            if (p.created) profilesWithCreated++;
+          }
+          if (cutoffStart) {
+            // Filtering: someone we can't date can't be shown as a match.
+            if (!p?.created) return;
+            if (DateTime.fromISO(p.created) < cutoffStart) return;
+          } else if (!p) {
+            // No filter: a failed profile fetch still gets a name-only card.
+            contactGaps++;
+            matches.push({
+              ccbId: a.id,
+              name: a.name,
+              firstName: '',
+              lastName: '',
+              email: '',
+              phone: '',
+              mobilePhone: '',
+              created: '',
+              attendedDate: a.attendedDate,
+            });
+            return;
+          }
           matches.push({
-            ccbId: p.id,
-            name: p.fullName || a.name,
-            firstName: p.firstName,
-            lastName: p.lastName,
-            email: p.email,
-            phone: p.phone,
-            mobilePhone: p.mobilePhone,
-            created: p.created,
+            ccbId: p!.id,
+            name: p!.fullName || a.name,
+            firstName: p!.firstName,
+            lastName: p!.lastName,
+            email: p!.email,
+            phone: p!.phone,
+            mobilePhone: p!.mobilePhone,
+            created: p!.created,
             attendedDate: a.attendedDate,
           });
         });
@@ -106,32 +136,59 @@ export async function POST(request: Request) {
 
       // If CCB gave us profiles but no created-dates at all, the filter can't
       // work — surface that instead of silently returning zero matches.
-      if (profilesResolved > 0 && profilesWithCreated === 0) {
+      if (cutoffStart && profilesResolved > 0 && profilesWithCreated === 0) {
         return NextResponse.json({
           error: 'CCB did not return profile created-dates, so the date filter cannot be applied.',
           code: 'CCB_NO_CREATED_DATES',
         }, { status: 502 });
       }
     } else {
-      // Large set: one bulk sweep of profiles modified since the cutoff.
-      // Created-after-cutoff implies modified-after-cutoff, so every match is in here.
-      const sweep = await ccb.getIndividualsModifiedSince(cutoffStart.toISODate()!);
-      truncated = sweep.truncated;
+      // Large set: one bulk sweep of recently-modified profiles. With a cutoff,
+      // created-after-cutoff implies modified-after-cutoff, so every match is in
+      // the sweep. Without one, sweep a recent window for contact info and
+      // include everybody — people missing from the sweep get name-only rows.
+      const sinceDate = cutoffStart
+        ? cutoffStart.toISODate()!
+        : DateTime.now().minus({ days: NO_CUTOFF_SWEEP_DAYS }).toISODate()!;
+      const sweep = await ccb.getIndividualsModifiedSince(sinceDate);
+      truncated = Boolean(cutoffStart) && sweep.truncated;
       const byId = new Map(sweep.individuals.map(p => [p.id, p]));
+
+      // Without a cutoff, spend the circuit breaker's leftover per-minute
+      // headroom on individual lookups for people the sweep didn't cover.
+      if (!cutoffStart) {
+        const gapIds = withId.filter(a => !byId.has(a.id)).map(a => a.id);
+        const CCB_MINUTE_BUDGET = 40; // mirrors CCB_BREAKER_MAX_PER_MINUTE
+        const callsUsed = 1 + sweep.pagesFetched; // attendance sweep + profile pages
+        const topUpBudget = Math.max(0, CCB_MINUTE_BUDGET - callsUsed - 2);
+        const CONCURRENCY = 4;
+        const toFetch = gapIds.slice(0, topUpBudget);
+        for (let i = 0; i < toFetch.length; i += CONCURRENCY) {
+          const chunk = toFetch.slice(i, i + CONCURRENCY);
+          const profiles = await Promise.all(chunk.map(id => ccb.getIndividualProfile(id)));
+          for (const p of profiles) {
+            if (p) byId.set(p.id, p);
+          }
+        }
+      }
+
       profilesResolved = withId.length;
       for (const a of withId) {
         const p = byId.get(a.id);
-        if (!p || !p.created) continue;
-        if (DateTime.fromISO(p.created) < cutoffStart) continue;
+        if (cutoffStart) {
+          if (!p || !p.created) continue;
+          if (DateTime.fromISO(p.created) < cutoffStart) continue;
+        }
+        if (!p) contactGaps++;
         matches.push({
-          ccbId: p.id,
-          name: p.fullName || a.name,
-          firstName: p.firstName,
-          lastName: p.lastName,
-          email: p.email,
-          phone: p.phone,
-          mobilePhone: p.mobilePhone,
-          created: p.created,
+          ccbId: p?.id || a.id,
+          name: p?.fullName || a.name,
+          firstName: p?.firstName || '',
+          lastName: p?.lastName || '',
+          email: p?.email || '',
+          phone: p?.phone || '',
+          mobilePhone: p?.mobilePhone || '',
+          created: p?.created || '',
           attendedDate: a.attendedDate,
         });
       }
@@ -147,6 +204,7 @@ export async function POST(request: Request) {
       matches,
       filteredOut: attendees.length - matches.length,
       truncated,
+      contactGaps,
     });
   } catch (error: any) {
     const message = (error?.message || '').toString();

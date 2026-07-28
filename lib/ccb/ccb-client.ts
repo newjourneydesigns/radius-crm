@@ -2844,6 +2844,7 @@ ${attendeesBlock}
       created: string;
     }>;
     truncated: boolean;
+    pagesFetched: number;
   }> {
     // CCB honors per_page well beyond 100 (verified live: 500 rows ≈ 3.7MB ≈ 2s),
     // so large pages keep the sweep to a handful of calls.
@@ -2857,16 +2858,9 @@ ${attendeesBlock}
       email: string; phone: string; mobilePhone: string; created: string;
     }> = [];
     let truncated = false;
+    let pagesFetched = 0;
 
-    for (let page = 1; page <= maxPages; page++) {
-      const xml = await this.getXml({
-        srv: 'individual_profiles',
-        modified_since: sinceDate,
-        include_inactive: false,
-        page,
-        per_page: perPage,
-      });
-
+    const parsePage = (xml: any): { rows: number } => {
       const root = xml?.ccb_api?.response?.individuals;
       const raw: any[] = Array.isArray(root?.individual)
         ? root.individual
@@ -2900,12 +2894,35 @@ ${attendeesBlock}
           created: ccbTimestampToISO(ind.created),
         });
       }
+      return { rows: raw.length };
+    };
 
-      if (raw.length < perPage) return { individuals, truncated };
-      if (page === maxPages) truncated = true;
+    // Fetch pages in small parallel waves — total page count isn't known
+    // upfront, so each wave fetches speculatively and stops on a short page.
+    const WAVE = 3;
+    for (let start = 1; start <= maxPages; start += WAVE) {
+      const pageNums = Array.from(
+        { length: Math.min(WAVE, maxPages - start + 1) },
+        (_, i) => start + i,
+      );
+      const xmls = await Promise.all(pageNums.map(page => this.getXml({
+        srv: 'individual_profiles',
+        modified_since: sinceDate,
+        include_inactive: false,
+        page,
+        per_page: perPage,
+      })));
+      pagesFetched += xmls.length;
+      let sawShortPage = false;
+      for (const xml of xmls) {
+        const { rows } = parsePage(xml);
+        if (rows < perPage) sawShortPage = true;
+      }
+      if (sawShortPage) return { individuals, truncated, pagesFetched };
     }
 
-    return { individuals, truncated };
+    truncated = true;
+    return { individuals, truncated, pagesFetched };
   }
 
   /**
