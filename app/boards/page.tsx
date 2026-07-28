@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useProjectBoard } from '../../hooks/useProjectBoard';
 import { supabase } from '../../lib/supabase';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useConfirm } from '../../components/boards/ConfirmDialog';
 import {
   Plus,
   LayoutDashboard,
@@ -76,6 +77,7 @@ function BoardsListPage() {
   const { user } = useAuth();
   const router = useRouter();
   const { boards, fetchBoards, createBoard, cloneBoard, archiveBoard, deleteBoard, loading } = useProjectBoard();
+  const { requestConfirm, confirmDialog } = useConfirm();
   const [showArchived, setShowArchived] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -735,9 +737,13 @@ function BoardsListPage() {
                       </button>
                       <button
                         className="kb-btn-icon kb-btn-icon-danger"
-                        onClick={e => {
+                        onClick={async e => {
                           e.stopPropagation();
-                          if (confirm('Delete this board? This cannot be undone.')) {
+                          if (await requestConfirm({
+                            title: 'Delete board?',
+                            message: `"${board.title}" and all its cards will be deleted. This cannot be undone.`,
+                            confirmLabel: 'Delete Board',
+                          })) {
                             deleteBoard(board.id);
                           }
                         }}
@@ -754,6 +760,7 @@ function BoardsListPage() {
           </>
         )}
       </div>
+      {confirmDialog}
     </div>
   );
 }

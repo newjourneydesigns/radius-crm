@@ -79,6 +79,20 @@ function ccbStatusFields(record: Record<string, unknown>): {
   };
 }
 
+/**
+ * CCB timestamps come back as SQL-style strings ("2026-07-15 10:23:45") or
+ * occasionally bare dates. Normalize to an ISO string, or '' when unparseable.
+ */
+function ccbTimestampToISO(value: unknown): string {
+  const raw = ccbText(value);
+  if (!raw) return '';
+  const sql = DateTime.fromSQL(raw);
+  if (sql.isValid) return sql.toISO()!;
+  const iso = DateTime.fromISO(raw);
+  if (iso.isValid) return iso.toISO()!;
+  return '';
+}
+
 // ---- Hard rate-limit circuit breaker ----
 //
 // Module-level safety net. Tracks every outgoing CCB GET call and refuses new
@@ -1282,6 +1296,78 @@ ${attendeesBlock}
       }
     }
     return Array.from(byKey.values());
+  }
+
+  /**
+   * Event name + every recorded attendee across the event's occurrences in the
+   * last `windowDays`, with the most recent date each person checked in. Used
+   * by the boards CCB-event import.
+   *
+   * Reads ONE windowed `attendance_profiles` sweep and filters by event id —
+   * `event_profile` occurrence parsing is unreliable (many events carry only a
+   * human-formatted start_date and no occurrence list), and only occurrences
+   * with recorded attendance matter here anyway. `event_profile` is consulted
+   * only when the window has no rows, to tell "no check-ins" from "bad id".
+   */
+  async getEventAttendeesWithOccurrences(
+    eventId: string,
+    windowDays: number = 60,
+  ): Promise<{
+    eventName: string;
+    occurrencesChecked: number;
+    attendees: Array<{ id: string; name: string; attendedDate: string | null }>;
+  }> {
+    if (!eventId || !/^\d+$/.test(eventId)) {
+      throw new Error('Event ID must be a numeric string');
+    }
+
+    const xml = await this.getXml({
+      srv: 'attendance_profiles',
+      start_date: DateTime.now().minus({ days: windowDays }).toISODate(),
+      end_date: DateTime.now().toISODate(),
+    });
+
+    const eventsRoot = xml?.ccb_api?.response?.events ?? null;
+    const rawEvents: any[] = Array.isArray(eventsRoot?.event)
+      ? eventsRoot.event
+      : eventsRoot?.event ? [eventsRoot.event] : [];
+
+    const rows = rawEvents
+      .filter(e => String(e?.['@_id'] || '').trim() === eventId)
+      .map(e => ({
+        name: String(e?.name || e?.event_name || '').trim(),
+        occurrence: String(e?.['@_occurrence'] || e?.occurrence || '').trim().slice(0, 10) || null,
+        attendance: this.normalizeAttendance({ ccb_api: { response: { attendance: e } } }, true),
+      }))
+      .sort((a, b) => (b.occurrence || '').localeCompare(a.occurrence || ''));
+
+    if (rows.length === 0) {
+      // No attendance in the window — check the event exists so the caller can
+      // report "no check-ins" instead of a confusing empty result for a typo'd id.
+      const eventXml = await this.getXml({ srv: 'event_profile', id: eventId, event_id: eventId });
+      const event = this.parseEventProfile(eventXml, eventId);
+      if (!event || !event.title || event.title === 'Unknown Event') {
+        throw new Error(`Event ${eventId} was not found in CCB`);
+      }
+      return { eventName: event.title, occurrencesChecked: 0, attendees: [] };
+    }
+
+    // Rows are newest-first, so the first time we see a person is their most
+    // recent check-in.
+    const byKey = new Map<string, { id: string; name: string; attendedDate: string | null }>();
+    for (const row of rows) {
+      for (const a of row.attendance?.attendees ?? []) {
+        const key = a.id || (a.name || '').toLowerCase();
+        if (!key || byKey.has(key)) continue;
+        byKey.set(key, { id: a.id || '', name: a.name || '', attendedDate: row.occurrence });
+      }
+    }
+
+    return {
+      eventName: rows[0].name || `Event ${eventId}`,
+      occurrencesChecked: rows.length,
+      attendees: Array.from(byKey.values()),
+    };
   }
 
   // ---- Public API ----
@@ -2665,6 +2751,8 @@ ${attendeesBlock}
     phone: string;
     mobilePhone: string;
     birthday: string;
+    /** ISO timestamp of when the CCB profile was created ('' when CCB omits it) */
+    created: string;
     status: string;
     statusId: string;
     isActive: boolean;
@@ -2724,12 +2812,117 @@ ${attendeesBlock}
         phone,
         mobilePhone,
         birthday,
+        created: ccbTimestampToISO(ind.created),
         ...statusFields,
       };
     } catch (error) {
       console.error(`CCB individual profile fetch failed for ID ${individualId}:`, error);
       return null;
     }
+  }
+
+  /**
+   * Bulk-fetch individuals whose CCB profile was modified since a date, via the
+   * paginated `individual_profiles` service. Anyone whose profile was *created*
+   * after the date is necessarily *modified* after it, so this is a cheap way
+   * to resolve "profiles created since X" without one call per person.
+   * Pages are fetched sequentially and capped to respect the circuit breaker;
+   * `truncated: true` means the cap was hit and results may be incomplete.
+   */
+  async getIndividualsModifiedSince(
+    sinceDate: string,
+    options: { perPage?: number; maxPages?: number } = {},
+  ): Promise<{
+    individuals: Array<{
+      id: string;
+      firstName: string;
+      lastName: string;
+      fullName: string;
+      email: string;
+      phone: string;
+      mobilePhone: string;
+      created: string;
+    }>;
+    truncated: boolean;
+    pagesFetched: number;
+  }> {
+    // CCB honors per_page well beyond 100 (verified live: 500 rows ≈ 3.7MB ≈ 2s),
+    // so large pages keep the sweep to a handful of calls.
+    const { perPage = 500, maxPages = 20 } = options;
+    if (!DateTime.fromISO(sinceDate).isValid) {
+      throw new Error('sinceDate must be an ISO date (YYYY-MM-DD)');
+    }
+
+    const individuals: Array<{
+      id: string; firstName: string; lastName: string; fullName: string;
+      email: string; phone: string; mobilePhone: string; created: string;
+    }> = [];
+    let truncated = false;
+    let pagesFetched = 0;
+
+    const parsePage = (xml: any): { rows: number } => {
+      const root = xml?.ccb_api?.response?.individuals;
+      const raw: any[] = Array.isArray(root?.individual)
+        ? root.individual
+        : root?.individual ? [root.individual] : [];
+
+      for (const ind of raw) {
+        const firstName = ccbText(ind.first_name);
+        const lastName = ccbText(ind.last_name);
+
+        const phonesContainer = ind.phones || {};
+        const phoneEntries = Array.isArray(phonesContainer.phone)
+          ? phonesContainer.phone
+          : phonesContainer.phone ? [phonesContainer.phone] : [];
+        const phoneByType = (...types: string[]): string => {
+          for (const type of types) {
+            const entry = phoneEntries.find((p: any) => p?.['@_type'] === type);
+            const val = ccbText(entry);
+            if (val) return val;
+          }
+          return '';
+        };
+
+        individuals.push({
+          id: String(ind['@_id'] || ind.id || '').trim(),
+          firstName,
+          lastName,
+          fullName: `${firstName} ${lastName}`.trim(),
+          email: ccbText(ind.email),
+          phone: phoneByType('home', 'contact', 'work'),
+          mobilePhone: phoneByType('mobile', 'contact'),
+          created: ccbTimestampToISO(ind.created),
+        });
+      }
+      return { rows: raw.length };
+    };
+
+    // Fetch pages in small parallel waves — total page count isn't known
+    // upfront, so each wave fetches speculatively and stops on a short page.
+    const WAVE = 3;
+    for (let start = 1; start <= maxPages; start += WAVE) {
+      const pageNums = Array.from(
+        { length: Math.min(WAVE, maxPages - start + 1) },
+        (_, i) => start + i,
+      );
+      const xmls = await Promise.all(pageNums.map(page => this.getXml({
+        srv: 'individual_profiles',
+        modified_since: sinceDate,
+        include_inactive: false,
+        page,
+        per_page: perPage,
+      })));
+      pagesFetched += xmls.length;
+      let sawShortPage = false;
+      for (const xml of xmls) {
+        const { rows } = parsePage(xml);
+        if (rows < perPage) sawShortPage = true;
+      }
+      if (sawShortPage) return { individuals, truncated, pagesFetched };
+    }
+
+    truncated = true;
+    return { individuals, truncated, pagesFetched };
   }
 
   /**

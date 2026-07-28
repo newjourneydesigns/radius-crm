@@ -3,6 +3,26 @@
     "date": "2026-07-28",
     "date_display": "July 28, 2026",
     "date_iso": "2026-07-28",
+    "id": "boards-in-app-delete-confirmations",
+    "type": "fix",
+    "category": "Boards",
+    "description": "Deleting a board, list, card, label, or checklist now shows Radius's own confirmation dialog instead of the browser's built-in popup. In some embedded browsers those built-in popups never appeared, which made delete buttons look broken -- clicking Delete did nothing. The new dialog always shows up, matches the app's dark styling, and supports Enter to confirm and Escape to cancel.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-07-28",
+    "date_display": "July 28, 2026",
+    "date_iso": "2026-07-28",
+    "id": "boards-ccb-event-import",
+    "type": "feature",
+    "category": "Boards",
+    "description": "Boards can now import people straight from a CCB event. Open the board menu, choose Import from CCB Event, and enter the event's ID -- everyone who checked in is pulled up, one card per person. Want just the newcomers? Add an optional created-after date and only attendees whose CCB profile was created after that date are included. Each card's title is the person's name, and the description includes the event they attended (with the day they showed up), their phone and email (so the Call, Text, and Email buttons work right away), and when their profile was created. Before importing you choose which list the cards land on and can tag them all with an existing label or create a new one on the spot.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-07-28",
+    "date_display": "July 28, 2026",
+    "date_iso": "2026-07-28",
     "id": "mass-update-all-statuses",
     "type": "fix",
     "category": "Import Circles",

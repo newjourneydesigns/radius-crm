@@ -16,6 +16,7 @@ import { buildRepeatLabel, type TodoRepeatRule } from '../../lib/todoRecurrence'
 import { buildTimeOptions15Min } from '../../lib/timeUtils';
 import { DateTime } from 'luxon';
 import AssigneePicker from './AssigneePicker';
+import { useConfirm } from './ConfirmDialog';
 import RichTextEditor from '../notes/RichTextEditor';
 import DictateAndSummarize from '../notes/DictateAndSummarize';
 import { extractTextContacts, type TextContact } from '../../lib/textContacts';
@@ -377,6 +378,7 @@ export function CardDetailModal({
 
   // ── Keyboard shortcuts inside modal (mirrors board shortcuts but uses local edit state) ──
   const { user: modalUser } = useAuth();
+  const { requestConfirm, confirmDialog } = useConfirm();
   useEffect(() => {
     const isMobile = window.matchMedia('(max-width: 768px)').matches;
     if (isMobile) return;
@@ -389,9 +391,9 @@ export function CardDetailModal({
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        if (confirm(`Delete "${card.title}"?`)) {
-          onDelete();
-        }
+        requestConfirm({ title: 'Delete card?', message: `Delete "${card.title}"?` }).then(ok => {
+          if (ok) onDelete();
+        });
       } else if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
         onUpdate({ is_complete: !card.is_complete });
@@ -1391,7 +1393,12 @@ export function CardDetailModal({
                       )}
                       <button
                         className="kb-btn-icon-sm"
-                        onClick={() => { if (confirm(`Delete "${group.title}" and all its items?`)) onDeleteChecklistGroup(group.id); }}
+                        onClick={async () => {
+                          if (await requestConfirm({
+                            title: 'Delete checklist?',
+                            message: `Delete "${group.title}" and all its items?`,
+                          })) onDeleteChecklistGroup(group.id);
+                        }}
                         title="Delete checklist"
                       >
                         <Trash2 size={11} />
@@ -1921,7 +1928,7 @@ export function CardDetailModal({
               <button
                 className="kb-btn kb-btn-danger"
                 onClick={async () => {
-                  if (confirm('Delete this card?')) {
+                  if (await requestConfirm({ title: 'Delete card?', message: `Delete "${card.title}"?` })) {
                     if (screenshotUrl) {
                       await supabase.storage.from('card-screenshots').remove([`${card.id}/screenshot.jpg`]);
                     }
@@ -1938,6 +1945,7 @@ export function CardDetailModal({
           </div>
         </div>
       </div>
+      {confirmDialog}
     </div>
   );
 }
