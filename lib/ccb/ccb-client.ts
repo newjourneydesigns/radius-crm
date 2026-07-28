@@ -660,6 +660,18 @@ ${attendeesBlock}
         throw new Error(msg);
       }
       const data = typeof res.data === 'string' ? this.parser.parse(res.data) : res.data;
+      // A body that isn't CCB XML at all (maintenance page, login redirect,
+      // empty response) has no error node and previously sailed through as
+      // "success" while nothing was saved. Reject it explicitly.
+      if (!data || typeof data !== 'object' || !(data as Record<string, unknown>).ccb_api) {
+        const msg = 'CCB returned an unrecognized response to create_event_attendance (not CCB XML)';
+        await recordCCBApiTelemetry({
+          context: this.telemetryContext,
+          service: srv, method: 'POST', statusCode: res.status,
+          success: false, durationMs, response: res, errorMessage: msg,
+        });
+        throw new Error(msg);
+      }
       const ccbError = data?.ccb_api?.response?.errors?.error;
       if (ccbError) {
         const msg = typeof ccbError === 'string' ? ccbError : JSON.stringify(ccbError);
@@ -687,6 +699,77 @@ ${attendeesBlock}
       }
       throw e;
     }
+  }
+
+  /**
+   * Read-back verification for createEventAttendance. CCB can answer a write
+   * with HTTP 200 and no error node yet silently not save it (occurrence
+   * mismatch, upstream hiccup) — so after a write, fetch the occurrence's
+   * attendance profile and confirm the submitted data actually landed.
+   *
+   * Comparison strength, in order: submitted attendee IDs all present in CCB
+   * (strongest, exact), else the submitted notes text found in CCB's stored
+   * notes (whitespace/apostrophe-tolerant), else mere existence of the record.
+   */
+  async verifyEventAttendance(check: {
+    eventId: string | number;
+    occurrence: string; // "YYYY-MM-DD HH:MM:SS" — time portion ignored
+    expectedAttendeeIds?: Array<string | number>;
+    expectedNotes?: string;
+  }): Promise<{ verified: boolean; reason: string }> {
+    const normalize = (value: string) =>
+      value.replace(/[’']/g, "'").replace(/\s+/g, ' ').trim().toLowerCase();
+
+    const xml: any = await this.getXml({
+      srv: 'attendance_profile',
+      id: String(check.eventId),
+      occurrence: check.occurrence.slice(0, 10),
+    });
+
+    // attendance_profile has returned both shapes over time:
+    //   <response><attendance …> and <response><events><event …>
+    const response = xml?.ccb_api?.response ?? {};
+    const rawEvent = response?.events?.event;
+    const a =
+      response?.attendance ?? (Array.isArray(rawEvent) ? rawEvent[0] : rawEvent) ?? null;
+    if (!a || typeof a !== 'object') {
+      return { verified: false, reason: 'CCB has no attendance record for this occurrence' };
+    }
+
+    const expectedIds = (check.expectedAttendeeIds ?? []).map(String).filter(Boolean);
+    if (expectedIds.length > 0) {
+      const attRoot = a.attendees ?? null;
+      const list: any[] = Array.isArray(attRoot?.attendee)
+        ? attRoot.attendee
+        : attRoot?.attendee
+          ? [attRoot.attendee]
+          : [];
+      const savedIds = new Set(
+        list.map((p) => String(p?.['@_id'] ?? p?.id ?? '').trim()).filter(Boolean)
+      );
+      const missing = expectedIds.filter((id) => !savedIds.has(id));
+      if (missing.length > 0) {
+        return {
+          verified: false,
+          reason: `CCB is missing ${missing.length} of ${expectedIds.length} submitted attendees`,
+        };
+      }
+      return { verified: true, reason: 'submitted attendees present in CCB' };
+    }
+
+    const expectedNotes = normalize(check.expectedNotes ?? '');
+    if (expectedNotes) {
+      const savedNotes = normalize(ccbText(a.notes));
+      // Compare a prefix so CCB-side truncation of very long notes doesn't
+      // read as a lost save.
+      const probe = expectedNotes.slice(0, 160);
+      if (!savedNotes.includes(probe)) {
+        return { verified: false, reason: 'CCB notes do not contain the submitted summary text' };
+      }
+      return { verified: true, reason: 'submitted notes present in CCB' };
+    }
+
+    return { verified: true, reason: 'attendance record exists in CCB' };
   }
 
   // ---- Normalizers ----

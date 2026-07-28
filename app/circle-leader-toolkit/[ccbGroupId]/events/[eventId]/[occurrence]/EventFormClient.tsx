@@ -223,6 +223,10 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // True when a submission reached the server but couldn't be confirmed in
+  // CCB (or never reached the server at all). The form still holds everything
+  // the leader typed, so the fix is one tap on "Submit Again" — no re-entry.
+  const [retryableFailure, setRetryableFailure] = useState(false);
 
   const [sortBy, setSortBy] = useState<'firstName' | 'lastName'>('firstName');
 
@@ -778,6 +782,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
 
   async function handleSubmit() {
     setSubmitError(null);
+    setRetryableFailure(false);
 
     if (isBeforeMeetingTime) {
       setSubmitError(`You can submit this summary after the Circle meeting starts on ${meetingStartLabel}.`);
@@ -857,6 +862,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
+        setRetryableFailure(Boolean(data.retryable) || res.status >= 500);
         setSubmitError(data.error || data.ccbError || 'Submission failed.');
         return;
       }
@@ -910,8 +916,12 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
           .catch(() => {});
       } catch {}
       router.replace(`/circle-leader-toolkit/success?id=${data.summaryId}`);
-    } catch (error: unknown) {
-      setSubmitError(getErrorMessage(error, 'Submission failed.'));
+    } catch {
+      // Network-level failure — the request may not have reached the server.
+      setRetryableFailure(true);
+      setSubmitError(
+        "We couldn't reach the server. Everything you entered is still here — check your connection and tap Submit Again."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -1510,7 +1520,13 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
             disabled={submitting || isBeforeMeetingTime}
             className="cs-btn cs-btn-primary w-full text-lg py-4"
           >
-            {submitting ? 'Submitting…' : didNotMeet ? 'Submit "Did Not Meet"' : 'Submit Circle Summary'}
+            {submitting
+              ? 'Submitting…'
+              : retryableFailure
+                ? 'Submit Again'
+                : didNotMeet
+                  ? 'Submit "Did Not Meet"'
+                  : 'Submit Circle Summary'}
           </button>
         </div>
       </div>

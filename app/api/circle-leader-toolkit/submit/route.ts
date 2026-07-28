@@ -261,6 +261,27 @@ export async function POST(req: Request) {
   let ccbResponse: unknown = null;
   let ccbError: string | null = null;
   let status: 'submitted' | 'failed' = 'submitted';
+  let ccbVerification: { status: 'verified' | 'failed' | 'inconclusive'; reason: string } | null =
+    null;
+
+  // Read-back check: confirm the submitted data is actually visible in CCB.
+  // Returns { error } instead of throwing so a failed *check* (rate limit,
+  // timeout) can be told apart from CCB affirmatively showing the save missing.
+  const runCCBVerification = async (
+    ccb: ReturnType<typeof createCCBClient>,
+    expectedNotes: string
+  ): Promise<{ verified: boolean; reason: string } | { error: string }> => {
+    try {
+      return await ccb.verifyEventAttendance({
+        eventId,
+        occurrence,
+        expectedAttendeeIds: didNotMeet ? [] : attendeeCcbIds,
+        expectedNotes,
+      });
+    } catch (e: unknown) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
+  };
 
   try {
     // CCB's create_event_attendance *sets* (overwrites) the occurrence's
@@ -312,6 +333,31 @@ export async function POST(req: Request) {
         throw new Error(`${firstMessage}; fallback without email notification also failed: ${fallbackMessage}`);
       }
     }
+
+    // CCB has been seen answering create_event_attendance with a clean 200
+    // while silently not saving anything. Read the occurrence back and confirm
+    // the data landed; if CCB shows it missing, write once more (without the
+    // leader email, which may already have gone out) and check again.
+    let outcome = await runCCBVerification(ccb, finalNotes);
+    if ('verified' in outcome && !outcome.verified) {
+      ccbResponse = await ccb.createEventAttendance({
+        ...ccbAttendancePayload,
+        emailNotification: 'none',
+      });
+      outcome = await runCCBVerification(ccb, finalNotes);
+    }
+    if ('error' in outcome) {
+      // Only the verification *read* failed — the write itself was accepted.
+      // Treat the submission as good rather than trapping the leader in a
+      // resubmit loop over a rate limit or timeout on the check.
+      ccbVerification = { status: 'inconclusive', reason: outcome.error };
+    } else if (outcome.verified) {
+      ccbVerification = { status: 'verified', reason: outcome.reason };
+    } else {
+      ccbVerification = { status: 'failed', reason: outcome.reason };
+      status = 'failed';
+      ccbError = `CCB accepted the write but the summary is not visible in CCB after a retry: ${outcome.reason}`;
+    }
   } catch (e: unknown) {
     ccbError = e instanceof Error ? e.message : String(e);
     status = 'failed';
@@ -348,7 +394,9 @@ export async function POST(req: Request) {
         }, {} as Record<string, { label: string; value: DynamicResponse['value'] }>),
         info_update_requested: infoUpdate ?? null,
         ccb_submitted_at: status === 'submitted' ? new Date().toISOString() : null,
-        ccb_response: ccbResponse,
+        // Wrap the raw write response with the read-back verification outcome
+        // so support can see whether a "submitted" row was actually confirmed.
+        ccb_response: { write: ccbResponse, verification: ccbVerification },
         ccb_error: ccbError,
         status,
         submitted_via: 'public_link',
@@ -445,5 +493,14 @@ export async function POST(req: Request) {
     summaryId: summaryRow.id,
     ccbStatus: status,
     ccbError,
+    ccbVerification: ccbVerification?.status ?? null,
+    ...(status === 'failed'
+      ? {
+          code: 'CCB_SAVE_FAILED',
+          retryable: true,
+          error:
+            "We couldn't confirm your summary was saved to the church system. Nothing you entered was lost — please tap Submit Again. If it still doesn't go through, your Director will see the details and follow up.",
+        }
+      : {}),
   });
 }
