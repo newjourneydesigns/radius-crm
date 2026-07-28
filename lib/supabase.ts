@@ -356,6 +356,21 @@ export interface LeadershipSnapshotRevision {
   created_at: string;
 }
 
+export type CircleAiSummaryTimeframe = 'last_month' | 'last_3_months' | 'last_6_months' | 'semester';
+
+export interface CircleAiSummary {
+  id: string;
+  leader_id: number;
+  timeframe_key: CircleAiSummaryTimeframe;
+  start_date: string;
+  end_date: string;
+  summary_text: string;
+  metrics_snapshot: Record<string, any>;
+  generated_by: string | null;
+  generated_at: string;
+  created_at: string;
+}
+
 export interface PrayerPoint {
   id: number;
   circle_leader_id: number;

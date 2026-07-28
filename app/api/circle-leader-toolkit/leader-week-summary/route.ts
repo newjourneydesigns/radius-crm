@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import { createCCBClient, CCBCircuitBreakerError } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
+import { composeSubmittedNotes } from '../../../../lib/circleNotes';
 import type { EventSummaryState } from '../../../../lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -34,42 +35,6 @@ function ctWeekStartUtc(weekStart: string): string {
 }
 function ctWeekEndExclusiveUtc(weekEnd: string): string {
   return DateTime.fromISO(weekEnd, { zone: 'America/Chicago' }).plus({ days: 1 }).startOf('day').toUTC().toISO()!;
-}
-
-/**
- * The circle-summary form captures the leader's narrative as configurable
- * "dynamic questions" (e.g. "Tell us about your Circle gathering"), stored in
- * circle_event_summaries.dynamic_responses — NOT the base `notes` column, which
- * holds only the did-not-meet reason. The composed blob is pushed to CCB, but
- * RADIUS's read path historically returned only `notes`, so submitted summaries
- * with dynamic answers rendered as "No notes recorded". This rebuilds a display
- * string from the base notes + dynamic responses so the modal shows the full
- * write-up the same way CCB does.
- */
-function composeSubmittedNotes(
-  baseNotes: string | null | undefined,
-  dynamicResponses: unknown
-): string | null {
-  const sections: string[] = [];
-
-  const base = String(baseNotes ?? '').trim();
-  if (base) sections.push(base);
-
-  if (dynamicResponses && typeof dynamicResponses === 'object') {
-    for (const entry of Object.values(dynamicResponses as Record<string, any>)) {
-      const label = String(entry?.label ?? '').trim();
-      const rawValue = entry?.value;
-      const value = Array.isArray(rawValue)
-        ? rawValue.map((v) => String(v).trim()).filter(Boolean).join(', ')
-        : typeof rawValue === 'boolean'
-          ? (rawValue ? 'Yes' : 'No')
-          : String(rawValue ?? '').trim();
-      if (!value) continue;
-      sections.push(label ? `${label}: ${value}` : value);
-    }
-  }
-
-  return sections.length ? sections.join('\n\n') : null;
 }
 
 type Resolved =
