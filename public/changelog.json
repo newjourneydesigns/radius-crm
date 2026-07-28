@@ -3,6 +3,16 @@
     "date": "2026-07-28",
     "date_display": "July 28, 2026",
     "date_iso": "2026-07-28",
+    "id": "boards-ccb-event-import",
+    "type": "feature",
+    "category": "Boards",
+    "description": "Boards can now import people straight from a CCB event. Open the board menu and choose Import from CCB Event, enter the event's ID, and pick a date -- only attendees whose CCB profile was created after that date are pulled in, which makes it easy to grab just the newcomers who checked in. Each person becomes their own card: the card title is their name, and the description includes the event they attended (with the day they showed up), their phone and email (so the Call, Text, and Email buttons work right away), and when their profile was created. Before importing you choose which list the cards land on and can tag them all with an existing label or create a new one on the spot.",
+    "page": "/boards"
+  },
+  {
+    "date": "2026-07-28",
+    "date_display": "July 28, 2026",
+    "date_iso": "2026-07-28",
     "id": "circle-summary-submit-animation",
     "type": "improvement",
     "category": "Circles Toolkit",

@@ -17,6 +17,7 @@ import {
   LayoutDashboard, ChevronsLeft, Circle, Star, ArrowUpRight, Archive, ImageIcon,
 } from '../../../components/icons/BoardIcons';
 import { supabase } from '../../../lib/supabase';
+import { apiFetch } from '../../../lib/apiClient';
 import type { CircleLeader } from '../../../lib/supabase';
 import { buildRepeatLabel, type TodoRepeatRule } from '../../../lib/todoRecurrence';
 import { DateTime } from 'luxon';
@@ -1006,6 +1007,342 @@ function ImportLeadersModal({
 }
 
 /* ═══════════════════════════════════════════════════════════
+   Import from CCB Event Modal
+   ═══════════════════════════════════════════════════════════ */
+interface CcbEventImportPerson {
+  ccbId: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  mobilePhone: string;
+  created: string;
+  attendedDate: string | null;
+}
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/* Phone/email go in as plain text — CardDetailModal extracts them into
+   Call / Text / Email action chips automatically. */
+function buildCcbEventCardDescription(p: CcbEventImportPerson, eventName: string): string {
+  const attended = p.attendedDate ? DateTime.fromISO(p.attendedDate).toFormat('cccc, LLLL d') : '';
+  const phone = p.mobilePhone || p.phone;
+  const lines = [
+    eventName && `Event: ${eventName}${attended ? ` (${attended})` : ''}`,
+    phone && `Phone: ${phone}`,
+    p.email && `Email: ${p.email}`,
+    p.created && `CCB profile created: ${DateTime.fromISO(p.created).toFormat('LLL d, yyyy')}`,
+  ].filter(Boolean) as string[];
+  return lines.map(l => `<p>${escapeHtml(l)}</p>`).join('');
+}
+
+function ImportCcbEventModal({
+  board,
+  onImport,
+  onClose,
+}: {
+  board: FullBoard;
+  onImport: (args: {
+    columnId: string;
+    labelId: string | null;
+    newLabel: { name: string; color: string } | null;
+    people: CcbEventImportPerson[];
+    eventName: string;
+  }) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [eventId, setEventId] = useState('');
+  const [createdAfter, setCreatedAfter] = useState(() => DateTime.now().minus({ days: 30 }).toISODate()!);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{
+    eventName: string;
+    totalAttendees: number;
+    filteredOut: number;
+    truncated: boolean;
+    matches: CcbEventImportPerson[];
+  } | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [targetColumn, setTargetColumn] = useState(board.columns[0]?.id || '');
+  // '' = no label, '__new__' = create a new one, anything else = existing label id
+  const [labelChoice, setLabelChoice] = useState('');
+  const [newLabelName, setNewLabelName] = useState('');
+  const [newLabelColor, setNewLabelColor] = useState('#3b82f6');
+  const [showColorGrid, setShowColorGrid] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  const canSearch = /^\d+$/.test(eventId.trim()) && Boolean(createdAfter) && !loading;
+
+  const handleSearch = async () => {
+    if (!canSearch) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setSelected(new Set());
+    try {
+      const res = await apiFetch('/api/ccb/event-import/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: eventId.trim(), createdAfter }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to load event attendees');
+      const matches: CcbEventImportPerson[] = data.matches || [];
+      setResult({
+        eventName: data.event?.name || `Event ${eventId.trim()}`,
+        totalAttendees: data.totalAttendees ?? 0,
+        filteredOut: data.filteredOut ?? 0,
+        truncated: Boolean(data.truncated),
+        matches,
+      });
+      setSelected(new Set(matches.map(m => m.ccbId)));
+    } catch (e: any) {
+      setError(e?.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (!result) return;
+    if (selected.size === result.matches.length) setSelected(new Set());
+    else setSelected(new Set(result.matches.map(m => m.ccbId)));
+  };
+
+  const needsLabelName = labelChoice === '__new__' && !newLabelName.trim();
+  const canImport = Boolean(result) && selected.size > 0 && Boolean(targetColumn) && !needsLabelName && !importing;
+
+  const handleImport = async () => {
+    if (!result || !canImport) return;
+    setImporting(true);
+    setError(null);
+    try {
+      await onImport({
+        columnId: targetColumn,
+        labelId: labelChoice && labelChoice !== '__new__' ? labelChoice : null,
+        newLabel: labelChoice === '__new__' ? { name: newLabelName.trim(), color: newLabelColor } : null,
+        people: result.matches.filter(m => selected.has(m.ccbId)),
+        eventName: result.eventName,
+      });
+      onClose();
+    } catch (e: any) {
+      setError(e?.message || 'Import failed');
+      setImporting(false);
+    }
+  };
+
+  const fmtDate = (iso: string | null) => (iso ? DateTime.fromISO(iso).toFormat('LLL d, yyyy') : '');
+  const fmtAttended = (iso: string | null) => (iso ? DateTime.fromISO(iso).toFormat('ccc, LLL d') : '');
+
+  return (
+    <div className="kb-modal-overlay" onClick={onClose}>
+      <div className="kb-import-modal" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="kb-import-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CalendarDays size={18} style={{ color: '#56c93f' }} />
+            <h3 className="kb-import-title">Import from CCB Event</h3>
+          </div>
+          <button className="kb-btn-icon-sm" onClick={onClose}><X size={16} /></button>
+        </div>
+
+        {/* Search controls */}
+        <div className="kb-import-toolbar" style={{ flexWrap: 'wrap', rowGap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 1 130px', minWidth: 120 }}>
+            <label className="kb-import-label">CCB Event ID</label>
+            <input
+              className="kb-input"
+              value={eventId}
+              onChange={e => setEventId(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
+              placeholder="e.g. 14002"
+              inputMode="numeric"
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 1 150px', minWidth: 140 }}>
+            <label className="kb-import-label">Profiles created after</label>
+            <input
+              className="kb-input"
+              type="date"
+              value={createdAfter}
+              onChange={e => setCreatedAfter(e.target.value)}
+            />
+          </div>
+          <button
+            className="kb-btn kb-btn-primary kb-btn-sm"
+            style={{ alignSelf: 'flex-end' }}
+            onClick={handleSearch}
+            disabled={!canSearch}
+          >
+            {loading ? 'Searching...' : 'Find People'}
+          </button>
+        </div>
+
+        {error && (
+          <div style={{ padding: '8px 16px', color: '#f87171', fontSize: 12 }}>{error}</div>
+        )}
+
+        {/* Results summary + select all */}
+        {result && (
+          <div className="kb-import-toolbar">
+            <div className="kb-import-leader-info" style={{ flex: 1 }}>
+              <span className="kb-import-leader-name">{result.eventName}</span>
+              <span className="kb-import-leader-meta" style={{ whiteSpace: 'normal' }}>
+                {result.matches.length} of {result.totalAttendees} attendee{result.totalAttendees !== 1 ? 's' : ''} with profiles created after {fmtDate(createdAfter)}
+                {result.truncated ? ' · some profiles could not be checked' : ''}
+              </span>
+            </div>
+            {result.matches.length > 0 && (
+              <>
+                <button className="kb-btn kb-btn-sm kb-btn-ghost" onClick={toggleAll}>
+                  {selected.size === result.matches.length ? 'Deselect All' : 'Select All'}
+                </button>
+                <span className="kb-import-count">{selected.size} of {result.matches.length} selected</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* People list */}
+        <div className="kb-import-list">
+          {loading ? (
+            <div className="kb-import-empty">Reading event check-ins from CCB...</div>
+          ) : !result ? (
+            <div className="kb-import-empty">
+              Enter a CCB event ID and a date, then Find People.
+              <br />
+              The event ID is in the CCB event page URL (event_id=...).
+            </div>
+          ) : result.matches.length === 0 ? (
+            <div className="kb-import-empty">
+              {result.totalAttendees === 0
+                ? 'No recorded check-ins found for this event.'
+                : `None of the ${result.totalAttendees} attendees have a profile created after ${fmtDate(createdAfter)}.`}
+            </div>
+          ) : (
+            result.matches.map(person => (
+              <div
+                key={person.ccbId}
+                className={`kb-import-row ${selected.has(person.ccbId) ? 'kb-import-row-selected' : ''}`}
+                onClick={() => toggleSelect(person.ccbId)}
+              >
+                <div className={`kb-checkbox ${selected.has(person.ccbId) ? 'checked' : ''}`}>
+                  {selected.has(person.ccbId) && <Check size={11} />}
+                </div>
+                <div className="kb-import-leader-info">
+                  <span className="kb-import-leader-name">{person.name}</span>
+                  <span className="kb-import-leader-meta">
+                    {[
+                      person.created && `Created ${fmtDate(person.created)}`,
+                      person.attendedDate && `Attended ${fmtAttended(person.attendedDate)}`,
+                      (person.mobilePhone || person.phone) && 'Phone',
+                      person.email && 'Email',
+                    ].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Label picker */}
+        {result && result.matches.length > 0 && (
+          <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label className="kb-import-label">Add label:</label>
+              <select
+                className="kb-input kb-import-select"
+                value={labelChoice}
+                onChange={e => setLabelChoice(e.target.value)}
+                style={{ flex: 1 }}
+              >
+                <option value="">No label</option>
+                {[...board.labels].sort((a, b) => a.name.localeCompare(b.name)).map(l => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+                <option value="__new__">+ Create new label...</option>
+              </select>
+            </div>
+            {labelChoice === '__new__' && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    className="kb-lm-color-btn"
+                    style={{ '--swatch-color': newLabelColor } as React.CSSProperties}
+                    onClick={() => setShowColorGrid(!showColorGrid)}
+                    title="Pick color"
+                  />
+                  <input
+                    className="kb-input"
+                    value={newLabelName}
+                    onChange={e => setNewLabelName(e.target.value)}
+                    placeholder="New label name..."
+                    style={{ flex: 1 }}
+                    autoFocus
+                  />
+                </div>
+                {showColorGrid && (
+                  <div className="kb-lm-color-grid">
+                    {LABEL_COLORS.map(c => (
+                      <button
+                        key={c.hex}
+                        className={`kb-lm-color-swatch ${newLabelColor === c.hex ? 'active' : ''}`}
+                        style={{ '--swatch-color': c.hex } as React.CSSProperties}
+                        onClick={() => { setNewLabelColor(c.hex); setShowColorGrid(false); }}
+                        title={c.name}
+                      >
+                        {newLabelColor === c.hex && <Check size={10} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="kb-import-footer" style={{ flexWrap: 'wrap', rowGap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 auto' }}>
+            <label className="kb-import-label">Import into:</label>
+            <select
+              className="kb-input kb-import-select"
+              style={{ minWidth: 130 }}
+              value={targetColumn}
+              onChange={e => setTargetColumn(e.target.value)}
+            >
+              {board.columns.map(col => (
+                <option key={col.id} value={col.id}>{col.title}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+            <button className="kb-btn kb-btn-sm" onClick={onClose}>Cancel</button>
+            <button
+              className="kb-btn kb-btn-primary kb-btn-sm"
+              onClick={handleImport}
+              disabled={!canImport}
+            >
+              {importing ? 'Importing...' : `Import ${selected.size} Card${selected.size !== 1 ? 's' : ''}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
    List Actions Modal
    ═══════════════════════════════════════════════════════════ */
 function ListActionsModal({
@@ -1902,6 +2239,7 @@ function BoardPage() {
   const [showNotePanel, setShowNotePanel] = useState(false);
   const [noteFormats, setNoteFormats] = useState({ bold: false, italic: false, underline: false, strikeThrough: false, heading: false, unorderedList: false, orderedList: false });
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showCcbEventImport, setShowCcbEventImport] = useState(false);
   const [dragCardId, setDragCardId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [dragOverCardId, setDragOverCardId] = useState<string | null>(null);
@@ -2713,6 +3051,9 @@ function BoardPage() {
                   <button className="kb-dropdown-item" onClick={() => { setShowBoardMenu(false); setShowImportModal(true); }}>
                     <Download size={14} /> Import Circle Leaders
                   </button>
+                  <button className="kb-dropdown-item" onClick={() => { setShowBoardMenu(false); setShowCcbEventImport(true); }}>
+                    <CalendarDays size={14} /> Import from CCB Event
+                  </button>
                   <button
                     className="kb-dropdown-item"
                     onClick={() => {
@@ -2852,6 +3193,50 @@ function BoardPage() {
             }
           }}
           onClose={() => setShowImportModal(false)}
+        />
+      )}
+
+      {/* ── Import from CCB Event Modal ── */}
+      {showCcbEventImport && board && (
+        <ImportCcbEventModal
+          board={board}
+          onImport={async ({ columnId, labelId, newLabel, people, eventName }) => {
+            let finalLabelId = labelId;
+            if (newLabel) {
+              const createdLabel = await addLabel(boardId, newLabel.name, newLabel.color);
+              if (!createdLabel) throw new Error('Could not create the label');
+              finalLabelId = createdLabel.id;
+            }
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            // One batched insert with explicit positions — a per-card addCard loop
+            // reads stale client state and stacks every card at the same position.
+            const { data: existing } = await supabase
+              .from('board_cards')
+              .select('position')
+              .eq('column_id', columnId);
+            const maxPos = (existing || []).reduce((m, c) => Math.max(m, c.position ?? -1), -1);
+            const rows = people.map((p, i) => ({
+              board_id: boardId,
+              column_id: columnId,
+              title: p.name,
+              description: buildCcbEventCardDescription(p, eventName) || undefined,
+              position: maxPos + 1 + i,
+              created_by: authUser?.id || null,
+            }));
+            const { data: createdCards, error: insertErr } = await supabase
+              .from('board_cards')
+              .insert(rows)
+              .select('id');
+            if (insertErr) throw new Error(insertErr.message);
+            if (finalLabelId && createdCards?.length) {
+              const { error: labelErr } = await supabase
+                .from('card_label_assignments')
+                .insert(createdCards.map(c => ({ card_id: c.id, label_id: finalLabelId })));
+              if (labelErr) throw new Error(labelErr.message);
+            }
+            await fetchBoard(boardId);
+          }}
+          onClose={() => setShowCcbEventImport(false)}
         />
       )}
 
