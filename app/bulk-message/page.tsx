@@ -8,7 +8,6 @@ import { supabase, CircleLeader } from '../../lib/supabase';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
 import { useMacCompanion } from '../../hooks/useMacCompanion';
-import CompanionGuideModal from '../../components/companion/CompanionGuideModal';
 import { apiFetch } from '../../lib/apiClient';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -230,7 +229,6 @@ function BulkMessageContent() {
   const [autoEntries, setAutoEntries] = useState<AutoSendEntry[]>([]);
   const [autoSendError, setAutoSendError] = useState<string | null>(null);
   const [autoSendChecking, setAutoSendChecking] = useState(false);
-  const [showCompanionGuide, setShowCompanionGuide] = useState(false);
   const autoAbortRef = useRef(false);
   const autoListRef = useRef<HTMLDivElement>(null);
 
@@ -590,7 +588,7 @@ function BulkMessageContent() {
     // An out-of-date companion is the one that can silently fake "sent" — force
     // the update rather than trusting it.
     if (companion.needsUpdate) {
-      setShowCompanionGuide(true);
+      setAutoSendError('The companion on your Mac is out of date — update it from Settings → Auto Send first.');
       return;
     }
     setAutoSendError(null);
@@ -1619,12 +1617,12 @@ function BulkMessageContent() {
                           </p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setShowCompanionGuide(true)}
-                        className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold rounded-lg transition-colors"
+                      <Link
+                        href="/settings?tab=auto_send"
+                        className="block w-full text-center py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold rounded-lg transition-colors"
                       >
                         Show me how to update
-                      </button>
+                      </Link>
                     </div>
                   )}
                   {companion.available === true && !companion.needsUpdate && (
@@ -1656,12 +1654,12 @@ function BulkMessageContent() {
                         Set up the Mac Companion once to send the whole list automatically — no tapping
                         through each message. We’ll walk you through it step by step.
                       </p>
-                      <button
-                        onClick={() => setShowCompanionGuide(true)}
-                        className="w-full py-2.5 bg-[#0A7FF5] hover:bg-[#0A7FF5]/90 text-white text-sm font-semibold rounded-lg transition-colors"
+                      <Link
+                        href="/settings?tab=auto_send"
+                        className="block w-full text-center py-2.5 bg-[#0A7FF5] hover:bg-[#0A7FF5]/90 text-white text-sm font-semibold rounded-lg transition-colors"
                       >
                         Show me how to set it up
-                      </button>
+                      </Link>
                       <button
                         onClick={companion.recheck}
                         className="w-full text-[11px] text-slate-400 hover:text-white py-2 rounded-lg hover:bg-slate-700/50 border border-slate-700/50 hover:border-slate-600 transition-all"
@@ -1923,19 +1921,6 @@ function BulkMessageContent() {
 
       {/* Bottom safe area padding for mobile */}
       <div className="h-20 md:h-0" />
-
-      <CompanionGuideModal
-        isOpen={showCompanionGuide}
-        onClose={() => setShowCompanionGuide(false)}
-        mode={companion.available === true && companion.needsUpdate ? 'update' : 'install'}
-        statusLabel={
-          companion.available === null ? 'Checking…'
-            : companion.available ? (companion.needsUpdate ? 'Running — update required' : 'Running — up to date')
-            : 'Not running'
-        }
-        onRecheck={companion.recheck}
-        checking={companion.available === null}
-      />
     </div>
   );
 }

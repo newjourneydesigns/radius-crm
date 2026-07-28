@@ -1,19 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BellOff, Building2, CalendarDays, ClipboardList, FileText, Mail, Settings, Shapes, Users } from 'lucide-react';
+import { BellOff, Building2, CalendarDays, ClipboardList, FileText, Mail, MessageSquare, Settings, Shapes, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import NoteTemplatesManager from '../../components/settings/NoteTemplatesManager';
 import ScorecardQuestionsManager from '../../components/settings/ScorecardQuestionsManager';
 import TouchpointSettingsManager from '../../components/settings/TouchpointSettingsManager';
 import BlogManager from '../../components/settings/BlogManager';
+import AutoSendManager from '../../components/settings/AutoSendManager';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import AlertModal from '../../components/ui/AlertModal';
 import ServiceWorkerUtils from '../../components/ServiceWorkerUtils';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { haptic, isHapticsEnabled, setHapticsEnabled } from '../../lib/haptics';
-import { useMacCompanion } from '../../hooks/useMacCompanion';
-import CompanionGuideModal from '../../components/companion/CompanionGuideModal';
 
 interface Director {
   id: number;
@@ -57,16 +56,6 @@ export default function SettingsPage() {
   const [digestUserId, setDigestUserId] = useState<string | null>(null);
   const [digestFrequencyHours, setDigestFrequencyHours] = useState<number>(24);
 
-  const companion = useMacCompanion();
-  const [copiedInstall, setCopiedInstall] = useState(false);
-  const [showCompanionGuide, setShowCompanionGuide] = useState(false);
-
-  const handleCopyInstall = () => {
-    navigator.clipboard.writeText('curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash');
-    setCopiedInstall(true);
-    setTimeout(() => setCopiedInstall(false), 2000);
-  };
-
   // Haptic feedback (PWA) — client-side preference only, stored in localStorage.
   const [hapticsOn, setHapticsOn] = useState(true);
   useEffect(() => {
@@ -86,7 +75,15 @@ export default function SettingsPage() {
 
   // UI state
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'directors' | 'host_team_directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'touchpoints' | 'app' | 'blog'>('directors');
+  const [activeTab, setActiveTab] = useState<'directors' | 'host_team_directors' | 'circles' | 'statuses' | 'frequencies' | 'campuses' | 'templates' | 'scorecard' | 'touchpoints' | 'auto_send' | 'app' | 'blog'>('directors');
+
+  // Deep link support: /settings?tab=auto_send lands on that tab directly.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab');
+    if (requested && tabs.some(t => t.id === requested)) {
+      setActiveTab(requested as typeof activeTab);
+    }
+  }, []);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{isOpen: boolean, type: string, id: number, name: string}>({
     isOpen: false, type: '', id: 0, name: ''
   });
@@ -611,6 +608,7 @@ export default function SettingsPage() {
     { id: 'templates', label: 'Note Templates', icon: FileText },
     { id: 'scorecard', label: 'Scorecard Questions', icon: ClipboardList },
     { id: 'touchpoints', label: 'Touchpoint Cadence', icon: CalendarDays },
+    { id: 'auto_send', label: 'Auto Send', icon: MessageSquare },
     { id: 'app', label: 'App Management', icon: Settings },
     { id: 'blog', label: 'Radius Blog', icon: FileText }
   ];
@@ -1507,96 +1505,13 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
-              {/* Mac Companion */}
-              <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
-                <h3 className="inline-flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white mb-1">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  Mac Companion
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  A small background helper that lets RADIUS auto-send iMessages from your Mac. Required for Auto Send on Bulk Message and Campaigns.
-                </p>
+            </div>
+          )}
 
-                <div className="flex items-center gap-3 mb-4">
-                  {companion.available === null ? (
-                    <span className="text-xs text-gray-400 dark:text-gray-500">Checking status...</span>
-                  ) : companion.available ? (
-                    <span className={`flex items-center gap-1.5 text-xs ${companion.needsUpdate ? 'text-rose-500' : 'text-green-500'}`}>
-                      <span className={`w-2 h-2 rounded-full ${companion.needsUpdate ? 'bg-rose-400' : 'bg-green-400 animate-pulse'}`} />
-                      {companion.needsUpdate ? 'Running — update required' : 'Running — up to date'}
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
-                      <span className="w-2 h-2 rounded-full bg-gray-400" />
-                      Not running
-                    </span>
-                  )}
-                  <button
-                    onClick={companion.recheck}
-                    className="text-xs text-blue-500 hover:text-blue-400 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                  >
-                    Recheck
-                  </button>
-                </div>
-
-                {companion.available === true && companion.needsUpdate && (
-                  <div className="mb-4 rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-900/20 px-5 py-4">
-                    <p className="text-sm font-semibold text-rose-800 dark:text-rose-200">Your companion is out of date</p>
-                    <p className="text-xs text-rose-700 dark:text-rose-300/90 mt-1 leading-relaxed">
-                      The version on your Mac is missing an important fix — older versions could report
-                      messages as sent when they never went out. Auto Send is paused until you update.
-                    </p>
-                  </div>
-                )}
-
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-5 py-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {companion.available && !companion.needsUpdate ? 'Reinstall or update' : companion.needsUpdate ? 'Update the companion' : 'Set up the companion'}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        New to this? We’ll walk you through every step — opening Terminal, running the
-                        command, and granting permission.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setShowCompanionGuide(true)}
-                      className="shrink-0 text-sm font-semibold px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-                    >
-                      Show me how
-                    </button>
-                  </div>
-
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 mb-2">Or, if you’re comfortable in Terminal, run this on your Mac:</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs font-mono text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg truncate">
-                      curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash
-                    </code>
-                    <button
-                      onClick={handleCopyInstall}
-                      className="shrink-0 text-xs px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      {copiedInstall ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
-                </div>
-
-                <CompanionGuideModal
-                  isOpen={showCompanionGuide}
-                  onClose={() => setShowCompanionGuide(false)}
-                  mode={companion.available === true && companion.needsUpdate ? 'update' : 'install'}
-                  statusLabel={
-                    companion.available === null ? 'Checking…'
-                      : companion.available ? (companion.needsUpdate ? 'Running — update required' : 'Running — up to date')
-                      : 'Not running'
-                  }
-                  onRecheck={companion.recheck}
-                  checking={companion.available === null}
-                />
-              </div>
+          {/* Auto Send Tab */}
+          {activeTab === 'auto_send' && (
+            <div className="p-6">
+              <AutoSendManager />
             </div>
           )}
 
