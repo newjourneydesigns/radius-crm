@@ -3,6 +3,16 @@
     "date": "2026-07-28",
     "date_display": "July 28, 2026",
     "date_iso": "2026-07-28",
+    "id": "mass-update-all-statuses",
+    "type": "fix",
+    "category": "Import Circles",
+    "description": "The Mass Update tool's Status dropdown now lists every leader status, including Pipeline and Archived. Previously it only offered a fixed subset, so you couldn't mass-archive circles or move a batch of leaders into the Pipeline status.",
+    "page": "/import-circles"
+  },
+  {
+    "date": "2026-07-28",
+    "date_display": "July 28, 2026",
+    "date_iso": "2026-07-28",
     "id": "circle-summary-submit-animation",
     "type": "improvement",
     "category": "Circles Toolkit",

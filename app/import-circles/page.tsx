@@ -630,8 +630,16 @@ export default function ImportCirclesPage() {
                                 <option key={d} value={d}>{d}</option>
                               ))
                             : massUpdateField === 'status'
-                            ? ['invited', 'on-boarding', 'active', 'paused', 'off-boarding'].map((s) => (
-                                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                            ? [
+                                { value: 'invited', label: 'Invited' },
+                                { value: 'pipeline', label: 'Pipeline' },
+                                { value: 'on-boarding', label: 'On-Boarding' },
+                                { value: 'active', label: 'Active' },
+                                { value: 'paused', label: 'Paused' },
+                                { value: 'off-boarding', label: 'Off-boarding' },
+                                { value: 'archived', label: 'Archived' },
+                              ].map((s) => (
+                                <option key={s.value} value={s.value}>{s.label}</option>
                               ))
                             : massUpdateField === 'email_reminders_enabled'
                             ? (
