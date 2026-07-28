@@ -3,6 +3,16 @@
     "date": "2026-07-28",
     "date_display": "July 28, 2026",
     "date_iso": "2026-07-28",
+    "id": "circle-summary-off-cadence-events",
+    "type": "fix",
+    "category": "Circles Toolkit",
+    "description": "Meetings your Circle actually held now always show up in the Events list, even when they fall outside your usual meeting rhythm. Previously, if a bi-weekly Circle met on an off week, that meeting was hidden from the toolkit (and couldn't be summarized) because it didn't match the expected schedule -- even though attendance was already recorded in Church Community Builder. Now any date with recorded attendance or a submitted summary is shown regardless of cadence, while blank off-week dates stay hidden so the list doesn't fill up with meetings that never happened.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-07-28",
+    "date_display": "July 28, 2026",
+    "date_iso": "2026-07-28",
     "id": "circle-summary-submit-animation",
     "type": "improvement",
     "category": "Circles Toolkit",

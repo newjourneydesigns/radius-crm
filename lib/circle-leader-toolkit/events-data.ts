@@ -127,6 +127,52 @@ function isMissingIgnoredEventsTableError(err: unknown): boolean {
   );
 }
 
+/**
+ * Parse a bulk `attendance_profiles` XML blob into a lookup map:
+ * "eventId|YYYY-MM-DD" → { has, dnm, headCount }.
+ */
+function buildAttendanceMap(
+  bulkXml: unknown
+): Map<string, { has: boolean; dnm: boolean; headCount: number | null }> {
+  const attendanceMap = new Map<string, { has: boolean; dnm: boolean; headCount: number | null }>();
+  if (!bulkXml) return attendanceMap;
+
+  const ccbRoot = asRecord(bulkXml)?.ccb_api;
+  const response = asRecord(asRecord(ccbRoot)?.response);
+  const eventsRoot = asRecord(response?.events);
+  const rawEvents = recordList(eventsRoot?.event);
+
+  for (const ev of rawEvents) {
+    const evId = String(ev?.['@_id'] ?? ev?.id ?? '').trim();
+    const occurrence = String(ev?.['@_occurrence'] ?? ev?.occurrence ?? '').trim();
+    if (!evId || !occurrence) continue;
+
+    const occurDate = occurrence.slice(0, 10); // "YYYY-MM-DD"
+    const notes = textVal(ev?.notes);
+    const dnm = isDidNotMeetEvent({ didNotMeet: ev?.did_not_meet, notes });
+    // Prefer the explicit head_count; fall back to counting attendee rows.
+    const rawHeadCount = Number(textVal(ev?.head_count));
+    const attendees = asRecord(ev.attendees);
+    const attendeeNode = attendees?.attendee;
+    const attendeeCount = attendeeNode
+      ? Array.isArray(attendeeNode)
+        ? attendeeNode.length
+        : 1
+      : 0;
+    const headCount = rawHeadCount > 0 ? rawHeadCount : attendeeCount > 0 ? attendeeCount : null;
+    const has =
+      dnm ||
+      !!notes ||
+      !!textVal(ev?.topic) ||
+      (headCount ?? 0) > 0 ||
+      attendeeCount > 0;
+
+    attendanceMap.set(`${evId}|${occurDate}`, { has, dnm, headCount });
+  }
+
+  return attendanceMap;
+}
+
 function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | undefined {
   const hit = map.get(key);
   if (!hit) return undefined;
@@ -425,56 +471,36 @@ export async function loadLeaderEvents(
       }
     }
 
-    // Build a lookup map: "eventId|YYYY-MM-DD" → { has, dnm }
-    const attendanceMap = new Map<string, { has: boolean; dnm: boolean; headCount: number | null }>();
-    if (bulkXmlResolved) {
-      const ccbRoot = asRecord(bulkXmlResolved)?.ccb_api;
-      const response = asRecord(asRecord(ccbRoot)?.response);
-      const eventsRoot = asRecord(response?.events);
-      const rawEvents = recordList(eventsRoot?.event);
-
-      for (const ev of rawEvents) {
-        const evId = String(ev?.['@_id'] ?? ev?.id ?? '').trim();
-        const occurrence = String(ev?.['@_occurrence'] ?? ev?.occurrence ?? '').trim();
-        if (!evId || !occurrence) continue;
-
-        const occurDate = occurrence.slice(0, 10); // "YYYY-MM-DD"
-        const notes = textVal(ev?.notes);
-        const dnm = isDidNotMeetEvent({ didNotMeet: ev?.did_not_meet, notes });
-        // Prefer the explicit head_count; fall back to counting attendee rows.
-        const rawHeadCount = Number(textVal(ev?.head_count));
-        const attendees = asRecord(ev.attendees);
-        const attendeeNode = attendees?.attendee;
-        const attendeeCount = attendeeNode
-          ? Array.isArray(attendeeNode)
-            ? attendeeNode.length
-            : 1
-          : 0;
-        const headCount = rawHeadCount > 0 ? rawHeadCount : attendeeCount > 0 ? attendeeCount : null;
-        const has =
-          dnm ||
-          !!notes ||
-          !!textVal(ev?.topic) ||
-          (headCount ?? 0) > 0 ||
-          attendeeCount > 0;
-
-        attendanceMap.set(`${evId}|${occurDate}`, { has, dnm, headCount });
-      }
-    }
+    const attendanceMap = buildAttendanceMap(bulkXmlResolved);
 
     const ignoredSet = new Set(
       ignoredEvents.map((row) => `${row.ccb_event_id}|${String(row.occurrence_date).slice(0, 10)}`)
     );
 
+    // Keys of events the leader already submitted a summary for here. Used
+    // below to keep off-cadence meetings visible even if CCB attendance is
+    // temporarily unavailable.
+    const submittedKeys = new Set(
+      submissions
+        .filter((s) => s.status === 'submitted')
+        .map((s) => `${s.ccb_event_id}|${DateTime.fromISO(s.occurrence).toFormat('yyyy-LL-dd')}`)
+    );
+
     events = calEvents
       .filter((e) => !ignoredSet.has(`${e.eventId}|${e.startDate}`))
-      .filter((e) =>
-        doesMeetingFrequencyIncludeDate({
+      .filter((e) => {
+        // The frequency filter exists to hide blank non-meeting dates (e.g. the
+        // off weeks of a bi-weekly circle), not meetings that actually
+        // happened. If CCB has attendance for the occurrence — or a summary was
+        // submitted here — the circle demonstrably met, so always show it.
+        const key = `${e.eventId}|${e.startDate}`;
+        if (attendanceMap.get(key)?.has || submittedKeys.has(key)) return true;
+        return doesMeetingFrequencyIncludeDate({
           date: e.startDate,
           frequency: leader.frequency,
           meetingStartDate: leader.meeting_start_date,
-        })
-      )
+        });
+      })
       .map((e) => {
         const att = attendanceMap.get(`${e.eventId}|${e.startDate}`);
         return {
@@ -566,12 +592,14 @@ async function loadLeaderCalendar(leader: SessionLeader): Promise<CalendarEvent[
  * (CCB's create_event_attendance *overwrites*). Validates against the same
  * cached 12-week calendar the leader's own events list is built from.
  *
- * Membership in that list is decided by three things — the calendar, the
- * ignored-events table, and the meeting-frequency filter — all of which are
- * checked here. Attendance only decorates each row with submitted/head-count
- * state and can never add or remove one, so this deliberately skips it: pulling
- * it would put a live CCB `attendance_profiles` call (and its multi-second
- * latency) in front of every summary submission for no change in the verdict.
+ * Membership in that list is decided by the calendar, the ignored-events
+ * table, and the meeting-frequency filter — all checked here. An off-cadence
+ * occurrence that the circle actually held (CCB attendance exists, or a
+ * summary was submitted here) is shown in the list despite failing the
+ * frequency filter, so the same exemption applies here — but only via cached
+ * attendance / local submissions, never a live CCB `attendance_profiles` call,
+ * which would put multi-second latency in front of every summary submission.
+ * The cadence-matching common case still never loads attendance at all.
  *
  * Fails closed: if the event isn't on the leader's calendar — or the calendar
  * can't be loaded — ownership is denied.
@@ -610,13 +638,71 @@ export async function leaderOwnsEvent(
       console.warn('[circle-summary/events] ownership ignored-events lookup failed:', ignoredRes.error.message);
     }
 
-    return doesMeetingFrequencyIncludeDate({
-      date: occurrenceDate,
-      frequency: leader.frequency,
-      meetingStartDate: leader.meeting_start_date,
-    });
+    if (
+      doesMeetingFrequencyIncludeDate({
+        date: occurrenceDate,
+        frequency: leader.frequency,
+        meetingStartDate: leader.meeting_start_date,
+      })
+    ) {
+      return true;
+    }
+
+    // Off-cadence date: allow it anyway if the circle demonstrably met — same
+    // exemption the events list applies. Calendar ownership is already proven
+    // above, so attendance here only answers "did this meeting happen".
+    return await eventHasEvidenceOfMeeting(supabase, leader, String(eventId), occurrenceDate);
   } catch (e: unknown) {
     console.error('[circle-summary/events] ownership check failed:', e);
     return false;
   }
+}
+
+/**
+ * Whether an occurrence on the leader's calendar actually happened: a summary
+ * submitted through the toolkit, or CCB attendance from cache (in-memory →
+ * most recent shared row at any age). Deliberately never calls CCB live — this
+ * sits in the submit path, and by the time an off-cadence event is visible to
+ * submit against, its attendance has already been cached by the events list.
+ */
+async function eventHasEvidenceOfMeeting(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  leader: SessionLeader,
+  eventId: string,
+  occurrenceDate: string
+): Promise<boolean> {
+  const key = `${eventId}|${occurrenceDate}`;
+
+  const { data: submittedRows } = await supabase
+    .from('circle_event_summaries')
+    .select('occurrence')
+    .eq('leader_id', leader.id)
+    .eq('ccb_event_id', eventId)
+    .eq('status', 'submitted');
+  const hasLocalSubmission = (submittedRows ?? []).some(
+    (row: { occurrence: string }) =>
+      DateTime.fromISO(row.occurrence).toFormat('yyyy-LL-dd') === occurrenceDate
+  );
+  if (hasLocalSubmission) return true;
+
+  const end = DateTime.now().setZone('America/Chicago');
+  const start = end.minus({ weeks: 12 });
+  const cacheKey = `${leader.ccb_group_id}|${start.toFormat('yyyy-LL-dd')}|${end.toFormat('yyyy-LL-dd')}`;
+  const memHit = cacheGet(ccbAttendanceCache, cacheKey);
+  if (memHit !== undefined) {
+    return buildAttendanceMap(memHit).get(key)?.has ?? false;
+  }
+
+  const { data: cacheRow } = await supabase
+    .from('ccb_group_events_cache')
+    .select('attendance_xml')
+    .eq('group_id', String(leader.ccb_group_id))
+    .order('synced_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (cacheRow?.attendance_xml) {
+    return buildAttendanceMap(cacheRow.attendance_xml).get(key)?.has ?? false;
+  }
+
+  return false;
 }
