@@ -11,7 +11,6 @@ import Modal from '../../../components/ui/Modal';
 import { Campaign, CampaignPerson } from '../../../hooks/useCampaigns';
 import { normalizePhone } from '../../../lib/phoneUtils';
 import { useMacCompanion } from '../../../hooks/useMacCompanion';
-import CompanionGuideModal from '../../../components/companion/CompanionGuideModal';
 import { isEventAttendanceEnabled } from '../../../lib/campaigns/event-attendance-flag';
 import { attrValues } from '../../../lib/campaigns/parseRoster';
 import { guessCampusFromGroupName } from '../../../lib/campaigns/campus';
@@ -499,7 +498,6 @@ export default function CampaignDetailPage() {
   const [isAutoSending, setIsAutoSending] = useState(false);
   const [autoProgress, setAutoProgress] = useState<{ done: number; total: number } | null>(null);
   const [autoSendError, setAutoSendError] = useState<string | null>(null);
-  const [showCompanionGuide, setShowCompanionGuide] = useState(false);
   // Delivery verification (Auto Send only): personId -> outcome. Populated in
   // the background after a batch by reading Apple's delivery receipts, so a
   // green-bubble number that silently failed gets flagged instead of counted
@@ -509,9 +507,6 @@ export default function CampaignDetailPage() {
   // True when the companion can't read chat.db (Full Disk Access not granted),
   // so we couldn't verify delivery for the last batch.
   const [verifyUnavailable, setVerifyUnavailable] = useState(false);
-  // Delivery-tracking capability + the python binary to grant Full Disk Access,
-  // fetched from the companion when the setup guide is open.
-  const [fdaInfo, setFdaInfo] = useState<{ capable: boolean; pythonPath?: string } | null>(null);
   // True when Text Message Forwarding is off — the Mac can't reach non-iPhone
   // (Android) numbers, so smart routing can't fall back to green SMS.
   const [smsRelayOff, setSmsRelayOff] = useState(false);
@@ -1234,14 +1229,6 @@ export default function CampaignDetailPage() {
     (a, b) => (deliveryRank[deliveryStatus[a.id] ?? ''] ?? 3) - (deliveryRank[deliveryStatus[b.id] ?? ''] ?? 3),
   );
 
-  // When the setup guide opens with a running companion, ask it whether
-  // delivery tracking is on and which python binary needs Full Disk Access.
-  useEffect(() => {
-    if (showCompanionGuide && companion.available) {
-      companion.verifyCapable().then(setFdaInfo);
-    }
-  }, [showCompanionGuide, companion.available, companion.verifyCapable]);
-
   async function handleMarkContacted() {
     if (!selectedPeople.length) return;
     // Don't mark a message that never delivered as "contacted" — leave those
@@ -1315,7 +1302,7 @@ export default function CampaignDetailPage() {
     // An out-of-date companion is the one that can silently fake "sent" — force
     // the update rather than trusting it.
     if (companion.needsUpdate) {
-      setShowCompanionGuide(true);
+      setAutoSendError('The companion on your Mac is out of date — update it from Settings → Auto Send first.');
       return;
     }
     setAutoSendError(null);
@@ -3160,12 +3147,12 @@ export default function CampaignDetailPage() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setShowCompanionGuide(true)}
-                    className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition-colors"
+                  <Link
+                    href="/settings?tab=auto_send"
+                    className="block w-full text-center py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition-colors"
                   >
                     Show me how to update
-                  </button>
+                  </Link>
                 </div>
               )}
               {companion.available === false && (
@@ -3174,12 +3161,12 @@ export default function CampaignDetailPage() {
                     Set up the Mac Companion once to auto-send to everyone at once. We’ll walk you
                     through it step by step.
                   </p>
-                  <button
-                    onClick={() => setShowCompanionGuide(true)}
-                    className="w-full py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                  <Link
+                    href="/settings?tab=auto_send"
+                    className="block w-full text-center py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors"
                   >
                     Show me how to set it up
-                  </button>
+                  </Link>
                   <button onClick={companion.recheck} className="text-[10px] text-slate-500 hover:text-slate-300 underline transition-colors">
                     I’ve installed it — check again
                   </button>
@@ -3255,12 +3242,12 @@ export default function CampaignDetailPage() {
                     Access so it can read your Mac’s delivery receipts — it only ever reports “delivered” or
                     “not delivered” per number, never your message contents.
                   </p>
-                  <button
-                    onClick={() => setShowCompanionGuide(true)}
-                    className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                  <Link
+                    href="/settings?tab=auto_send"
+                    className="block w-full text-center py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg transition-colors"
                   >
                     Show me how to turn it on
-                  </button>
+                  </Link>
                 </div>
               )}
 
@@ -3353,21 +3340,6 @@ export default function CampaignDetailPage() {
           </div>
         </div>
       </Modal>
-
-      <CompanionGuideModal
-        isOpen={showCompanionGuide}
-        onClose={() => setShowCompanionGuide(false)}
-        mode={companion.available === true && companion.needsUpdate ? 'update' : 'install'}
-        statusLabel={
-          companion.available === null ? 'Checking…'
-            : companion.available ? (companion.needsUpdate ? 'Running — update required' : 'Running — up to date')
-            : 'Not running'
-        }
-        onRecheck={companion.recheck}
-        checking={companion.available === null}
-        pythonPath={fdaInfo?.pythonPath}
-        deliveryTrackingOn={fdaInfo?.capable}
-      />
     </ProtectedRoute>
   );
 }
