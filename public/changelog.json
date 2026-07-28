@@ -3,6 +3,16 @@
     "date": "2026-07-28",
     "date_display": "July 28, 2026",
     "date_iso": "2026-07-28",
+    "id": "ai-circle-summary",
+    "type": "feature",
+    "category": "Circle Leader Profiles",
+    "description": "Circle leader profiles now include a Circle Snapshot (ACPD only): pick a timeframe -- last month, 3 months, 6 months, or this semester -- and instantly see the honest numbers for that circle: average attendance and whether it's trending up or down, what percentage of the roster shows up, meetings met vs. skipped, who was added to the roster, new faces and when they first appeared, and who's been showing up consistently. From there, one tap generates an AI coaching summary that reads the whole timeframe's meeting notes and gives you a coaching read: themes in the notes, what to celebrate, what to watch for, and suggested questions for your next conversation. Generated summaries are saved and shared, so other ACPDs see them without re-generating.",
+    "page": "/dashboard"
+  },
+  {
+    "date": "2026-07-28",
+    "date_display": "July 28, 2026",
+    "date_iso": "2026-07-28",
     "id": "auto-send-settings-page",
     "type": "feature",
     "category": "Settings",

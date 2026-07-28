@@ -25,6 +25,7 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import AddToBoardModal from '../../../components/modals/AddToBoardModal';
 
 import AttendanceTrends from '../../../components/circle/AttendanceTrends';
+import CircleAiSummary from '../../../components/circle/CircleAiSummary';
 import CircleLeaderProfileSkeleton from '../../../components/circle/CircleLeaderProfileSkeleton';
 import { useLeadershipSnapshots } from '../../../hooks/useLeadershipSnapshots';
 import { formatRating } from '../../../lib/leadershipSnapshot';
@@ -3379,7 +3380,14 @@ export default function CircleLeaderProfilePage() {
           </div>
         )}
 
-
+        {/* AI Circle Summary (ACPD-only, circle leaders only) */}
+        {leader && !isHostTeam && isAdmin() && (
+          <div className="mt-6">
+            <div className="bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass p-4 sm:p-6">
+              <CircleAiSummary leaderId={leaderId} refreshKey={attendanceRefreshKey} />
+            </div>
+          </div>
+        )}
 
         </div>
 
