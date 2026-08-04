@@ -8,6 +8,12 @@ import { formatDateOnlyForDisplay } from '../../lib/dateUtils';
 const PREFS_KEY = 'touchpoint-tracker-prefs';
 const PREFS_VERSION = 3;
 
+// Every lifecycle status a leader can hold, in lifecycle order. Fixed rather
+// than derived from the loaded leaders so the filter still offers, say,
+// "Active" during a season when every leader happens to be paused. Archived
+// leaders never reach the tracker, so Archived is intentionally absent.
+const STATUS_OPTIONS = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding'];
+
 type TypeStat = { count: number; last: string | null };
 type LeaderType = 'circle' | 'host_team';
 
@@ -265,7 +271,7 @@ export default function TouchpointTrackerPage() {
     if (directorFilter) list = list.filter((l) => l.leaderType === 'host_team' && (l.director || '') === directorFilter);
     if (teamFilter) list = list.filter((l) => l.leaderType === 'host_team' && (l.teamName || '') === teamFilter);
     if (campusFilter) list = list.filter((l) => (l.campus || '') === campusFilter);
-    if (statusFilter) list = list.filter((l) => (l.status || '') === statusFilter);
+    if (statusFilter) list = list.filter((l) => (l.status || '').trim().toLowerCase() === statusFilter.toLowerCase());
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter((l) => (
@@ -331,10 +337,18 @@ export default function TouchpointTrackerPage() {
     () => Array.from(new Set((data?.leaders ?? []).filter((l) => l.leader_type === 'host_team').map((l) => l.team_name).filter(Boolean) as string[])).sort(),
     [data],
   );
-  const statuses = useMemo(
-    () => Array.from(new Set((data?.leaders ?? []).map((l) => l.status).filter(Boolean) as string[])).sort(),
-    [data],
-  );
+  const statuses = useMemo(() => {
+    const known = new Set(STATUS_OPTIONS);
+    // Anything unexpected in the data still gets an option so it stays filterable.
+    const extras = Array.from(
+      new Set(
+        (data?.leaders ?? [])
+          .map((l) => (l.status || '').trim().toLowerCase())
+          .filter((s) => s && s !== 'archived' && !known.has(s)),
+      ),
+    ).sort();
+    return [...STATUS_OPTIONS, ...extras];
+  }, [data]);
 
   const toggleSort = (k: SortKey) => {
     if (k === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));

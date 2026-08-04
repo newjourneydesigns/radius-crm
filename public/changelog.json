@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-08-04",
+    "date_display": "August 4, 2026",
+    "date_iso": "2026-08-04",
+    "id": "connection-tracker-status-filter",
+    "type": "fix",
+    "category": "Connection Tracker",
+    "description": "The status filter on the Connection Tracker now lists every leader status -- Invited, Pipeline, On-Boarding, Active, Paused, and Off-Boarding -- instead of only the statuses leaders happen to have right now. Previously the dropdown was built from whoever was on the page, so in a season where every leader is paused, Paused was the only choice and you couldn't filter down to your active leaders.",
+    "page": "/touchpoint-tracker"
+  },
+  {
     "date": "2026-07-28",
     "date_display": "July 28, 2026",
     "date_iso": "2026-07-28",
