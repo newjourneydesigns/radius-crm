@@ -43,7 +43,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'A valid leaderId is required.' }, { status: 400 });
   }
 
-  const supabase = createServiceSupabaseClient();
+  // no-store: a cached read would hide touchpoints logged since the last fetch.
+  const supabase = createServiceSupabaseClient({ noStore: true });
   const { data, error } = await supabase
     .from('touchpoints')
     .select('*')

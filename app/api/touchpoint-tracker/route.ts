@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
   const user = await getUserFromAuthHeader(req);
   if (!user) return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
 
-  const supabase = createServiceSupabaseClient();
+  // no-store: Next.js caches service GETs by URL, which froze the leader roster
+  // — renamed leaders kept their old names, newly added leaders never appeared,
+  // and statuses stayed at whatever they were when the response was first cached.
+  const supabase = createServiceSupabaseClient({ noStore: true });
 
   const { data: settingsRow } = await supabase.from('touchpoint_settings').select('config').eq('id', 1).maybeSingle();
   const config = normalizeTouchpointConfig(settingsRow?.config);

@@ -20,7 +20,9 @@ async function requireUser(req: NextRequest) {
 }
 
 async function readConfig() {
-  const supabase = createServiceSupabaseClient();
+  // no-store: the period and target are admin-mutable config, so a cached read
+  // would keep serving the previous period to the tracker.
+  const supabase = createServiceSupabaseClient({ noStore: true });
   const { data } = await supabase.from('touchpoint_settings').select('config').eq('id', 1).maybeSingle();
   return normalizeTouchpointConfig(data?.config);
 }
