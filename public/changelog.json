@@ -3,6 +3,7 @@
     "date": "2026-08-05",
     "date_display": "August 5, 2026",
     "date_iso": "2026-08-05",
+    "version": "2.46.0",
     "id": "mass-update-ccb-circle-status",
     "type": "feature",
     "category": "Circles",
