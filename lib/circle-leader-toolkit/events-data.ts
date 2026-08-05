@@ -588,9 +588,10 @@ async function loadLeaderCalendar(leader: SessionLeader): Promise<CalendarEvent[
 /**
  * Ownership guard for the submit / draft endpoints. `eventId` and `occurrence`
  * arrive from the request body, so without this check a signed-in leader could
- * pass another Circle's eventId and read or overwrite that Circle's attendance
- * (CCB's create_event_attendance *overwrites*). Validates against the same
- * cached 12-week calendar the leader's own events list is built from.
+ * pass another Circle's eventId and read that Circle's attendance, rewrite its
+ * summary, or inflate its head count (create_event_attendance replaces notes,
+ * merges attendees by individual ID, and *adds* head counts). Validates against
+ * the same cached 12-week calendar the leader's own events list is built from.
  *
  * Membership in that list is decided by the calendar, the ignored-events
  * table, and the meeting-frequency filter — all checked here. An off-cadence

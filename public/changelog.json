@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-08-05",
+    "date_display": "August 5, 2026",
+    "date_iso": "2026-08-05",
+    "id": "circle-summary-head-count-accumulation",
+    "type": "fix",
+    "category": "Circles Toolkit",
+    "description": "Submitting a Circle Summary more than once no longer inflates the attendance number in Church Community Builder. Guests you add by hand (people who aren't on your roster) are sent to CCB as a head count, and CCB *adds* that number to the meeting instead of replacing it -- so a resubmission, or an automatic retry after a network hiccup, silently counted those guests a second time. Three walk-ins could end up in CCB as six or nine, while the attendee list and notes looked perfectly correct. The toolkit now reads what CCB already has for that meeting and sends only the difference, so submitting again changes nothing. Roster attendees were never affected -- CCB matches those to real people. If CCB is already carrying more guests than your summary reports, it's flagged for the office to correct, because a head count in CCB can be added to but never lowered through the API.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-08-04",
     "date_display": "August 4, 2026",
     "date_iso": "2026-08-04",

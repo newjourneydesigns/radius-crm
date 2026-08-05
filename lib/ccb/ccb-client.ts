@@ -25,6 +25,17 @@ function ccbText(value: unknown): string {
   return String(rec['#text'] ?? rec.text ?? '').trim();
 }
 
+/**
+ * `head_count` off an attendance record. CCB sends it as a bare number, an
+ * empty element, or occasionally a text node; absent or empty means nobody.
+ */
+function readHeadCount(record: unknown): number {
+  const raw = ccbText((record as Record<string, unknown> | null | undefined)?.head_count);
+  if (!raw) return 0;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
+}
+
 function ccbBoolean(value: unknown): boolean | null {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') {
@@ -583,10 +594,35 @@ export class CCBClient {
     });
   }
 
+  /**
+   * Write attendance for one event occurrence.
+   *
+   * CCB's `create_event_attendance` is only half-idempotent, and the difference
+   * matters:
+   *
+   *   - **Named attendees replace.** Each carries an individual ID, so CCB
+   *     dedupes them. Sending the same person twice records them once.
+   *   - **`head_count` ADDS.** It carries no ID, so CCB has nothing to dedupe
+   *     on and adds the number it is given to whatever the occurrence already
+   *     holds. Confirmed against CCB event 17726 on 2026-08-05: re-pushing the
+   *     same 3 attendees took head_count from 8 to 11.
+   *
+   * So a repeat write with the same payload leaves the attendee list correct
+   * and inflates the head count. Any caller that writes more than once for the
+   * same occurrence — a retry, a resubmission, a rewrite after a failed
+   * read-back — must send head_count as a DELTA against what CCB already
+   * holds (see `getAttendanceHeadCount`), not the full number again.
+   *
+   * A corollary: because adding is the only operation, `head_count` can never
+   * be lowered through this API. Sending 0 does not clear a stale value — it
+   * adds nothing. An occurrence that has already drifted can only be corrected
+   * by hand in CCB.
+   */
   async createEventAttendance(payload: {
     eventId: string | number;
     occurrence: string; // "YYYY-MM-DD HH:MM:SS"
     didNotMeet?: boolean;
+    /** People NOT in `attendeeIds`. ADDED to the occurrence's existing count. */
     headCount?: number;
     guestCount?: number;
     attendeeIds?: Array<string | number>;
@@ -609,6 +645,8 @@ export class CCBClient {
 ${attendeesXml}
     </attendees>`
       : '    <attendees></attendees>';
+    // Both the "did not meet" 0 and an omitted head count add nothing. Neither
+    // resets an occurrence that already carries a count — see the note above.
     const headCountXml = didNotMeet
       ? '<head_count>0</head_count>'
       : payload.headCount != null
@@ -716,6 +754,47 @@ ${attendeesBlock}
   }
 
   /**
+   * One occurrence's attendance record, or null when CCB has none. Shared by
+   * the read-back verification and the head-count reconciliation below so a
+   * caller that needs both spends a single CCB call.
+   */
+  private async fetchAttendanceRecord(
+    eventId: string | number,
+    occurrence: string
+  ): Promise<any | null> {
+    const xml: any = await this.getXml({
+      srv: 'attendance_profile',
+      id: String(eventId),
+      occurrence: occurrence.slice(0, 10),
+    });
+
+    // attendance_profile has returned both shapes over time:
+    //   <response><attendance …> and <response><events><event …>
+    const response = xml?.ccb_api?.response ?? {};
+    const rawEvent = response?.events?.event;
+    const record =
+      response?.attendance ?? (Array.isArray(rawEvent) ? rawEvent[0] : rawEvent) ?? null;
+    return record && typeof record === 'object' ? record : null;
+  }
+
+  /**
+   * The occurrence's current `head_count` — the people CCB is counting who
+   * aren't named attendees. Null when CCB has no attendance record at all.
+   *
+   * Needed because `create_event_attendance` ADDS the head count it is given
+   * rather than setting it, so a caller that wants CCB to land on a particular
+   * number has to know what it is starting from.
+   */
+  async getAttendanceHeadCount(check: {
+    eventId: string | number;
+    occurrence: string; // "YYYY-MM-DD HH:MM:SS" — time portion ignored
+  }): Promise<number | null> {
+    const record = await this.fetchAttendanceRecord(check.eventId, check.occurrence);
+    if (!record) return null;
+    return readHeadCount(record);
+  }
+
+  /**
    * Read-back verification for createEventAttendance. CCB can answer a write
    * with HTTP 200 and no error node yet silently not save it (occurrence
    * mismatch, upstream hiccup) — so after a write, fetch the occurrence's
@@ -724,31 +803,32 @@ ${attendeesBlock}
    * Comparison strength, in order: submitted attendee IDs all present in CCB
    * (strongest, exact), else the submitted notes text found in CCB's stored
    * notes (whitespace/apostrophe-tolerant), else mere existence of the record.
+   *
+   * `observedHeadCount` reports what CCB holds at verification time (null when
+   * there is no record). It is deliberately NOT part of the verified/failed
+   * decision — head_count accumulates across writes, so it can't be compared
+   * against what was sent — but a caller that has to write again after a
+   * failed verification needs it to size that write, and it comes free with
+   * the read that already happened here.
    */
   async verifyEventAttendance(check: {
     eventId: string | number;
     occurrence: string; // "YYYY-MM-DD HH:MM:SS" — time portion ignored
     expectedAttendeeIds?: Array<string | number>;
     expectedNotes?: string;
-  }): Promise<{ verified: boolean; reason: string }> {
+  }): Promise<{ verified: boolean; reason: string; observedHeadCount: number | null }> {
     const normalize = (value: string) =>
       value.replace(/[’']/g, "'").replace(/\s+/g, ' ').trim().toLowerCase();
 
-    const xml: any = await this.getXml({
-      srv: 'attendance_profile',
-      id: String(check.eventId),
-      occurrence: check.occurrence.slice(0, 10),
-    });
-
-    // attendance_profile has returned both shapes over time:
-    //   <response><attendance …> and <response><events><event …>
-    const response = xml?.ccb_api?.response ?? {};
-    const rawEvent = response?.events?.event;
-    const a =
-      response?.attendance ?? (Array.isArray(rawEvent) ? rawEvent[0] : rawEvent) ?? null;
-    if (!a || typeof a !== 'object') {
-      return { verified: false, reason: 'CCB has no attendance record for this occurrence' };
+    const a = await this.fetchAttendanceRecord(check.eventId, check.occurrence);
+    if (!a) {
+      return {
+        verified: false,
+        reason: 'CCB has no attendance record for this occurrence',
+        observedHeadCount: null,
+      };
     }
+    const observedHeadCount = readHeadCount(a);
 
     const expectedIds = (check.expectedAttendeeIds ?? []).map(String).filter(Boolean);
     if (expectedIds.length > 0) {
@@ -766,9 +846,10 @@ ${attendeesBlock}
         return {
           verified: false,
           reason: `CCB is missing ${missing.length} of ${expectedIds.length} submitted attendees`,
+          observedHeadCount,
         };
       }
-      return { verified: true, reason: 'submitted attendees present in CCB' };
+      return { verified: true, reason: 'submitted attendees present in CCB', observedHeadCount };
     }
 
     const expectedNotes = normalize(check.expectedNotes ?? '');
@@ -778,12 +859,16 @@ ${attendeesBlock}
       // read as a lost save.
       const probe = expectedNotes.slice(0, 160);
       if (!savedNotes.includes(probe)) {
-        return { verified: false, reason: 'CCB notes do not contain the submitted summary text' };
+        return {
+          verified: false,
+          reason: 'CCB notes do not contain the submitted summary text',
+          observedHeadCount,
+        };
       }
-      return { verified: true, reason: 'submitted notes present in CCB' };
+      return { verified: true, reason: 'submitted notes present in CCB', observedHeadCount };
     }
 
-    return { verified: true, reason: 'attendance record exists in CCB' };
+    return { verified: true, reason: 'attendance record exists in CCB', observedHeadCount };
   }
 
   // ---- Normalizers ----

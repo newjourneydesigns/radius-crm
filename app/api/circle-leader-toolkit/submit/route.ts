@@ -6,7 +6,9 @@
  *   2. Validate payload
  *   3. Format the final CCB notes blob (base notes + dynamic responses +
  *      manual roster additions + info update requests)
- *   4. Push to CCB via create_event_attendance with email_notification=leaders
+ *   4. Push to CCB via create_event_attendance with email_notification=leaders,
+ *      reconciling the occurrence's head count (see ccb-attendance-push.ts —
+ *      CCB adds head counts rather than replacing them)
  *   5. Record the submission in circle_event_summaries
  *   6. Record any manual roster additions and info-update requests
  *   7. Mark the leader's weekly event summary state (best-effort)
@@ -34,8 +36,9 @@ import { DateTime } from 'luxon';
 import { getSessionLeader, unauthorized } from '../../../../lib/circle-leader-toolkit/session';
 import { leaderOwnsEvent } from '../../../../lib/circle-leader-toolkit/events-data';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
-import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { getCCBRequestContext, recordCCBAlert } from '../../../../lib/ccb/ccb-api-gateway';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
+import { pushCircleSummaryToCCB } from '../../../../lib/circle-leader-toolkit/ccb-attendance-push';
 import {
   flattenForCCB,
   cleanManualAttendees,
@@ -176,8 +179,9 @@ export async function POST(req: Request) {
 
   // eventId/occurrence come from the request body — confirm this meeting is on
   // the signed-in leader's own Circle calendar before touching CCB. Without it,
-  // leader A could submit against leader B's eventId and overwrite B's
-  // attendance (CCB's create_event_attendance overwrites, not appends).
+  // leader A could submit against leader B's eventId and rewrite B's summary
+  // (create_event_attendance replaces the notes and merges the attendee list)
+  // or inflate B's head count (CCB adds head counts rather than replacing them).
   if (!(await leaderOwnsEvent(leader, eventId, occurrence))) {
     return NextResponse.json(
       { error: 'That meeting is not on your Circle calendar.' },
@@ -236,7 +240,7 @@ export async function POST(req: Request) {
 
   const { data: existingSummary } = await supabase
     .from('circle_event_summaries')
-    .select('status, ccb_submitted_at')
+    .select('status, ccb_submitted_at, did_not_meet, manual_attendees')
     .eq('leader_id', leader.id)
     .eq('ccb_event_id', eventId)
     .eq('occurrence', occurrence)
@@ -244,6 +248,14 @@ export async function POST(req: Request) {
   const isCCBResubmission = Boolean(
     existingSummary?.ccb_submitted_at && existingSummary?.status === 'submitted'
   );
+  // Head count an earlier submission for this occurrence already pushed into
+  // CCB. Counted even when that submission was recorded as failed: it can fail
+  // on the read-back check after CCB accepted the write. Only used to explain a
+  // count we can no longer reduce, so an over-estimate is the safe direction.
+  const previousHeadCount =
+    existingSummary && !existingSummary.did_not_meet && Array.isArray(existingSummary.manual_attendees)
+      ? existingSummary.manual_attendees.length
+      : 0;
 
   const finalNotes = formatNotesForCCB({
     baseNotes: cleanNotes,
@@ -258,109 +270,57 @@ export async function POST(req: Request) {
     await getCCBRequestContext(req, { module: 'circle-summary', action: 'submit' })
   );
 
-  let ccbResponse: unknown = null;
-  let ccbError: string | null = null;
-  let status: 'submitted' | 'failed' = 'submitted';
-  let ccbVerification: { status: 'verified' | 'failed' | 'inconclusive'; reason: string } | null =
-    null;
+  // Named attendees are idempotent per person — CCB dedupes them by individual
+  // ID — so a resubmission sends the leader's full current selection and can
+  // never double-count anyone. The head count is the opposite: CCB ADDS it, so
+  // it is reconciled against what CCB already holds inside the push helper.
+  // isCCBResubmission only tells the helper that a repeat write is expected.
+  const push = await pushCircleSummaryToCCB({
+    ccb,
+    eventId,
+    occurrence,
+    didNotMeet,
+    attendeeIds: attendeeCcbIds,
+    manualAttendeeCount: manualAttendeesForSubmit.length,
+    previousHeadCount,
+    isResubmission: isCCBResubmission,
+    topic: flattenForCCB(topic),
+    notes: finalNotes,
+    prayerRequests: flattenForCCB(cleanPrayerRequests),
+    info: flattenForCCB(cleanInfo),
+  });
 
-  // Read-back check: confirm the submitted data is actually visible in CCB.
-  // Returns { error } instead of throwing so a failed *check* (rate limit,
-  // timeout) can be told apart from CCB affirmatively showing the save missing.
-  const runCCBVerification = async (
-    ccb: ReturnType<typeof createCCBClient>,
-    expectedNotes: string
-  ): Promise<{ verified: boolean; reason: string } | { error: string }> => {
-    try {
-      return await ccb.verifyEventAttendance({
-        eventId,
-        occurrence,
-        expectedAttendeeIds: didNotMeet ? [] : attendeeCcbIds,
-        expectedNotes,
-      });
-    } catch (e: unknown) {
-      return { error: e instanceof Error ? e.message : String(e) };
-    }
-  };
+  const ccbResponse = push.response;
+  const ccbError = push.error;
+  const status = push.status;
+  const ccbVerification = push.verification;
 
-  try {
-    // CCB's create_event_attendance *sets* (overwrites) the occurrence's
-    // attendance — it does not append. A resubmission must therefore send the
-    // leader's full current selection. Previously a resubmission forced an empty
-    // attendee set (to "avoid double-counting"), but that wiped the already
-    // recorded attendance to 0. Named attendees are idempotent per person, so
-    // re-sending them can never double-count; isCCBResubmission is kept for
-    // logging/telemetry only and no longer gates the attendance payload.
-    const ccbAttendancePayload = {
-      eventId,
-      occurrence,
-      didNotMeet,
-      attendeeIds: didNotMeet ? [] : attendeeCcbIds,
-      headCount: didNotMeet ? undefined : manualAttendeesForSubmit.length,
-      topic: didNotMeet ? undefined : flattenForCCB(topic),
-      notes: finalNotes,
-      prayerRequests: didNotMeet ? undefined : flattenForCCB(cleanPrayerRequests),
-      info: didNotMeet ? undefined : flattenForCCB(cleanInfo),
-      emailNotification: 'leaders',
-    } as const;
+  // CCB can be added to but never reduced, so a head count that is already too
+  // high needs a human in CCB. Raise it where staff will see it instead of
+  // letting the occurrence quietly disagree with the summary. One open alert
+  // per occurrence — a leader resubmitting a drifted meeting shouldn't bury the
+  // rest of the CCB dashboard.
+  if (push.headCount.excessInCCB) {
+    const alertPrefix = `Event ${eventId} on ${occurrence}:`;
+    const { data: existingAlerts } = await supabase
+      .from('ccb_api_alerts')
+      .select('id')
+      .is('resolved_at', null)
+      .like('message', `${alertPrefix}%`)
+      .limit(1);
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.info('[circle-summary] CCB attendance payload counts', {
-        eventId,
-        occurrence,
-        didNotMeet,
-        isCCBResubmission,
-        rosterAttendeeCount: ccbAttendancePayload.attendeeIds.length,
-        manualAttendeeCount: manualAttendeesForSubmit.length,
-        headCount: ccbAttendancePayload.headCount,
-        totalExpectedAttendance:
-          ccbAttendancePayload.attendeeIds.length + manualAttendeesForSubmit.length,
+    if (!existingAlerts?.length) {
+      await recordCCBAlert({
+        severity: 'warning',
+        title: 'CCB head count is higher than the submitted Circle summary',
+        message:
+          `${alertPrefix} CCB counts ${push.headCount.excessInCCB} more off-roster ` +
+          `${push.headCount.excessInCCB === 1 ? 'person' : 'people'} than ` +
+          `${leader.name || 'the leader'} reported. CCB's head count can only be added to, so it ` +
+          'has to be corrected on the occurrence in CCB.',
+        service: 'create_event_attendance',
       });
     }
-
-    try {
-      ccbResponse = await ccb.createEventAttendance(ccbAttendancePayload);
-    } catch (firstError: unknown) {
-      try {
-        ccbResponse = await ccb.createEventAttendance({
-          ...ccbAttendancePayload,
-          emailNotification: 'none',
-        });
-      } catch (fallbackError: unknown) {
-        const firstMessage = firstError instanceof Error ? firstError.message : String(firstError);
-        const fallbackMessage =
-          fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        throw new Error(`${firstMessage}; fallback without email notification also failed: ${fallbackMessage}`);
-      }
-    }
-
-    // CCB has been seen answering create_event_attendance with a clean 200
-    // while silently not saving anything. Read the occurrence back and confirm
-    // the data landed; if CCB shows it missing, write once more (without the
-    // leader email, which may already have gone out) and check again.
-    let outcome = await runCCBVerification(ccb, finalNotes);
-    if ('verified' in outcome && !outcome.verified) {
-      ccbResponse = await ccb.createEventAttendance({
-        ...ccbAttendancePayload,
-        emailNotification: 'none',
-      });
-      outcome = await runCCBVerification(ccb, finalNotes);
-    }
-    if ('error' in outcome) {
-      // Only the verification *read* failed — the write itself was accepted.
-      // Treat the submission as good rather than trapping the leader in a
-      // resubmit loop over a rate limit or timeout on the check.
-      ccbVerification = { status: 'inconclusive', reason: outcome.error };
-    } else if (outcome.verified) {
-      ccbVerification = { status: 'verified', reason: outcome.reason };
-    } else {
-      ccbVerification = { status: 'failed', reason: outcome.reason };
-      status = 'failed';
-      ccbError = `CCB accepted the write but the summary is not visible in CCB after a retry: ${outcome.reason}`;
-    }
-  } catch (e: unknown) {
-    ccbError = e instanceof Error ? e.message : String(e);
-    status = 'failed';
   }
 
   // Write audit row (whether CCB succeeded or not)
@@ -395,8 +355,13 @@ export async function POST(req: Request) {
         info_update_requested: infoUpdate ?? null,
         ccb_submitted_at: status === 'submitted' ? new Date().toISOString() : null,
         // Wrap the raw write response with the read-back verification outcome
-        // so support can see whether a "submitted" row was actually confirmed.
-        ccb_response: { write: ccbResponse, verification: ccbVerification },
+        // and the head-count reconciliation, so support can see whether a
+        // "submitted" row was actually confirmed and what CCB's count did.
+        ccb_response: {
+          write: ccbResponse,
+          verification: ccbVerification,
+          headCount: push.headCount,
+        },
         ccb_error: ccbError,
         status,
         submitted_via: 'public_link',

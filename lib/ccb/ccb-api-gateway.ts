@@ -156,6 +156,12 @@ function statusFor(remaining: number | null, limit: number | null, statusCode?: 
   return 'healthy';
 }
 
+/**
+ * Raise an open CCB alert for the usage dashboard. Best-effort by design — an
+ * alert that can't be written must never take down the call it was reporting
+ * on. Exported as `recordCCBAlert` for callers outside this module that hit a
+ * CCB condition a human has to resolve.
+ */
 async function createOpenAlert(input: {
   severity: 'info' | 'warning' | 'critical';
   title: string;
@@ -174,6 +180,8 @@ async function createOpenAlert(input: {
     console.error('Failed to create CCB API alert:', error);
   }
 }
+
+export { createOpenAlert as recordCCBAlert };
 
 export async function recordCCBApiTelemetry(input: CCBApiTelemetryInput) {
   const headers = input.response?.headers || {};
