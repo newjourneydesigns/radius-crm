@@ -37,6 +37,22 @@ function readHeadCount(record: unknown): number {
 }
 
 /**
+ * CCB answers a failed write with an HTML error page as often as XML. Strip the
+ * markup so what reaches the UI is CCB's actual complaint rather than the first
+ * 200 characters of `<head>`.
+ */
+function summarizeErrorBody(data: unknown): string {
+  if (typeof data !== 'string') return 'error';
+  const text = data
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text ? text.slice(0, 300) : 'error';
+}
+
+/**
  * Flags an error whose telemetry row has already been written, so the outer
  * catch skips it instead of counting one failed call twice.
  */
@@ -480,7 +496,7 @@ export class CCBClient {
       const res = await axios(cfg);
       const durationMs = Date.now() - startedAt;
       if (res.status >= 400) {
-        const errorMessage = `HTTP ${res.status}: ${typeof res.data === 'string' ? res.data.slice(0, 200) : 'error'}`;
+        const errorMessage = `HTTP ${res.status}: ${summarizeErrorBody(res.data)}`;
         await recordCCBApiTelemetry({
           context: this.telemetryContext,
           service: srv,
@@ -767,7 +783,7 @@ ${attendeesBlock}
       const res = await axios(cfg);
       const durationMs = Date.now() - startedAt;
       if (res.status >= 400) {
-        const msg = `HTTP ${res.status}: ${typeof res.data === 'string' ? res.data.slice(0, 200) : 'error'}`;
+        const msg = `HTTP ${res.status}: ${summarizeErrorBody(res.data)}`;
         await recordCCBApiTelemetry({
           context: this.telemetryContext,
           service: srv, method: 'POST', statusCode: res.status,
