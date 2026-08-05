@@ -17,10 +17,18 @@ import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
  * Pulse, and staff push the finished list here as attendance against one event
  * occurrence.
  *
- * Deliberately narrow. It takes an event, an occurrence and a list of CCB
- * individual IDs, and does exactly one thing with them. It is NOT a generic CCB
- * passthrough, and it shouldn't grow into one — a parameterised `srv` proxy is
- * how a shared API budget and a shared write surface both get away from you.
+ * Deliberately narrow. It takes an event, an occurrence, a list of CCB
+ * individual IDs and a head count, and does exactly one thing with them. It is
+ * NOT a generic CCB passthrough, and it shouldn't grow into one — a
+ * parameterised `srv` proxy is how a shared API budget and a shared write
+ * surface both get away from you.
+ *
+ * The head count is CCB's "additional people not on this list" — people who
+ * attended but can't be named. It ADDS to the attendee list rather than
+ * describing it, so it must only ever carry people who aren't already in
+ * `attendeeIds`. Pulse uses it for completers with no CCB record (Plus Ones
+ * added by paste, who are never on a group roster): real attendance the API
+ * has no ID to file under.
  *
  * `create_event_attendance` REPLACES an occurrence's attendee list rather than
  * appending, which is the intended behaviour here: attendance answers "did you
@@ -55,10 +63,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { eventId, occurrence, attendeeIds, topic, notes } = body as {
+    const { eventId, occurrence, attendeeIds, headCount, topic, notes } = body as {
       eventId?: unknown;
       occurrence?: unknown;
       attendeeIds?: unknown;
+      headCount?: unknown;
       topic?: unknown;
       notes?: unknown;
     };
@@ -106,6 +115,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A whole number of extra bodies, or nothing. Anything unparseable becomes
+    // 0 rather than an error: a bad head count must never block attendance that
+    // is otherwise fine, and 0 is the honest answer when we don't know.
+    const extraHeadCount =
+      typeof headCount === 'number' && Number.isFinite(headCount) && headCount > 0
+        ? Math.floor(headCount)
+        : 0;
+
     // Writes go through `postXml`, which does not reserve budget the way the
     // read client does. Reserved here rather than inside the shared client so
     // the live Circle Leader toolkit submit path keeps its current behaviour.
@@ -123,7 +140,11 @@ export async function POST(request: NextRequest) {
       eventId: String(eventId),
       occurrence: occurrence.trim(),
       attendeeIds: ids,
-      headCount: ids.length,
+      // Only the people NOT in `ids`. This used to be `ids.length`, which
+      // counted every named attendee a second time (2 named + 2 extra =
+      // "Attendance - 4"). Always sent, even as 0, so a re-push clears a stale
+      // count left by that earlier version.
+      headCount: extraHeadCount,
       topic: typeof topic === 'string' ? topic : '',
       notes: typeof notes === 'string' ? notes : '',
       // Never notify. A push can be re-run several times as stragglers finish,
@@ -136,6 +157,8 @@ export async function POST(request: NextRequest) {
       eventId: String(eventId),
       occurrence: occurrence.trim(),
       count: ids.length,
+      headCount: extraHeadCount,
+      total: ids.length + extraHeadCount,
       response,
     });
   } catch (error) {
