@@ -36,6 +36,15 @@ function readHeadCount(record: unknown): number {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
 }
 
+/**
+ * Flags an error whose telemetry row has already been written, so the outer
+ * catch skips it instead of counting one failed call twice.
+ */
+function markTelemetryRecorded(error: Error): Error {
+  (error as any).telemetryRecorded = true;
+  return error;
+}
+
 function ccbBoolean(value: unknown): boolean | null {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') {
@@ -434,21 +443,37 @@ export class CCBClient {
     }
   }
 
-  async postXml<T = any>(srv: string, body: Record<string, string | number>): Promise<T> {
+  /**
+   * POST to a v1 service.
+   *
+   * `query` carries the parameters CCB expects in the query string rather than
+   * the form body. Most write services read everything from the body, but a
+   * few take their record id from the query string — those are exactly the
+   * parameters CCB's docs do *not* mark "Must be sent via HTTP POST". Getting
+   * that wrong returns a bare HTTP 500, not a readable CCB error.
+   */
+  async postXml<T = any>(
+    srv: string,
+    body: Record<string, string | number>,
+    query: Record<string, string | number> = {}
+  ): Promise<T> {
     if (IS_DEV) {
-      console.log(`🔍 CCB API POST: srv=${srv}`, body);
+      console.log(`🔍 CCB API POST: srv=${srv}`, { query, body });
     }
     const params = new URLSearchParams();
     Object.entries(body).forEach(([k, v]) => params.append(k, String(v)));
     const cfg: AxiosRequestConfig = {
       method: "POST",
       url: this.baseUrl,
-      params: { srv },
+      params: { srv, ...query },
       data: params.toString(),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       auth: { username: this.config.username, password: this.config.password },
       timeout: 30000,
-      validateStatus: (s) => s >= 200 && s < 500,
+      // Accept every status so a 5xx is handled below with CCB's response body
+      // attached, instead of axios throwing a bare "Request failed with status
+      // code 500" that says nothing about what CCB rejected.
+      validateStatus: () => true,
     };
     const startedAt = Date.now();
     try {
@@ -466,7 +491,7 @@ export class CCBClient {
           response: res,
           errorMessage,
         });
-        throw new Error(errorMessage);
+        throw markTelemetryRecorded(new Error(errorMessage));
       }
       const data = typeof res.data === "string" ? this.parser.parse(res.data) : res.data;
       // Surface CCB-level error messages embedded in a 200 response
@@ -483,7 +508,7 @@ export class CCBClient {
           response: res,
           errorMessage: msg,
         });
-        throw new Error(`CCB error: ${msg}`);
+        throw markTelemetryRecorded(new Error(`CCB error: ${msg}`));
       }
       await recordCCBApiTelemetry({
         context: this.telemetryContext,
@@ -496,7 +521,7 @@ export class CCBClient {
       });
       return data as T;
     } catch (e: any) {
-      if (!e.response) {
+      if (!e.response && !e.telemetryRecorded) {
         await recordCCBApiTelemetry({
           context: this.telemetryContext,
           service: srv,
@@ -604,21 +629,29 @@ export class CCBClient {
    *
    * Returns the group's `inactive` value as CCB reports it back, which is what
    * callers should trust over the value they sent.
+   *
+   * `id` goes in the query string, not the form body. It is the one
+   * `update_group` parameter CCB's docs leave unmarked by "Must be sent via
+   * HTTP POST", and their own example passes it that way. Sent in the body
+   * alone, CCB never sees a group to update and answers HTTP 500.
    */
   async setGroupInactive(
     groupId: string | number,
     inactive: boolean
   ): Promise<{ inactive: boolean; name: string | null }> {
-    const data = await this.postXml('update_group', {
-      id: groupId,
-      inactive: inactive ? 'true' : 'false',
-    });
+    const data = await this.postXml(
+      'update_group',
+      { inactive: inactive ? 'true' : 'false' },
+      { id: groupId }
+    );
 
     const group = data?.ccb_api?.response?.groups?.group;
     const returned = Array.isArray(group) ? group[0] : group;
 
+    // CCB is inconsistent about whether this comes back as an element or an
+    // attribute; read both, or the caller's read-back check quietly never runs.
     return {
-      inactive: ccbBoolean(returned?.inactive) ?? inactive,
+      inactive: ccbBoolean(returned?.inactive ?? returned?.['@_inactive']) ?? inactive,
       name: returned?.name ? String(returned.name) : null,
     };
   }
@@ -725,7 +758,9 @@ ${attendeesBlock}
       data: form,
       auth: { username: this.config.username, password: this.config.password },
       timeout: 30000,
-      validateStatus: (s) => s >= 200 && s < 500,
+      // As in `postXml`: take every status here so a 5xx carries CCB's body
+      // into the error and still records telemetry.
+      validateStatus: () => true,
     };
 
     try {
@@ -738,7 +773,7 @@ ${attendeesBlock}
           service: srv, method: 'POST', statusCode: res.status,
           success: false, durationMs, response: res, errorMessage: msg,
         });
-        throw new Error(msg);
+        throw markTelemetryRecorded(new Error(msg));
       }
       const data = typeof res.data === 'string' ? this.parser.parse(res.data) : res.data;
       // A body that isn't CCB XML at all (maintenance page, login redirect,
@@ -751,7 +786,7 @@ ${attendeesBlock}
           service: srv, method: 'POST', statusCode: res.status,
           success: false, durationMs, response: res, errorMessage: msg,
         });
-        throw new Error(msg);
+        throw markTelemetryRecorded(new Error(msg));
       }
       const ccbError = data?.ccb_api?.response?.errors?.error;
       if (ccbError) {
@@ -761,7 +796,7 @@ ${attendeesBlock}
           service: srv, method: 'POST', statusCode: res.status,
           success: false, durationMs, response: res, errorMessage: msg,
         });
-        throw new Error(`CCB error: ${msg}`);
+        throw markTelemetryRecorded(new Error(`CCB error: ${msg}`));
       }
       await recordCCBApiTelemetry({
         context: this.telemetryContext,
@@ -770,7 +805,7 @@ ${attendeesBlock}
       });
       return data;
     } catch (e: any) {
-      if (!e.response) {
+      if (!e.response && !e.telemetryRecorded) {
         await recordCCBApiTelemetry({
           context: this.telemetryContext,
           service: srv, method: 'POST', statusCode: undefined,

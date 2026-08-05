@@ -3,6 +3,17 @@
     "date": "2026-08-05",
     "date_display": "August 5, 2026",
     "date_iso": "2026-08-05",
+    "version": "2.46.2",
+    "id": "mass-update-ccb-status-500",
+    "type": "fix",
+    "category": "Circles",
+    "description": "Marking circles active or inactive in CCB from Mass Update failed for every circle, reporting \"Request failed with status code 500\" next to each leader's name. RADIUS was sending CCB the change to make but not the circle it applied to, so CCB had nothing to update and rejected the whole write. The circle is now identified the way CCB expects, and the update goes through. RADIUS also reads CCB's reply back to confirm each circle actually landed on the value you picked, and when CCB does reject something it now reports what CCB said instead of a bare error code.",
+    "page": "/import-circles"
+  },
+  {
+    "date": "2026-08-05",
+    "date_display": "August 5, 2026",
+    "date_iso": "2026-08-05",
     "version": "2.46.1",
     "id": "mass-update-ccb-status-timeout",
     "type": "fix",
