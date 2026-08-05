@@ -30,10 +30,19 @@ import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
  * added by paste, who are never on a group roster): real attendance the API
  * has no ID to file under.
  *
- * `create_event_attendance` REPLACES an occurrence's attendee list rather than
- * appending, which is the intended behaviour here: attendance answers "did you
- * go", so re-running a push after more people finish is idempotent rather than
- * duplicating anyone.
+ * `create_event_attendance` is only half-idempotent, and a push here is
+ * deliberately re-run as stragglers finish, so the difference matters:
+ *
+ *   - Named attendees carry an individual ID, so CCB dedupes them. Re-pushing
+ *     the same people records them once, which is what attendance means.
+ *   - `head_count` carries no ID, so CCB ADDS it to whatever the occurrence
+ *     already holds. Confirmed against CCB event 17726 on 2026-08-05: a repeat
+ *     push moved head_count from 8 to 11, exactly the 3 attendees re-sent.
+ *
+ * So the head count is sent as a delta against what CCB currently holds, and a
+ * re-push sends 0. Note that 0 *adds* nothing rather than clearing anything —
+ * an occurrence already inflated by an earlier version of this endpoint can
+ * only be corrected by hand in CCB, and is reported back rather than hidden.
  */
 
 /** Someone signed in, AND a caller that knows the shared secret. */
@@ -126,6 +135,8 @@ export async function POST(request: NextRequest) {
     // Writes go through `postXml`, which does not reserve budget the way the
     // read client does. Reserved here rather than inside the shared client so
     // the live Circle Leader toolkit submit path keeps its current behaviour.
+    // The head-count read below goes through `getXml` and reserves its own
+    // unit, so a push that carries unnamed people costs two of the day's calls.
     await reserveCCBDailyBudget();
 
     const ccb = createCCBClient(
@@ -136,15 +147,46 @@ export async function POST(request: NextRequest) {
       })
     );
 
+    // What to add so CCB lands on `extraHeadCount`, rather than adding that
+    // many people again on every re-push. Costs one read, and only when there
+    // are unnamed people to account for — a push that is all named attendees
+    // sends 0, which adds nothing whether or not we looked first.
+    let headCountToSend = 0;
+    let headCountInCCB: number | null = null;
+    let headCountExcess = 0;
+    let headCountNote: string | null = null;
+
+    if (extraHeadCount > 0) {
+      try {
+        headCountInCCB = (await ccb.getAttendanceHeadCount({
+          eventId: String(eventId),
+          occurrence: occurrence.trim(),
+        })) ?? 0;
+        headCountToSend = Math.max(0, extraHeadCount - headCountInCCB);
+        headCountExcess = Math.max(0, headCountInCCB - extraHeadCount);
+        if (headCountExcess > 0) {
+          headCountNote =
+            `CCB already counts ${headCountInCCB} unnamed ${headCountInCCB === 1 ? 'person' : 'people'} ` +
+            `for this occurrence, more than the ${extraHeadCount} pushed. CCB can only be added to, ` +
+            'so the extra has to be corrected on the occurrence in CCB.';
+        }
+      } catch (e: unknown) {
+        // Budget ceiling, rate limit, timeout. Send nothing rather than risk
+        // double-counting: the named attendees still land, and the next push
+        // reconciles the head count once the read works again.
+        headCountNote = `CCB's current head count could not be read (${e instanceof Error ? e.message : String(e)}); sent 0 rather than risk double-counting. Re-push to reconcile.`;
+        console.warn('[lab-attendance] head count read failed:', headCountNote);
+      }
+    }
+
     const response = await ccb.createEventAttendance({
       eventId: String(eventId),
       occurrence: occurrence.trim(),
       attendeeIds: ids,
-      // Only the people NOT in `ids`. This used to be `ids.length`, which
-      // counted every named attendee a second time (2 named + 2 extra =
-      // "Attendance - 4"). Always sent, even as 0, so a re-push clears a stale
-      // count left by that earlier version.
-      headCount: extraHeadCount,
+      // Only the people NOT in `ids`, and only the ones CCB isn't already
+      // counting. This used to be `ids.length`, which counted every named
+      // attendee a second time (2 named + 2 extra = "Attendance - 4").
+      headCount: headCountToSend,
       topic: typeof topic === 'string' ? topic : '',
       notes: typeof notes === 'string' ? notes : '',
       // Never notify. A push can be re-run several times as stragglers finish,
@@ -158,6 +200,10 @@ export async function POST(request: NextRequest) {
       occurrence: occurrence.trim(),
       count: ids.length,
       headCount: extraHeadCount,
+      headCountSent: headCountToSend,
+      headCountInCCB,
+      ...(headCountExcess > 0 ? { headCountExcess } : {}),
+      ...(headCountNote ? { headCountNote } : {}),
       total: ids.length + extraHeadCount,
       response,
     });
