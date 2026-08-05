@@ -3,6 +3,17 @@
     "date": "2026-08-05",
     "date_display": "August 5, 2026",
     "date_iso": "2026-08-05",
+    "version": "2.46.1",
+    "id": "mass-update-ccb-status-timeout",
+    "type": "fix",
+    "category": "Circles",
+    "description": "Marking circles active or inactive in CCB from Mass Update failed with a server timeout when more than a couple of circles were selected. Each circle is a separate call out to CCB, and the whole selection was being sent as one request that ran past the time limit -- so the update died with no report, even though some circles had already been changed. Mass Update now sends circles to CCB in small batches, shows its progress as it works through them, and if a batch does fail it tells you exactly how many were updated before it stopped. Re-running is safe: circles already set to the value you picked are left alone.",
+    "page": "/import-circles"
+  },
+  {
+    "date": "2026-08-05",
+    "date_display": "August 5, 2026",
+    "date_iso": "2026-08-05",
     "version": "2.46.0",
     "id": "mass-update-ccb-circle-status",
     "type": "feature",

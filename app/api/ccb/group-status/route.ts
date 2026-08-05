@@ -9,9 +9,15 @@ import {
   reserveCCBDailyBudget,
 } from '../../../../lib/ccb/ccb-api-gateway';
 
-// One CCB write per leader, so a runaway selection would burn the day's budget
-// in a single request. Large re-activations get split into batches instead.
-const MAX_LEADERS_PER_REQUEST = 100;
+// Matches the other long-running routes in this app. Without it the Netlify
+// function inherits the 10s default, and a handful of CCB writes blows straight
+// through that into a 504.
+export const maxDuration = 60;
+
+// One CCB write per leader, each a round trip to CCB — so a request has to stay
+// small enough to finish well inside `maxDuration`. The client chunks a large
+// selection into several of these calls rather than sending it all at once.
+const MAX_LEADERS_PER_REQUEST = 10;
 
 interface LeaderOutcome {
   id: number;

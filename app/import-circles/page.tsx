@@ -86,6 +86,13 @@ const MASS_UPDATE_FIELD_LABELS: Record<MassUpdateField, string> = {
 const isCcbField = (field: MassUpdateField) => field === 'ccb_group_status';
 
 /**
+ * How many circles go to CCB per request. Each one is its own round trip, so a
+ * batch has to finish comfortably inside the serverless function's time limit —
+ * small batches also mean a failure costs one batch, not the whole run.
+ */
+const CCB_STATUS_BATCH_SIZE = 5;
+
+/**
  * A run that updated some rows but not all is neither a success nor a failure —
  * it gets its own tone so a partial CCB write never reads as "all done".
  */
@@ -263,6 +270,7 @@ export default function ImportCirclesPage() {
   const [massUpdateSearching, setMassUpdateSearching] = useState(false);
   const [massUpdateResult, setMassUpdateResult] = useState<MassUpdateResult | null>(null);
   const [ccbConfirmOpen, setCcbConfirmOpen] = useState(false);
+  const [ccbProgress, setCcbProgress] = useState<{ done: number; total: number } | null>(null);
   const [referenceData, setReferenceData] = useState<ReferenceData>({ directors: [], campuses: [], circleTypes: [], frequencies: [] });
 
   // Inline row edit state
@@ -478,24 +486,64 @@ export default function ImportCirclesPage() {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
 
-    const res = await fetch('/api/ccb/group-status', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        leaderIds: Array.from(massUpdateSelected),
-        inactive: massUpdateValue === 'inactive',
-      }),
-    });
+    const inactive = massUpdateValue === 'inactive';
+    const ids = Array.from(massUpdateSelected);
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'CCB update failed');
+    // Every leader is a separate round trip to CCB, so one request for the whole
+    // selection runs past the function timeout and returns a 504 — losing the
+    // report even though the writes happened. Send small batches instead, and
+    // keep the running tally so a failure mid-way still says what landed.
+    const chunks: number[][] = [];
+    for (let i = 0; i < ids.length; i += CCB_STATUS_BATCH_SIZE) {
+      chunks.push(ids.slice(i, i + CCB_STATUS_BATCH_SIZE));
+    }
 
-    setMassUpdateResult({
-      updated: data.updated,
-      failed: data.failed || [],
-      skipped: data.skipped || [],
-      budgetStopped: data.budgetStoppedAfter !== null && data.budgetStoppedAfter !== undefined,
-    });
+    const tally: MassUpdateResult = { updated: 0, failed: [], skipped: [] };
+    let done = 0;
+
+    for (const chunk of chunks) {
+      setCcbProgress({ done, total: ids.length });
+
+      let data: any;
+      try {
+        const res = await fetch('/api/ccb/group-status', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ leaderIds: chunk, inactive }),
+        });
+        data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            data?.error ||
+              (res.status === 504
+                ? 'CCB timed out on this batch'
+                : `Update failed (HTTP ${res.status})`)
+          );
+        }
+      } catch (err: any) {
+        // Report the batches that already landed rather than throwing all of it
+        // away — the ones before this point are real changes in CCB.
+        setMassUpdateResult({
+          ...tally,
+          error: `${err.message}. ${tally.updated} of ${ids.length} updated in CCB before it stopped — re-run to finish the rest; the ones already set stay as they are.`,
+        });
+        setCcbProgress(null);
+        return;
+      }
+
+      tally.updated += data.updated || 0;
+      tally.failed = [...(tally.failed || []), ...(data.failed || [])];
+      tally.skipped = [...(tally.skipped || []), ...(data.skipped || [])];
+      done += chunk.length;
+
+      if (data.budgetStoppedAfter !== null && data.budgetStoppedAfter !== undefined) {
+        tally.budgetStopped = true;
+        break;
+      }
+    }
+
+    setCcbProgress(null);
+    setMassUpdateResult(tally);
   };
 
   const runFieldUpdate = async () => {
@@ -539,6 +587,7 @@ export default function ImportCirclesPage() {
       setMassUpdateResult({ updated: 0, error: err.message });
     } finally {
       setMassUpdateLoading(false);
+      setCcbProgress(null);
     }
   };
 
@@ -1099,8 +1148,10 @@ export default function ImportCirclesPage() {
                             className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                           >
                             {massUpdateLoading
-                              ? 'Updating CCB...'
-                              : `Yes, update CCB`}
+                              ? ccbProgress && ccbProgress.total > CCB_STATUS_BATCH_SIZE
+                                ? `Updating CCB… ${ccbProgress.done} of ${ccbProgress.total}`
+                                : 'Updating CCB…'
+                              : 'Yes, update CCB'}
                           </button>
                           <button
                             onClick={() => setCcbConfirmOpen(false)}
