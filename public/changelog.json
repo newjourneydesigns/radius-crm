@@ -3,6 +3,16 @@
     "date": "2026-08-05",
     "date_display": "August 5, 2026",
     "date_iso": "2026-08-05",
+    "id": "mass-update-ccb-circle-status",
+    "type": "feature",
+    "category": "Circles",
+    "description": "You can now mark circles active or inactive in Church Community Builder straight from Mass Update. Pick \"CCB Circle Status\" under the new CCB group in the Field to Update list, choose Active or Inactive, select your leaders, and confirm -- RADIUS updates each circle's group in CCB for you, instead of you opening CCB and editing them one at a time. This one writes to CCB rather than RADIUS, so it's marked in amber and asks you to confirm before it runs, and a leader's RADIUS status is left exactly as it was. Leaders with no CCB circle linked are named up front and skipped, and anything CCB rejects is listed by name afterward so nothing fails quietly.",
+    "page": "/import-circles"
+  },
+  {
+    "date": "2026-08-05",
+    "date_display": "August 5, 2026",
+    "date_iso": "2026-08-05",
     "id": "circle-summary-head-count-accumulation",
     "type": "fix",
     "category": "Circles Toolkit",

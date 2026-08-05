@@ -54,6 +54,53 @@ interface MassUpdateLeader {
   time: string | null;
   meeting_start_date: string | null;
   email_reminders_enabled: boolean;
+  ccb_group_id: string | null;
+}
+
+type MassUpdateField =
+  | 'campus'
+  | 'acpd'
+  | 'frequency'
+  | 'circle_type'
+  | 'day'
+  | 'time'
+  | 'meeting_start_date'
+  | 'status'
+  | 'email_reminders_enabled'
+  | 'ccb_group_status';
+
+const MASS_UPDATE_FIELD_LABELS: Record<MassUpdateField, string> = {
+  campus: 'Campus',
+  acpd: 'ACPD / Director',
+  frequency: 'Frequency',
+  circle_type: 'Circle Type',
+  day: 'Meeting Day',
+  time: 'Meeting Time',
+  meeting_start_date: 'Bi-weekly Start Date',
+  status: 'Status',
+  email_reminders_enabled: 'Circle Summary Email Reminders',
+  ccb_group_status: 'CCB Circle Status',
+};
+
+/** The one field that writes outside RADIUS, straight into CCB. */
+const isCcbField = (field: MassUpdateField) => field === 'ccb_group_status';
+
+/**
+ * A run that updated some rows but not all is neither a success nor a failure —
+ * it gets its own tone so a partial CCB write never reads as "all done".
+ */
+function resultTone(result: MassUpdateResult): 'error' | 'partial' | 'success' {
+  if (result.error || result.updated === 0) return 'error';
+  if (result.failed?.length || result.budgetStopped) return 'partial';
+  return 'success';
+}
+
+interface MassUpdateResult {
+  updated: number;
+  error?: string;
+  failed?: { id: number; name: string; error?: string }[];
+  skipped?: { id: number; name: string }[];
+  budgetStopped?: boolean;
 }
 
 interface RowEditValues {
@@ -206,7 +253,7 @@ export default function ImportCirclesPage() {
   }, [preview, previewAcpd, accessToken]);
 
   // Mass Update state
-  const [massUpdateField, setMassUpdateField] = useState<'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date' | 'status' | 'email_reminders_enabled'>('campus');
+  const [massUpdateField, setMassUpdateField] = useState<MassUpdateField>('campus');
   const [massUpdateValue, setMassUpdateValue] = useState('');
   const [massUpdateFilterField, setMassUpdateFilterField] = useState<'all' | 'campus' | 'acpd'>('all');
   const [massUpdateFilterValue, setMassUpdateFilterValue] = useState('');
@@ -214,7 +261,8 @@ export default function ImportCirclesPage() {
   const [massUpdateSelected, setMassUpdateSelected] = useState<Set<number>>(new Set());
   const [massUpdateLoading, setMassUpdateLoading] = useState(false);
   const [massUpdateSearching, setMassUpdateSearching] = useState(false);
-  const [massUpdateResult, setMassUpdateResult] = useState<{ updated: number; error?: string } | null>(null);
+  const [massUpdateResult, setMassUpdateResult] = useState<MassUpdateResult | null>(null);
+  const [ccbConfirmOpen, setCcbConfirmOpen] = useState(false);
   const [referenceData, setReferenceData] = useState<ReferenceData>({ directors: [], campuses: [], circleTypes: [], frequencies: [] });
 
   // Inline row edit state
@@ -360,6 +408,7 @@ export default function ImportCirclesPage() {
         time: l.time || null,
         meeting_start_date: l.meeting_start_date || null,
         email_reminders_enabled: Boolean(l.email_reminders_enabled),
+        ccb_group_id: l.ccb_group_id || null,
       }));
 
       if (massUpdateFilterField === 'campus' && massUpdateFilterValue) {
@@ -415,27 +464,77 @@ export default function ImportCirclesPage() {
     setMassUpdateSelected(new Set());
   };
 
+  // Selected leaders with no CCB group on file — CCB status can't reach them,
+  // so they're surfaced before the write rather than reported after it.
+  const selectedWithoutCcbGroup = useMemo(
+    () =>
+      massUpdateLeaders.filter(
+        (l) => massUpdateSelected.has(l.id) && !l.ccb_group_id
+      ),
+    [massUpdateLeaders, massUpdateSelected]
+  );
+
+  const runCcbStatusUpdate = async () => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+    const res = await fetch('/api/ccb/group-status', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        leaderIds: Array.from(massUpdateSelected),
+        inactive: massUpdateValue === 'inactive',
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'CCB update failed');
+
+    setMassUpdateResult({
+      updated: data.updated,
+      failed: data.failed || [],
+      skipped: data.skipped || [],
+      budgetStopped: data.budgetStoppedAfter !== null && data.budgetStoppedAfter !== undefined,
+    });
+  };
+
+  const runFieldUpdate = async () => {
+    const res = await fetch('/api/circle-leaders', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        leaderIds: Array.from(massUpdateSelected),
+        field: massUpdateField,
+        value: massUpdateValue,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Update failed');
+
+    setMassUpdateResult({ updated: data.updated });
+  };
+
   const handleMassUpdate = async () => {
     if (massUpdateSelected.size === 0 || massUpdateValue === '') return;
+
+    // Writing to CCB touches the church's system of record, so it takes a
+    // deliberate second step. Everything else stays one click.
+    if (isCcbField(massUpdateField) && !ccbConfirmOpen) {
+      setCcbConfirmOpen(true);
+      return;
+    }
 
     setMassUpdateLoading(true);
     setMassUpdateResult(null);
     try {
-      const res = await fetch('/api/circle-leaders', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leaderIds: Array.from(massUpdateSelected),
-          field: massUpdateField,
-          value: massUpdateValue,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Update failed');
-
-      setMassUpdateResult({ updated: data.updated });
-      await searchLeadersForMassUpdate();
+      if (isCcbField(massUpdateField)) {
+        await runCcbStatusUpdate();
+      } else {
+        await runFieldUpdate();
+        await searchLeadersForMassUpdate();
+      }
+      setCcbConfirmOpen(false);
     } catch (err: any) {
       setMassUpdateResult({ updated: 0, error: err.message });
     } finally {
@@ -507,7 +606,7 @@ export default function ImportCirclesPage() {
                     Mass Update Circles
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                    Select circle leaders and update their Campus, ACPD, Frequency, Circle Type, or Circle Summary email reminders in bulk.
+                    Select circle leaders and update their Campus, ACPD, Frequency, Circle Type, or Circle Summary email reminders in bulk — or mark their circles active or inactive in CCB.
                   </p>
 
                   {/* Filter controls */}
@@ -564,32 +663,51 @@ export default function ImportCirclesPage() {
                   </div>
 
                   {/* Update target controls */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg ${
+                    isCcbField(massUpdateField)
+                      ? 'bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-300 dark:ring-amber-700/60'
+                      : 'bg-blue-50 dark:bg-blue-900/20'
+                  }`}>
                     <div>
-                      <label className="block text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
+                      <label className={`block text-sm font-medium mb-1 ${
+                        isCcbField(massUpdateField)
+                          ? 'text-amber-900 dark:text-amber-300'
+                          : 'text-blue-800 dark:text-blue-300'
+                      }`}>
                         Field to Update
                       </label>
                       <select
                         value={massUpdateField}
                         onChange={(e) => {
-                          setMassUpdateField(e.target.value as 'campus' | 'acpd' | 'frequency' | 'circle_type' | 'day' | 'time' | 'meeting_start_date' | 'status' | 'email_reminders_enabled');
+                          setMassUpdateField(e.target.value as MassUpdateField);
                           setMassUpdateValue('');
+                          setCcbConfirmOpen(false);
+                          setMassUpdateResult(null);
                         }}
                         className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm"
                       >
-                        <option value="campus">Campus</option>
-                        <option value="acpd">ACPD / Director</option>
-                        <option value="frequency">Frequency</option>
-                        <option value="circle_type">Circle Type</option>
-                        <option value="day">Meeting Day</option>
-                        <option value="time">Meeting Time</option>
-                        <option value="meeting_start_date">Bi-weekly Start Date</option>
-                        <option value="status">Status</option>
-                        <option value="email_reminders_enabled">Circle Summary Email Reminders</option>
+                        <optgroup label="RADIUS">
+                          <option value="campus">Campus</option>
+                          <option value="acpd">ACPD / Director</option>
+                          <option value="frequency">Frequency</option>
+                          <option value="circle_type">Circle Type</option>
+                          <option value="day">Meeting Day</option>
+                          <option value="time">Meeting Time</option>
+                          <option value="meeting_start_date">Bi-weekly Start Date</option>
+                          <option value="status">Status</option>
+                          <option value="email_reminders_enabled">Circle Summary Email Reminders</option>
+                        </optgroup>
+                        <optgroup label="CCB">
+                          <option value="ccb_group_status">CCB Circle Status</option>
+                        </optgroup>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
+                      <label className={`block text-sm font-medium mb-1 ${
+                        isCcbField(massUpdateField)
+                          ? 'text-amber-900 dark:text-amber-300'
+                          : 'text-blue-800 dark:text-blue-300'
+                      }`}>
                         New Value
                       </label>
                       {massUpdateField === 'time' ? (
@@ -609,7 +727,10 @@ export default function ImportCirclesPage() {
                       ) : (
                         <select
                           value={massUpdateValue}
-                          onChange={(e) => setMassUpdateValue(e.target.value)}
+                          onChange={(e) => {
+                            setMassUpdateValue(e.target.value);
+                            setCcbConfirmOpen(false);
+                          }}
                           className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-vc-500 focus:ring-vc-500 sm:text-sm"
                         >
                           <option value="">-- Select New Value --</option>
@@ -648,12 +769,27 @@ export default function ImportCirclesPage() {
                                 <option value="false">Turn Off</option>
                               </>
                             )
+                            : massUpdateField === 'ccb_group_status'
+                            ? (
+                              <>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                              </>
+                            )
                             : referenceData.circleTypes.map((ct) => (
                                 <option key={ct.id} value={ct.value}>{ct.value}</option>
                               ))}
                         </select>
                       )}
                     </div>
+
+                    {isCcbField(massUpdateField) && (
+                      <p className="md:col-span-2 text-sm text-amber-900 dark:text-amber-200/90">
+                        This writes to CCB, not RADIUS. Each selected circle&rsquo;s group is
+                        marked active or inactive in CCB directly. Their RADIUS status is left
+                        alone — use the Status field for that.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -908,8 +1044,9 @@ export default function ImportCirclesPage() {
                       <div className="text-sm text-gray-500 dark:text-gray-400">
                         {massUpdateSelected.size > 0 && massUpdateValue !== '' ? (
                           <span>
-                            Will set <strong>{massUpdateField === 'campus' ? 'Campus' : massUpdateField === 'acpd' ? 'ACPD' : massUpdateField === 'frequency' ? 'Frequency' : massUpdateField === 'day' ? 'Meeting Day' : massUpdateField === 'time' ? 'Meeting Time' : massUpdateField === 'meeting_start_date' ? 'Bi-weekly Start Date' : massUpdateField === 'status' ? 'Status' : massUpdateField === 'email_reminders_enabled' ? 'Circle Summary Email Reminders' : 'Circle Type'}</strong> to{' '}
-                            <strong>&ldquo;{massUpdateField === 'time' ? formatTime(massUpdateValue) : massUpdateField === 'email_reminders_enabled' ? (massUpdateValue === 'true' ? 'On' : 'Off') : massUpdateValue}&rdquo;</strong> for{' '}
+                            Will set <strong>{MASS_UPDATE_FIELD_LABELS[massUpdateField]}</strong> to{' '}
+                            <strong>&ldquo;{massUpdateField === 'time' ? formatTime(massUpdateValue) : massUpdateField === 'email_reminders_enabled' ? (massUpdateValue === 'true' ? 'On' : 'Off') : massUpdateField === 'ccb_group_status' ? (massUpdateValue === 'inactive' ? 'Inactive' : 'Active') : massUpdateValue}&rdquo;</strong>{' '}
+                            {isCcbField(massUpdateField) ? 'in CCB for' : 'for'}{' '}
                             <strong>{massUpdateSelected.size}</strong> leader{massUpdateSelected.size !== 1 ? 's' : ''}
                           </span>
                         ) : (
@@ -918,18 +1055,71 @@ export default function ImportCirclesPage() {
                       </div>
                       <button
                         onClick={handleMassUpdate}
-                        disabled={massUpdateLoading || massUpdateSelected.size === 0 || massUpdateValue === ''}
-                        className="btn-primary px-6 py-2 rounded-lg text-sm"
+                        disabled={massUpdateLoading || massUpdateSelected.size === 0 || massUpdateValue === '' || ccbConfirmOpen}
+                        className="btn-primary px-6 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {massUpdateLoading ? 'Updating...' : `Update ${massUpdateSelected.size} Leader${massUpdateSelected.size !== 1 ? 's' : ''}`}
                       </button>
                     </div>
 
+                    {/* CCB write confirmation */}
+                    {ccbConfirmOpen && isCcbField(massUpdateField) && (
+                      <div className="mt-4 p-4 rounded-md bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-300 dark:ring-amber-700/60">
+                        <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                          Mark {massUpdateSelected.size - selectedWithoutCcbGroup.length} circle
+                          {massUpdateSelected.size - selectedWithoutCcbGroup.length !== 1 ? 's' : ''}{' '}
+                          {massUpdateValue === 'inactive' ? 'inactive' : 'active'} in CCB?
+                        </p>
+                        <p className="mt-1 text-sm text-amber-800 dark:text-amber-200/80">
+                          This changes CCB itself, and takes effect for everyone using it. To undo,
+                          run the same update with the opposite value.
+                        </p>
+
+                        {selectedWithoutCcbGroup.length > 0 && (
+                          <p className="mt-2 text-sm text-amber-800 dark:text-amber-200/80">
+                            {selectedWithoutCcbGroup.length} selected leader
+                            {selectedWithoutCcbGroup.length !== 1 ? 's have' : ' has'} no CCB circle
+                            linked and will be skipped:{' '}
+                            <span className="font-medium">
+                              {selectedWithoutCcbGroup.slice(0, 5).map((l) => l.name).join(', ')}
+                              {selectedWithoutCcbGroup.length > 5
+                                ? ` +${selectedWithoutCcbGroup.length - 5} more`
+                                : ''}
+                            </span>
+                          </p>
+                        )}
+
+                        <div className="mt-3 flex items-center gap-3">
+                          <button
+                            onClick={handleMassUpdate}
+                            disabled={
+                              massUpdateLoading ||
+                              massUpdateSelected.size === selectedWithoutCcbGroup.length
+                            }
+                            className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {massUpdateLoading
+                              ? 'Updating CCB...'
+                              : `Yes, update CCB`}
+                          </button>
+                          <button
+                            onClick={() => setCcbConfirmOpen(false)}
+                            disabled={massUpdateLoading}
+                            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Result banner */}
                     {massUpdateResult && (
                       <div className={`mt-4 p-4 rounded-md ${
-                        massUpdateResult.error
+                        resultTone(massUpdateResult) === 'error'
                           ? 'bg-red-50 dark:bg-red-900/20'
+                          : resultTone(massUpdateResult) === 'partial'
+                          ? 'bg-amber-50 dark:bg-amber-900/20'
                           : 'bg-green-50 dark:bg-green-900/20'
                       }`}>
                         {massUpdateResult.error ? (
@@ -942,13 +1132,47 @@ export default function ImportCirclesPage() {
                             </p>
                           </div>
                         ) : (
-                          <div className="flex items-center">
-                            <svg className="w-5 h-5 text-green-600 dark:text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                            <p className="text-sm text-green-800 dark:text-green-300">
-                              Successfully updated {massUpdateResult.updated} leader{massUpdateResult.updated !== 1 ? 's' : ''}!
-                            </p>
+                          <div>
+                            <div className="flex items-center">
+                              <svg className={`w-5 h-5 mr-2 ${resultTone(massUpdateResult) === 'error' ? 'text-red-600 dark:text-red-400' : resultTone(massUpdateResult) === 'partial' ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={resultTone(massUpdateResult) === 'error' ? 'M6 18L18 6M6 6l12 12' : resultTone(massUpdateResult) === 'partial' ? 'M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z' : 'M5 13l4 4L19 7'} />
+                              </svg>
+                              <p className={`text-sm ${resultTone(massUpdateResult) === 'error' ? 'text-red-800 dark:text-red-300' : resultTone(massUpdateResult) === 'partial' ? 'text-amber-900 dark:text-amber-200' : 'text-green-800 dark:text-green-300'}`}>
+                                {isCcbField(massUpdateField)
+                                  ? `Marked ${massUpdateResult.updated} circle${massUpdateResult.updated !== 1 ? 's' : ''} ${massUpdateValue === 'inactive' ? 'inactive' : 'active'} in CCB.`
+                                  : `Successfully updated ${massUpdateResult.updated} leader${massUpdateResult.updated !== 1 ? 's' : ''}!`}
+                              </p>
+                            </div>
+
+                            {massUpdateResult.skipped && massUpdateResult.skipped.length > 0 && (
+                              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                                Skipped {massUpdateResult.skipped.length} with no CCB circle linked:{' '}
+                                {massUpdateResult.skipped.map((s) => s.name).join(', ')}
+                              </p>
+                            )}
+
+                            {massUpdateResult.failed && massUpdateResult.failed.length > 0 && (
+                              <div className="mt-2 text-sm text-red-800 dark:text-red-300">
+                                <p className="font-medium">
+                                  {massUpdateResult.failed.length} did not update in CCB:
+                                </p>
+                                <ul className="mt-1 list-disc list-inside space-y-0.5">
+                                  {massUpdateResult.failed.map((f) => (
+                                    <li key={f.id}>
+                                      {f.name}
+                                      {f.error ? ` — ${f.error}` : ''}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {massUpdateResult.budgetStopped && (
+                              <p className="mt-2 text-sm text-amber-800 dark:text-amber-300">
+                                Stopped early — today&rsquo;s CCB call budget ran out. Re-run for the
+                                remaining leaders after it resets.
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>

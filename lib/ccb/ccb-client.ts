@@ -595,6 +595,35 @@ export class CCBClient {
   }
 
   /**
+   * Activate or deactivate a group in CCB.
+   *
+   * `update_group` is a general-purpose group updater, but it only touches the
+   * fields it is sent — so passing `inactive` alone leaves the rest of the
+   * group profile untouched. v2 has no equivalent: its `PUT /groups/{id}`
+   * accepts `main_leader_id` and nothing else, so this stays on v1.
+   *
+   * Returns the group's `inactive` value as CCB reports it back, which is what
+   * callers should trust over the value they sent.
+   */
+  async setGroupInactive(
+    groupId: string | number,
+    inactive: boolean
+  ): Promise<{ inactive: boolean; name: string | null }> {
+    const data = await this.postXml('update_group', {
+      id: groupId,
+      inactive: inactive ? 'true' : 'false',
+    });
+
+    const group = data?.ccb_api?.response?.groups?.group;
+    const returned = Array.isArray(group) ? group[0] : group;
+
+    return {
+      inactive: ccbBoolean(returned?.inactive) ?? inactive,
+      name: returned?.name ? String(returned.name) : null,
+    };
+  }
+
+  /**
    * Write attendance for one event occurrence.
    *
    * CCB's `create_event_attendance` is only half-idempotent, and the difference
