@@ -12,6 +12,8 @@ export interface CCBPerson {
   phone: string;
   mobilePhone: string;
   profileLink: string;
+  /** Only populated when `withFullProfile` is set — search results don't carry it. */
+  birthday?: string;
 }
 
 interface CCBPersonLookupProps {
@@ -27,6 +29,12 @@ interface CCBPersonLookupProps {
   className?: string;
   /** Size variant */
   size?: 'sm' | 'md';
+  /**
+   * Follow the selection with a profile fetch so `onSelect` also receives the
+   * birthday (and CCB's authoritative email/phone). Costs one extra CCB call
+   * per selection, so it's opt-in — only forms that store a birthday need it.
+   */
+  withFullProfile?: boolean;
 }
 
 export default function CCBPersonLookup({
@@ -36,10 +44,12 @@ export default function CCBPersonLookup({
   autoFocus = false,
   className = '',
   size = 'md',
+  withFullProfile = false,
 }: CCBPersonLookupProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<CCBPerson[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [selectedFromCCB, setSelectedFromCCB] = useState(false);
@@ -108,12 +118,49 @@ export default function CCBPersonLookup({
     }
   };
 
-  const handleSelectPerson = (person: CCBPerson) => {
+  const handleSelectPerson = async (person: CCBPerson) => {
     setSearchQuery(person.fullName);
     setSelectedFromCCB(true);
     setShowResults(false);
     setSearchResults([]);
+
+    if (!withFullProfile) {
+      onSelect(person);
+      return;
+    }
+
+    // Hand back the search result first so the form fills immediately, then
+    // top it up with the profile. A CCB hiccup on the second call costs the
+    // birthday, not the selection.
     onSelect(person);
+    setIsLoadingProfile(true);
+    setSearchError('');
+
+    try {
+      const res = await apiFetch('/api/ccb/person-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ individual_id: person.id }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.details || errData.error || 'Could not load the full CCB profile');
+      }
+
+      const { data } = await res.json();
+      onSelect({
+        ...person,
+        email: data?.email || person.email,
+        phone: data?.phone || person.phone,
+        mobilePhone: data?.mobilePhone || person.mobilePhone,
+        birthday: data?.birthday || '',
+      });
+    } catch (err: any) {
+      setSearchError(`${err.message}. Contact details came across; the birthday did not.`);
+    } finally {
+      setIsLoadingProfile(false);
+    }
   };
 
   // On touch, tapping a result blurs the search input, which dismisses the
@@ -171,7 +218,7 @@ export default function CCBPersonLookup({
           autoFocus={autoFocus}
         />
         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-          {isSearching ? (
+          {isSearching || isLoadingProfile ? (
             <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

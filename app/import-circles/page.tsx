@@ -1252,6 +1252,11 @@ export default function ImportCirclesPage() {
             <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Import a Circle from CCB</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               Enter a CCB Group ID. We&apos;ll pull the circle&apos;s details and leader so you can review before importing.
+              Not in CCB yet?{' '}
+              <Link href="/leaders/new" className="text-blue-500 hover:underline">
+                Add the leader by hand
+              </Link>{' '}
+              instead.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <input

@@ -33,6 +33,39 @@
     "page": "/campaigns"
   },
   {
+    "date": "2026-08-06",
+    "date_display": "August 6, 2026",
+    "date_iso": "2026-08-06",
+    "version": "2.48.0",
+    "id": "resync-ccb-wrong-values",
+    "type": "fix",
+    "category": "Circles",
+    "description": "\"Re-sync from CCB\" on a leader's profile was proposing changes that were wrong every single time, and it turned out to be three separate problems. Circle Type was being read from the wrong place in CCB -- it was pulling CCB's own group category (\"Small Group\") instead of the Circle Type field your team fills in, so every re-sync offered to overwrite Men's or YA | Co-Ed with something meaningless. Values that were already correct were being flagged as changes because they were merely spelled differently: a circle stored as \"7:00 PM\" looked different from CCB's \"19:00\", \"1st & 3rd\" looked different from \"1st, 3rd\", and \"Bi-Weekly\" looked different from \"Bi-weekly\" -- so a re-sync could never come back clean, and accepting one left the circle in a format the profile dropdowns couldn't match. And it was all-or-nothing: one bad row meant cancelling the whole thing, so genuinely useful updates like a new meeting time or a missing phone number couldn't be taken on their own. Circle Type now comes from the right field, matching values are recognised as matching and left alone, whatever you do accept is saved in RADIUS's own format, and every change has its own tick box so you can take the good ones and leave the rest -- handy for circles led by a couple, where CCB only knows one of the two names.",
+    "page": "/search"
+  },
+  {
+    "date": "2026-08-06",
+    "date_display": "August 6, 2026",
+    "date_iso": "2026-08-06",
+    "version": "2.48.0",
+    "id": "add-leader-manually",
+    "type": "feature",
+    "category": "Circles",
+    "description": "You can add a leader by hand again, on a new Add a Leader page. Importing from CCB had become the only way in, which left no room for an invited leader, someone in the pipeline, a circle with no CCB group, or a team with no scheduling category. Start by searching CCB for the person -- their name, email, phone and birthday come straight across, and their profile link is recorded for you -- or skip the search and type everything yourself. Then pick whether you're adding a Circle Leader or a Team Leader and the form follows: a circle asks for its circle name, meeting day, time, frequency and circle type with an ACPD as its director, while a team asks for its team name with a director from the team directors list. Name is the only thing required; everything else can wait until later on the leader's profile. Bi-weekly circles get their start date field, and if the circle or team already exists in CCB you can record its group or category ID. Type a name that's already in RADIUS and you'll get a heads-up before you create a duplicate. Once saved, the leader opens straight to their profile. You'll find it in the sidebar under Admin Tools, as an \"Add Leader\" button on Find a Circle, and linked from both import pages.",
+    "page": "/leaders/new"
+  },
+  {
+    "date": "2026-08-06",
+    "date_display": "August 6, 2026",
+    "date_iso": "2026-08-06",
+    "version": "2.48.0",
+    "id": "import-team-birthday-from-ccb",
+    "type": "improvement",
+    "category": "Teams Toolkit",
+    "description": "Looking a leader up on Import Host Team now brings their birthday over too, alongside the name, email and phone it already filled in. CCB's search results don't carry birthdays -- only the full profile does -- so the birthday was quietly being left behind and had to be added by hand later. There's a Birthday field on the form now, filled in for you when you use the lookup and editable if CCB has it wrong or missing. If CCB is slow or unreachable on that second step, the contact details still come across and you're told the birthday didn't.",
+    "page": "/import-team"
+  },
+  {
     "date": "2026-08-05",
     "date_display": "August 5, 2026",
     "date_iso": "2026-08-05",

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
@@ -96,6 +97,7 @@ export default function ImportTeamPage() {
     director: '',
     status: '',
     teamName: '',
+    birthday: '',
     leaderCcbProfileLink: '',
     ccbIndividualId: '',
   });
@@ -229,6 +231,7 @@ export default function ImportTeamPage() {
           name: formData.name,
           email: formData.email || null,
           phone: formData.phone || null,
+          birthday: formData.birthday || null,
           campus: formData.campus || null,
           status: formData.status || null,
           team_name: formData.teamName || null,
@@ -278,6 +281,13 @@ export default function ImportTeamPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Import Host Team</h1>
           <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
             Look up a CCB scheduling category, choose which positions this leader manages, and create their RADIUS profile.
+          </p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            No scheduling category yet?{' '}
+            <Link href="/leaders/new" className="text-blue-500 hover:underline">
+              Add the team leader by hand
+            </Link>{' '}
+            instead.
           </p>
         </div>
 
@@ -425,12 +435,14 @@ export default function ImportTeamPage() {
                       <CCBPersonLookup
                         label="Fill from CCB"
                         placeholder="Search CCB by name or phone to auto-fill..."
+                        withFullProfile
                         onSelect={(person: CCBPerson) => {
                           setFormData(prev => ({
                             ...prev,
                             name: person.fullName,
                             phone: person.mobilePhone || person.phone || prev.phone,
                             email: person.email || prev.email,
+                            birthday: person.birthday || prev.birthday,
                             leaderCcbProfileLink: person.profileLink || prev.leaderCcbProfileLink,
                             ccbIndividualId: person.id || prev.ccbIndividualId,
                           }));
@@ -500,6 +512,19 @@ export default function ImportTeamPage() {
                           className={inputClass}
                           placeholder="Enter phone number"
                         />
+                      </div>
+
+                      <div>
+                        <label htmlFor="birthday" className={labelClass}>Birthday</label>
+                        <input
+                          type="date"
+                          name="birthday"
+                          id="birthday"
+                          value={formData.birthday}
+                          onChange={handleChange}
+                          className={inputClass}
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Filled from CCB when you look the leader up.</p>
                       </div>
 
                       <div>

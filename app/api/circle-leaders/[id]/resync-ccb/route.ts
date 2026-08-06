@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBv2Client } from '../../../../../lib/ccb/ccb-v2-client';
 import { getCCBRequestContext } from '../../../../../lib/ccb/ccb-api-gateway';
+import { fetchCcbCircleType } from '../../../../../lib/ccb/circle-type';
 import { verifyAdminAccessDemo } from '../../../../../lib/auth-middleware';
+import { isSameLeaderFieldValue, normalizeLeaderFieldValue } from '../../../../../lib/leaderFieldValues';
 
 export const dynamic = 'force-dynamic';
 
@@ -134,11 +136,27 @@ export async function POST(
     const fallbackLocation = [group.address?.street, group.address?.city, group.address?.state, group.address?.zip]
       .filter(Boolean).join(', ') || null;
 
+    // Circle Type is a custom field on the CCB group profile, reachable only
+    // through v1 — the same lookup the importer uses. `group.type.name` from v2
+    // is CCB's group_type ("Small Group"), which is not what RADIUS stores here.
+    const circleType = await fetchCcbCircleType(request, groupId, {
+      module: 'Circle Page',
+      action: 'Re-sync Circle Type',
+    });
+
     // ---- PREVIEW: compute the CCB-derived values, then diff against current. ----
     // Only propose fields where CCB has a value, so a re-sync never blanks out
     // data that was hand-entered when CCB is sparse.
+    // Values are stored in RADIUS's canonical spelling, not CCB's, so applying a
+    // sync can't leave a circle_type or frequency that no dropdown on the
+    // profile page can match.
     const proposed: Record<string, any> = {};
-    const setIf = (key: string, val: any) => { if (val !== null && val !== undefined && val !== '') proposed[key] = val; };
+    const setIf = (key: string, val: any) => {
+      if (val === null || val === undefined || val === '') return;
+      const normalized = normalizeLeaderFieldValue(key, val);
+      if (normalized === '') return;
+      proposed[key] = normalized;
+    };
 
     const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
     const sBase = subdomain
@@ -153,7 +171,7 @@ export async function POST(
 
     setIf('name', group.mainLeader?.fullName || null);
     setIf('campus', campusName);
-    setIf('circle_type', group.type?.name || null);
+    setIf('circle_type', circleType);
     setIf('day', meeting.day || group.meetDay?.name || null);
     setIf('time', meeting.time);
     setIf('frequency', meeting.frequency);
@@ -165,14 +183,17 @@ export async function POST(
     setIf('ccb_group_name', group.name);
     if (meeting.eventIds.length > 0) proposed.ccb_event_ids = meeting.eventIds;
 
-    // Build the diff: only fields whose proposed value differs from the current one.
+    // Build the diff: only fields whose proposed value *means* something
+    // different from the current one. Comparing raw strings flagged "7:00 PM"
+    // against "19:00" and "1st & 3rd" against "1st, 3rd" as edits on every run,
+    // so a re-sync could never come back clean.
     const norm = (v: any) => Array.isArray(v) ? v.map(String).join(', ') : (v ?? '') === '' ? '' : String(v);
     const changes: Array<{ field: string; label: string; from: string; to: string }> = [];
     const values: Record<string, any> = {};
     for (const key of SYNCABLE) {
       if (!(key in proposed)) continue;
       const current = (leader as any)[key];
-      if (norm(current) === norm(proposed[key])) continue;
+      if (isSameLeaderFieldValue(key, current, proposed[key])) continue;
       changes.push({
         field: key,
         label: FIELD_LABELS[key] || key,
