@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-08-06",
+    "date_display": "August 6, 2026",
+    "date_iso": "2026-08-06",
+    "version": "2.47.0",
+    "id": "ccb-form-responses-proxy",
+    "type": "feature",
+    "category": "Integrations",
+    "description": "RADIUS can now hand Valley Creek Pulse a CCB form's responses, which is what lets Pulse run its own follow-up campaigns. Pulse holds no CCB credentials of its own — every CCB call it makes comes through RADIUS, so the church's shared 10,000-a-day CCB limit still has exactly one consumer, with one budget guard and one set of telemetry watching it. The existing group roster endpoint can also return the group's name now when asked, so Pulse can roll a campaign up by campus without anyone re-typing group names. Nothing changes for RADIUS itself: campaigns here work exactly as they did.",
+    "page": "/campaigns"
+  },
+  {
     "date": "2026-08-05",
     "date_display": "August 5, 2026",
     "date_iso": "2026-08-05",
