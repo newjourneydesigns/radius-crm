@@ -3,6 +3,17 @@
     "date": "2026-08-06",
     "date_display": "August 6, 2026",
     "date_iso": "2026-08-06",
+    "version": "2.47.1",
+    "id": "roster-multi-value-cells",
+    "type": "fix",
+    "category": "Campaigns",
+    "description": "When you paste a list into a campaign, a cell holding several values separated by semicolons — \"Hosts; Prayer\" in a Team column — was read as a single value, so that person ended up on one team literally named \"Hosts; Prayer\" instead of showing up under both. It now splits into separate values, so grouping and filtering find them under each one. Commas are deliberately left alone, since campus names contain them (\"Flower Mound, North\"). This also makes duplicating a pasted-list campaign exact: someone on two teams with no CCB ID used to come back merged into that junk value.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-08-06",
+    "date_display": "August 6, 2026",
+    "date_iso": "2026-08-06",
     "version": "2.47.0",
     "id": "ccb-form-responses-proxy",
     "type": "feature",
