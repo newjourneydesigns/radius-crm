@@ -3,7 +3,7 @@
     "date": "2026-08-06",
     "date_display": "August 6, 2026",
     "date_iso": "2026-08-06",
-    "version": "2.47.2",
+    "version": "2.48.1",
     "id": "ccb-roster-phone-timeout",
     "type": "fix",
     "category": "Integrations",
