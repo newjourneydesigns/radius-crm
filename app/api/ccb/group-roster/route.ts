@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { groupId, includeGroupName } = body;
+    const { groupId, includeGroupName, enrichPhones } = body;
 
     if (!groupId) {
       return NextResponse.json(
@@ -35,7 +35,25 @@ export async function POST(request: NextRequest) {
     } else {
       const client = createCCBClient(ctx);
       const participants = await client.getGroupParticipants(String(groupId));
-      enriched = await client.enrichRosterWithPhones(participants);
+
+      /**
+       * Phone enrichment is opt-OUT, not opt-in, so every existing caller keeps
+       * the behaviour it has today.
+       *
+       * On v1 this is an N+1: one CCB profile call per person whose phone the
+       * group pull didn't include, serialised with a 500ms throttle. At
+       * Netlify's 10-second function timeout that caps out around eighteen
+       * people — so a caller reconciling a real group times out and gets a bare
+       * 502, with no way to tell that from a CCB outage.
+       *
+       * Callers that would rather have the roster now and the phone numbers
+       * shortly afterwards (Pulse's campaigns, which enrich in bounded batches
+       * of their own) pass `enrichPhones: false` and return in about a second.
+       */
+      enriched =
+        enrichPhones === false
+          ? participants
+          : await client.enrichRosterWithPhones(participants);
     }
 
     /**

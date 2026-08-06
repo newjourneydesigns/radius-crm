@@ -3,6 +3,17 @@
     "date": "2026-08-06",
     "date_display": "August 6, 2026",
     "date_iso": "2026-08-06",
+    "version": "2.47.2",
+    "id": "ccb-roster-phone-timeout",
+    "type": "fix",
+    "category": "Integrations",
+    "description": "Pulling a CCB group roster could time out and fail with a bare 502 instead of returning anyone. CCB's group data often leaves phone numbers out, so RADIUS was fetching them one person at a time — which takes half a second each and runs past the server's ten-second limit at around eighteen people, smaller than most real groups. Callers can now ask for the roster without the phone numbers and get it back in about a second, then fill the numbers in afterwards through a new endpoint that works in timed batches and hands back whatever it didn't reach. RADIUS's own screens are unchanged — they still get phone numbers the way they always have.",
+    "page": "/campaigns"
+  },
+  {
+    "date": "2026-08-06",
+    "date_display": "August 6, 2026",
+    "date_iso": "2026-08-06",
     "version": "2.47.1",
     "id": "roster-multi-value-cells",
     "type": "fix",
