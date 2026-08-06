@@ -97,6 +97,7 @@ export default function ImportTeamPage() {
     director: '',
     status: '',
     teamName: '',
+    birthday: '',
     leaderCcbProfileLink: '',
     ccbIndividualId: '',
   });
@@ -230,6 +231,7 @@ export default function ImportTeamPage() {
           name: formData.name,
           email: formData.email || null,
           phone: formData.phone || null,
+          birthday: formData.birthday || null,
           campus: formData.campus || null,
           status: formData.status || null,
           team_name: formData.teamName || null,
@@ -433,12 +435,14 @@ export default function ImportTeamPage() {
                       <CCBPersonLookup
                         label="Fill from CCB"
                         placeholder="Search CCB by name or phone to auto-fill..."
+                        withFullProfile
                         onSelect={(person: CCBPerson) => {
                           setFormData(prev => ({
                             ...prev,
                             name: person.fullName,
                             phone: person.mobilePhone || person.phone || prev.phone,
                             email: person.email || prev.email,
+                            birthday: person.birthday || prev.birthday,
                             leaderCcbProfileLink: person.profileLink || prev.leaderCcbProfileLink,
                             ccbIndividualId: person.id || prev.ccbIndividualId,
                           }));
@@ -508,6 +512,19 @@ export default function ImportTeamPage() {
                           className={inputClass}
                           placeholder="Enter phone number"
                         />
+                      </div>
+
+                      <div>
+                        <label htmlFor="birthday" className={labelClass}>Birthday</label>
+                        <input
+                          type="date"
+                          name="birthday"
+                          id="birthday"
+                          value={formData.birthday}
+                          onChange={handleChange}
+                          className={inputClass}
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Filled from CCB when you look the leader up.</p>
                       </div>
 
                       <div>

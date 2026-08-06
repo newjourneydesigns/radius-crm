@@ -77,10 +77,18 @@ export async function POST(request: NextRequest) {
     const leaderCcbProfileLink = normalizeString(circleLeader.leader_ccb_profile_link);
     if (leaderCcbProfileLink) cleanData.leader_ccb_profile_link = leaderCcbProfileLink;
 
+    // A caller that already pulled the profile (the CCB person lookup on the add
+    // form does) sends the birthday with it — take that rather than spending
+    // another CCB call re-fetching what we were just handed.
+    const providedBirthday = normalizeString(circleLeader.birthday);
+    if (providedBirthday && /^\d{4}-\d{2}-\d{2}$/.test(providedBirthday)) {
+      cleanData.birthday = providedBirthday;
+    }
+
     const ccbIndividualId =
       normalizeString(circleLeader.ccb_individual_id) ||
       extractCcbIndividualId(leaderCcbProfileLink);
-    if (ccbIndividualId && /^\d+$/.test(ccbIndividualId)) {
+    if (!cleanData.birthday && ccbIndividualId && /^\d+$/.test(ccbIndividualId)) {
       try {
         const ccb = createCCBClient(await getCCBRequestContext(request, {
           module: 'Add Leader',

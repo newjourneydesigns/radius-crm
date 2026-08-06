@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { formatFrequencyLabel } from '../../lib/frequencyUtils';
+import CCBPersonLookup, { type CCBPerson } from '../ui/CCBPersonLookup';
 
 type LeaderType = 'circle' | 'host_team';
 
@@ -36,6 +37,7 @@ interface FormValues {
   name: string;
   email: string;
   phone: string;
+  birthday: string;
   campus: string;
   director: string;
   status: string;
@@ -55,6 +57,7 @@ const EMPTY_FORM: FormValues = {
   name: '',
   email: '',
   phone: '',
+  birthday: '',
   campus: '',
   director: '',
   status: 'invited',
@@ -132,6 +135,10 @@ export default function AddLeaderForm({
   >([]);
   // Host team directors live in their own table — they are not the ACPD list.
   const [teamDirectors, setTeamDirectors] = useState<{ id: number; name: string }[]>([]);
+  // Set once a CCB person is picked, so the form can say where a value came from.
+  const [ccbSourceId, setCcbSourceId] = useState('');
+  // CCBPersonLookup holds its own query state; bumping its key clears it.
+  const [lookupKey, setLookupKey] = useState(0);
 
   const isHostTeam = leaderType === 'host_team';
 
@@ -196,6 +203,24 @@ export default function AddLeaderForm({
 
   const directorOptions = isHostTeam ? teamDirectors : referenceData.directors;
 
+  /**
+   * Fill the leader's details straight from their CCB profile. The lookup fires
+   * this twice — once with the search result so the form fills immediately, then
+   * again with the full profile once the birthday is in.
+   */
+  const applyCcbPerson = (person: CCBPerson) => {
+    setValues((prev) => ({
+      ...prev,
+      name: person.fullName || prev.name,
+      email: person.email || prev.email,
+      phone: person.mobilePhone || person.phone || prev.phone,
+      birthday: person.birthday || prev.birthday,
+      leader_ccb_profile_link: person.profileLink || prev.leader_ccb_profile_link,
+    }));
+    setCcbSourceId(person.id);
+    setError('');
+  };
+
   const switchLeaderType = (next: LeaderType) => {
     setLeaderType(next);
     // The director lists come from different tables, so a name carried across
@@ -206,6 +231,8 @@ export default function AddLeaderForm({
 
   const resetForm = () => {
     setValues(EMPTY_FORM);
+    setCcbSourceId('');
+    setLookupKey((k) => k + 1);
     setError('');
   };
 
@@ -228,6 +255,9 @@ export default function AddLeaderForm({
         name: trimmedName,
         email: values.email,
         phone: values.phone,
+        // Passing the birthday we already pulled stops the server making a
+        // second CCB call for something the lookup just handed us.
+        birthday: values.birthday,
         campus: values.campus,
         status: values.status,
         leader_ccb_profile_link: values.leader_ccb_profile_link,
@@ -369,6 +399,24 @@ export default function AddLeaderForm({
         </div>
 
         <SectionHeading title="Leader" />
+
+        {/* Look the person up in CCB first — it fills their name, email, phone and
+            birthday, and records the profile link, so the rest is just the
+            circle/team details. Typing everything by hand still works. */}
+        <div className="mb-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-4">
+          <CCBPersonLookup
+            key={lookupKey}
+            onSelect={applyCcbPerson}
+            withFullProfile
+            label="Find them in CCB"
+            placeholder="Search CCB by name or phone…"
+          />
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Optional — fills in name, email, phone and birthday from their CCB profile. You can also just type
+            everything below.
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <Field label="Leader Name" htmlFor="leader-name" required>
@@ -414,6 +462,20 @@ export default function AddLeaderForm({
               placeholder="(555) 555-5555"
               className={inputClass}
               autoComplete="off"
+            />
+          </Field>
+
+          <Field
+            label="Birthday"
+            htmlFor="leader-birthday"
+            hint={ccbSourceId && values.birthday ? 'Pulled from CCB.' : undefined}
+          >
+            <input
+              id="leader-birthday"
+              type="date"
+              value={values.birthday}
+              onChange={(e) => setField('birthday', e.target.value)}
+              className={inputClass}
             />
           </Field>
 
@@ -605,8 +667,8 @@ export default function AddLeaderForm({
           title="CCB (optional)"
           description={
             isHostTeam
-              ? "Only if this leader or their team already exists in CCB. These record the link — managed positions still have to be imported."
-              : "Only if this leader or circle already exists in CCB. These record the link — they don't pull anything across."
+              ? 'The profile link fills itself in when you use the lookup above. Managed positions still have to be imported.'
+              : 'The profile link fills itself in when you use the lookup above. Importing from CCB is still the way to bring a circle’s details and calendar events across.'
           }
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -649,7 +711,7 @@ export default function AddLeaderForm({
           <Field
             label="Leader's CCB Profile Link"
             htmlFor="leader-ccb-link"
-            hint="Used to pull the leader's birthday from CCB."
+            hint="Paste one here and RADIUS pulls the birthday on save."
           >
             <input
               id="leader-ccb-link"

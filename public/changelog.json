@@ -7,8 +7,19 @@
     "id": "add-leader-manually",
     "type": "feature",
     "category": "Circles",
-    "description": "You can add a leader by hand again, on a new Add a Leader page. Importing from CCB had become the only way in, which left no room for an invited leader, someone in the pipeline, a circle with no CCB group, or a team with no scheduling category. Pick whether you're adding a Circle Leader or a Team Leader and the form follows -- a circle asks for its circle name, meeting day, time, frequency and circle type with an ACPD as its director, while a team asks for its team name with a director from the team directors list. Name is the only thing required; everything else can wait until later on the leader's profile. Bi-weekly circles get their start date field, and if the leader, circle, or team already exists in CCB you can record the group or category ID and the profile link. Type a name that's already in RADIUS and you'll get a heads-up before you create a duplicate. Once saved, the leader opens straight to their profile. You'll find it in the sidebar under Admin Tools, as an \"Add Leader\" button on Find a Circle, and linked from both import pages.",
+    "description": "You can add a leader by hand again, on a new Add a Leader page. Importing from CCB had become the only way in, which left no room for an invited leader, someone in the pipeline, a circle with no CCB group, or a team with no scheduling category. Start by searching CCB for the person -- their name, email, phone and birthday come straight across, and their profile link is recorded for you -- or skip the search and type everything yourself. Then pick whether you're adding a Circle Leader or a Team Leader and the form follows: a circle asks for its circle name, meeting day, time, frequency and circle type with an ACPD as its director, while a team asks for its team name with a director from the team directors list. Name is the only thing required; everything else can wait until later on the leader's profile. Bi-weekly circles get their start date field, and if the circle or team already exists in CCB you can record its group or category ID. Type a name that's already in RADIUS and you'll get a heads-up before you create a duplicate. Once saved, the leader opens straight to their profile. You'll find it in the sidebar under Admin Tools, as an \"Add Leader\" button on Find a Circle, and linked from both import pages.",
     "page": "/leaders/new"
+  },
+  {
+    "date": "2026-08-06",
+    "date_display": "August 6, 2026",
+    "date_iso": "2026-08-06",
+    "version": "2.47.0",
+    "id": "import-team-birthday-from-ccb",
+    "type": "improvement",
+    "category": "Teams Toolkit",
+    "description": "Looking a leader up on Import Host Team now brings their birthday over too, alongside the name, email and phone it already filled in. CCB's search results don't carry birthdays -- only the full profile does -- so the birthday was quietly being left behind and had to be added by hand later. There's a Birthday field on the form now, filled in for you when you use the lookup and editable if CCB has it wrong or missing. If CCB is slow or unreachable on that second step, the contact details still come across and you're told the birthday didn't.",
+    "page": "/import-team"
   },
   {
     "date": "2026-08-05",
