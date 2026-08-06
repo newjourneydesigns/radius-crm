@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { groupId } = body;
+    const { groupId, includeGroupName } = body;
 
     if (!groupId) {
       return NextResponse.json(
@@ -38,10 +38,30 @@ export async function POST(request: NextRequest) {
       enriched = await client.enrichRosterWithPhones(participants);
     }
 
+    /**
+     * The group's name, on request only.
+     *
+     * It costs a second CCB call, and most callers here only want the people —
+     * so this stays opt-in rather than becoming a cost every roster pull pays.
+     * Pulse's campaigns ask for it because a person's invite group is a
+     * dimension they roll up by ("LVT | Circles" → Lewisville), and an admin
+     * shouldn't have to re-type a name CCB already knows. A failure to resolve
+     * it is not a failure to fetch the roster, so it degrades to null.
+     */
+    let groupName: string | null = null;
+    if (includeGroupName === true) {
+      try {
+        groupName = await createCCBClient(ctx).getGroupName(String(groupId));
+      } catch {
+        groupName = null;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: enriched,
       count: enriched.length,
+      groupName,
     });
   } catch (error) {
     console.error('CCB group roster error:', error);

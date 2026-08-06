@@ -63,6 +63,24 @@ export function attrValues(v: AttrValue | null | undefined): string[] {
   return (Array.isArray(v) ? v : [v]).map((s) => String(s).trim()).filter(Boolean);
 }
 
+// One pasted cell -> its value(s).
+//
+// A semicolon inside a cell means "more than one". That's how people already
+// write it in a spreadsheet ("Hosts; Prayer"), and it's how the duplicate flow
+// writes a multi-value attribute back out (see peopleToTsv in
+// app/campaigns/new/page.tsx) when the person has no CCB ID to merge rows on.
+// Without this, duplicating a pasted-roster campaign turned someone on two
+// teams into one person on a team literally named "Hosts; Prayer" — a filter
+// option that matches nobody and shouldn't exist.
+//
+// Only the semicolon splits. Commas deliberately don't: campus names contain
+// them ("Flower Mound, North"), and splitting those would invent a campus.
+export function splitCellValues(cell: string): AttrValue | null {
+  const parts = cell.split(';').map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+  return parts.length === 1 ? parts[0] : parts;
+}
+
 function stripCell(cell: string): string {
   let s = cell.trim();
   if (s.length >= 2 && s.startsWith('"') && s.endsWith('"')) {
@@ -180,7 +198,7 @@ export function applyMapping(table: ParsedTable, mapping: RosterMapping): Pasted
     const attributes: Record<string, AttrValue> = {};
     for (let i = 0; i < table.headers.length; i++) {
       if (mappedIdx.has(i)) continue;
-      const val = (row[i] ?? '').trim();
+      const val = splitCellValues((row[i] ?? '').trim());
       if (val) attributes[table.headers[i]] = val;
     }
 
