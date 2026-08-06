@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
@@ -278,6 +279,13 @@ export default function ImportTeamPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Import Host Team</h1>
           <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
             Look up a CCB scheduling category, choose which positions this leader manages, and create their RADIUS profile.
+          </p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            No scheduling category yet?{' '}
+            <Link href="/leaders/new" className="text-blue-500 hover:underline">
+              Add the team leader by hand
+            </Link>{' '}
+            instead.
           </p>
         </div>
 

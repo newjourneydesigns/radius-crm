@@ -4,11 +4,11 @@
     "date_display": "August 6, 2026",
     "date_iso": "2026-08-06",
     "version": "2.47.0",
-    "id": "add-circle-leader-manually",
+    "id": "add-leader-manually",
     "type": "feature",
     "category": "Circles",
-    "description": "You can add a circle leader by hand again. Importing from CCB had become the only way in, which left no room for an invited leader, someone in the pipeline, or any circle that doesn't have a CCB group yet. There's now an \"Add a Leader\" tab on Import & Manage Circles with a short form -- name is the only thing required, and campus, director, status, circle name, day, time, frequency, and circle type are all there if you have them. Bi-weekly circles get their start date field, and if the leader or circle does exist in CCB you can record the group ID and profile link. Type a name that's already in RADIUS and you'll get a heads-up before you create a duplicate. Once saved, the leader opens straight to their profile. You'll find it in the sidebar under Admin Tools, and as an \"Add Leader\" button on Find a Circle.",
-    "page": "/import-circles/#add-leader"
+    "description": "You can add a leader by hand again, on a new Add a Leader page. Importing from CCB had become the only way in, which left no room for an invited leader, someone in the pipeline, a circle with no CCB group, or a team with no scheduling category. Pick whether you're adding a Circle Leader or a Team Leader and the form follows -- a circle asks for its circle name, meeting day, time, frequency and circle type with an ACPD as its director, while a team asks for its team name with a director from the team directors list. Name is the only thing required; everything else can wait until later on the leader's profile. Bi-weekly circles get their start date field, and if the leader, circle, or team already exists in CCB you can record the group or category ID and the profile link. Type a name that's already in RADIUS and you'll get a heads-up before you create a duplicate. Once saved, the leader opens straight to their profile. You'll find it in the sidebar under Admin Tools, as an \"Add Leader\" button on Find a Circle, and linked from both import pages.",
+    "page": "/leaders/new"
   },
   {
     "date": "2026-08-05",

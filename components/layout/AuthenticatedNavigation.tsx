@@ -218,7 +218,7 @@ const adminToolsNavItems = [
     ? [{ href: '/admin/coaching-automations', label: 'Coaching Automations', Icon: IdeaIcon }]
     : []),
   { href: '/import-circles',         label: 'Import Circles',           Icon: ImportCirclesIcon },
-  { href: '/import-circles/#add-leader', label: 'Add a Leader',         Icon: UserPlusIcon },
+  { href: '/leaders/new', label: 'Add a Leader',         Icon: UserPlusIcon },
   // Hidden until the Teams Toolkit feature flag is turned on.
   ...(isTeamsToolkitEnabled()
     ? [{ href: '/import-team',        label: 'Import Host Team',         Icon: UserPlusIcon }]

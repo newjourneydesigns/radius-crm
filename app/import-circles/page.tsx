@@ -5,7 +5,6 @@ import { createClient } from '@supabase/supabase-js';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Link from 'next/link';
 import { useToast } from '../../components/ui/ToastProvider';
-import AddCircleLeaderForm from '../../components/circle/AddCircleLeaderForm';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -136,20 +135,6 @@ function formatMeetingTime(t?: string | null): string | null {
   return `${hour}:${m[2]} ${ampm}`;
 }
 
-type TabId = 'ccb' | 'manual' | 'mass-update';
-
-/** Each tab's URL hash, so the nav can deep-link straight to one. */
-const TAB_HASHES: Record<TabId, string> = {
-  ccb: '',
-  manual: '#add-leader',
-  'mass-update': '#mass-update',
-};
-
-const TAB_BY_HASH: Record<string, TabId> = {
-  '#add-leader': 'manual',
-  '#mass-update': 'mass-update',
-};
-
 function Detail({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
@@ -162,7 +147,7 @@ function Detail({ label, value }: { label: string; value?: string | null }) {
 export default function ImportCirclesPage() {
   const toast = useToast();
   // Tab state
-  const [activeTab, setActiveTab] = useState<TabId>('ccb');
+  const [activeTab, setActiveTab] = useState<'ccb' | 'mass-update'>('ccb');
 
   // CCB Import state — look up a single group by ID, preview, then import.
   const [groupIdInput, setGroupIdInput] = useState('');
@@ -184,22 +169,14 @@ export default function ImportCirclesPage() {
 
   useEffect(() => {
     const syncTabFromHash = () => {
-      const tab = TAB_BY_HASH[window.location.hash];
-      setActiveTab(tab || 'ccb');
+      if (window.location.hash === '#mass-update') {
+        setActiveTab('mass-update');
+      }
     };
 
     syncTabFromHash();
     window.addEventListener('hashchange', syncTabFromHash);
     return () => window.removeEventListener('hashchange', syncTabFromHash);
-  }, []);
-
-  // Park the hash on whichever tab is showing. The nav's deep links only fire a
-  // hashchange when the hash actually changes, so a stale hash would leave
-  // "Mass Update" or "Add a Leader" doing nothing once you'd clicked away.
-  const selectTab = useCallback((tab: TabId) => {
-    setActiveTab(tab);
-    const { pathname, search } = window.location;
-    window.history.replaceState(null, '', `${pathname}${search}${TAB_HASHES[tab]}`);
   }, []);
 
   // Load ACPD director options on mount.
@@ -625,7 +602,7 @@ export default function ImportCirclesPage() {
                 Import &amp; Manage Circles
               </h1>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Import from CCB, add a leader by hand, or mass-update ACPD, Campus, Frequency &amp; Circle Type assignments.
+                Import from CCB or mass-update ACPD, Campus, Frequency &amp; Circle Type assignments.
               </p>
             </div>
             <Link
@@ -640,7 +617,7 @@ export default function ImportCirclesPage() {
           <div className="mb-6">
             <nav className="inline-flex rounded-lg bg-gray-200/60 dark:bg-gray-800 p-1 gap-1">
               <button
-                onClick={() => selectTab('ccb')}
+                onClick={() => setActiveTab('ccb')}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                   activeTab === 'ccb'
                     ? 'bg-white dark:bg-blue-600 text-gray-900 dark:text-white shadow-sm'
@@ -653,20 +630,7 @@ export default function ImportCirclesPage() {
                 Import from CCB
               </button>
               <button
-                onClick={() => selectTab('manual')}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                  activeTab === 'manual'
-                    ? 'bg-white dark:bg-blue-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-                Add a Leader
-              </button>
-              <button
-                onClick={() => selectTab('mass-update')}
+                onClick={() => setActiveTab('mass-update')}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                   activeTab === 'mass-update'
                     ? 'bg-white dark:bg-blue-600 text-gray-900 dark:text-white shadow-sm'
@@ -680,11 +644,6 @@ export default function ImportCirclesPage() {
               </button>
             </nav>
           </div>
-
-          {/* ===== ADD A LEADER TAB ===== */}
-          {activeTab === 'manual' && (
-            <AddCircleLeaderForm accessToken={accessToken} referenceData={referenceData} />
-          )}
 
           {/* ===== MASS UPDATE TAB ===== */}
           {activeTab === 'mass-update' && (
@@ -1293,6 +1252,11 @@ export default function ImportCirclesPage() {
             <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Import a Circle from CCB</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               Enter a CCB Group ID. We&apos;ll pull the circle&apos;s details and leader so you can review before importing.
+              Not in CCB yet?{' '}
+              <Link href="/leaders/new" className="text-blue-500 hover:underline">
+                Add the leader by hand
+              </Link>{' '}
+              instead.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <input

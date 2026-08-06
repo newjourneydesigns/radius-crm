@@ -390,7 +390,7 @@ export default function SearchPage() {
               <div className="flex items-center gap-2">
                 {isAdmin() && (
                   <Link
-                    href="/import-circles/#add-leader"
+                    href="/leaders/new"
                     className="btn-success inline-flex items-center px-4 py-2 rounded-lg text-sm"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
