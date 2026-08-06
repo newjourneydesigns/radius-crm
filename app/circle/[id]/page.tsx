@@ -9,7 +9,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Cake, Lightbulb } from 'lucide-react';
-import { supabase, type CircleLeader } from '../../../lib/supabase';
+import { supabase, type CircleLeader, type CircleCalendarSyncState } from '../../../lib/supabase';
+import { scheduleHealth, type ScheduleHealthState } from '../../../lib/circleSchedule';
 import { apiFetch } from '../../../lib/apiClient';
 import { useAuth } from '../../../contexts/AuthContext';
 import AlertModal from '../../../components/ui/AlertModal';
@@ -37,6 +38,18 @@ import { extractCcbGroupId, extractCcbIndividualId } from '../../../lib/ccbGroup
 const CCB_BASE_URL = 'https://valleycreekchurch.ccbchurch.com';
 import { buildTimeOptions15Min } from '../../../lib/timeUtils';
 import ResyncPreviewModal from '../../../components/circle/ResyncPreviewModal';
+
+// "3d ago" style label for the calendar sync status line.
+const formatSyncedAgo = (iso: string | null | undefined): string => {
+  if (!iso) return '';
+  const ms = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(ms / 86_400_000);
+  if (days >= 1) return `${days}d ago`;
+  const hours = Math.floor(ms / 3_600_000);
+  if (hours >= 1) return `${hours}h ago`;
+  const minutes = Math.floor(ms / 60_000);
+  return minutes >= 1 ? `${minutes}m ago` : 'just now';
+};
 
 // Helper function to format time to AM/PM
 const formatTimeToAMPM = (time: string | undefined | null): string => {
@@ -254,6 +267,9 @@ export default function CircleLeaderProfilePage() {
   const [editedLeader, setEditedLeader] = useState<Partial<CircleLeader>>({});
   const [isSavingLeader, setIsSavingLeader] = useState(false);
   const [isResyncing, setIsResyncing] = useState(false);
+  // CCB calendar snapshot: per-circle sync state + the one-click resync action.
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
+  const [calendarSyncState, setCalendarSyncState] = useState<CircleCalendarSyncState | null>(null);
   const [resyncPreview, setResyncPreview] = useState<{
     changes: Array<{ field: string; label: string; from: string; to: string }>;
     values: Record<string, any>;
@@ -1664,6 +1680,16 @@ export default function CircleLeaderProfilePage() {
       : null;
 
     try {
+      // Schedule fields are owned by the CCB calendar snapshot when
+      // schedule_source is 'ccb_calendar' — never write them from the form.
+      const scheduleFields = scheduleFromCalendar
+        ? {}
+        : {
+            day: editedLeader.day || null,
+            time: editedLeader.time || null,
+            frequency: editedLeader.frequency || null,
+            meeting_start_date: editedLeader.meeting_start_date || null,
+          };
       const { data, error } = await supabase
         .from('circle_leaders')
         .update({
@@ -1677,10 +1703,7 @@ export default function CircleLeaderProfilePage() {
           location: editedLeader.location || null,
           acpd: editedLeader.acpd || null,
           status: editedLeader.status || 'active',
-          day: editedLeader.day || null,
-          time: editedLeader.time || null,
-          frequency: editedLeader.frequency || null,
-          meeting_start_date: editedLeader.meeting_start_date || null,
+          ...scheduleFields,
           circle_type: editedLeader.circle_type || null,
           follow_up_required: editedLeader.follow_up_required || false,
           follow_up_date: editedLeader.follow_up_date || null,
@@ -1774,6 +1797,77 @@ export default function CircleLeaderProfilePage() {
       setTimeout(() => setLeaderError(''), 8000);
     } finally {
       setIsResyncing(false);
+    }
+  };
+
+  const loadCalendarSyncState = useCallback(async () => {
+    if (!leaderId) return;
+    const { data } = await supabase
+      .from('circle_calendar_sync_state')
+      .select('*')
+      .eq('leader_id', leaderId)
+      .maybeSingle();
+    setCalendarSyncState((data as CircleCalendarSyncState | null) ?? null);
+  }, [leaderId]);
+  useEffect(() => { loadCalendarSyncState(); }, [loadCalendarSyncState]);
+
+  // When the CCB calendar snapshot owns the schedule, day/time/frequency are
+  // read-only here — they refresh via Resync Calendar, not hand edits.
+  const scheduleFromCalendar = leader?.schedule_source === 'ccb_calendar';
+  const calendarHealth: { state: ScheduleHealthState; runwayEnd: string | null; lastSyncedAt: string | null } = useMemo(() => {
+    const todayISO = new Date().toISOString().slice(0, 10);
+    return scheduleHealth(
+      { leader: { id: leader?.id ?? 0 }, occurrences: [], syncState: calendarSyncState },
+      todayISO
+    );
+  }, [leader?.id, calendarSyncState]);
+
+  // One-click Resync Calendar — re-snapshots the CCB group calendar and
+  // re-derives day/time/frequency from the actual occurrence dates. No preview
+  // step: the calendar is the source of truth, there is nothing to untick.
+  const handleSyncCalendar = async () => {
+    if (!leader?.ccb_group_id || isSyncingCalendar) return;
+    setIsSyncingCalendar(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch(`/api/circle-leaders/${leaderId}/sync-calendar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      const json = await res.json();
+      if (!res.ok || json?.result?.status === 'error') {
+        throw new Error(json?.result?.error || json?.error || `HTTP ${res.status}`);
+      }
+      if (json.leader) {
+        setLeader(prev => (prev ? { ...prev, ...json.leader } : prev));
+      }
+      const r = json.result;
+      if (r?.status === 'no_events') {
+        setShowAlert({
+          isOpen: true,
+          type: 'info',
+          title: 'No calendar events found',
+          message: 'This group has no events on its CCB calendar. Set up the recurring Circle event in CCB, then sync again.',
+        });
+      } else {
+        const derivedBits = [
+          r?.derived?.frequency,
+          r?.derived?.day ? `${r.derived.day}s` : null,
+          r?.derived?.time ? `at ${formatTimeToAMPM(r.derived.time)}` : null,
+        ].filter(Boolean).join(' ');
+        setShowAlert({
+          isOpen: true,
+          type: 'success',
+          title: 'Calendar synced',
+          message: `${r?.occurrenceCount ?? 0} dates captured${derivedBits ? ` — ${derivedBits}` : ''}.`,
+        });
+      }
+      await loadCalendarSyncState();
+    } catch (err: any) {
+      setShowAlert({ isOpen: true, type: 'error', title: 'Calendar sync failed', message: err.message || 'Try again.' });
+    } finally {
+      setIsSyncingCalendar(false);
     }
   };
 
@@ -2138,7 +2232,7 @@ export default function CircleLeaderProfilePage() {
                     disabled={isSavingLeader || isResyncing || !(editedLeader.ccb_group_id ?? leader.ccb_group_id)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ background: 'rgba(59,130,246,0.18)', border: '1px solid rgba(59,130,246,0.30)', color: 'rgba(147,197,253,1)' }}
-                    title="Pull the latest circle + leader data from CCB"
+                    title="Pull the latest contact + profile data from CCB (the meeting schedule refreshes via Resync Calendar)"
                   >
                     {isResyncing ? (
                       <div className="w-3.5 h-3.5 border-2 border-blue-300/30 border-t-blue-300 rounded-full animate-spin" />
@@ -2544,6 +2638,88 @@ export default function CircleLeaderProfilePage() {
                     {leaderError}
                   </div>
                 )}
+                {/* CCB calendar schedule status — shows where the schedule comes
+                    from, and the safety-net instructions when it needs fixing. */}
+                {!isHostTeam && (
+                  <div
+                    className={`mb-4 rounded-lg border px-4 py-3 ${
+                      calendarHealth.state === 'none' || calendarHealth.state === 'error'
+                        ? 'border-red-500/30 bg-red-500/10'
+                        : calendarHealth.state === 'low'
+                          ? 'border-amber-500/30 bg-amber-500/10'
+                          : 'border-zinc-700/80 bg-zinc-800/40'
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                      <div className="min-w-0 text-sm">
+                        {calendarHealth.state === 'manual' && (
+                          <span className="text-slate-300">
+                            Meeting schedule is maintained by hand.
+                            {leader.ccb_group_id ? ' Sync it from the group’s CCB calendar to make CCB the source of truth.' : ''}
+                          </span>
+                        )}
+                        {calendarHealth.state === 'ok' && (
+                          <span className="text-slate-300">
+                            Schedule from CCB calendar
+                            {calendarHealth.lastSyncedAt ? ` · synced ${formatSyncedAgo(calendarHealth.lastSyncedAt)}` : ''}
+                            {calendarHealth.runwayEnd ? ` · dates through ${formatDateOnlyForDisplay(calendarHealth.runwayEnd)}` : ''}
+                          </span>
+                        )}
+                        {calendarHealth.state === 'low' && (
+                          <span className="text-amber-200">
+                            The CCB calendar runs out of dates on {calendarHealth.runwayEnd ? formatDateOnlyForDisplay(calendarHealth.runwayEnd) : 'soon'}.
+                            Extend the recurring Circle event in CCB, then resync.
+                          </span>
+                        )}
+                        {calendarHealth.state === 'none' && (
+                          <span className="text-red-200">
+                            No upcoming dates on the CCB calendar — scheduling falls back to the last known day and time below.
+                            To fix: open the group in CCB, set up (or extend) the recurring Circle event, then hit Resync Calendar.
+                          </span>
+                        )}
+                        {calendarHealth.state === 'error' && (
+                          <span className="text-red-200">
+                            Last calendar sync failed{calendarSyncState?.error ? `: ${calendarSyncState.error}` : ''}. Try again.
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {(calendarHealth.state === 'low' || calendarHealth.state === 'none') && leader.ccb_profile_link && (
+                          <a
+                            href={leader.ccb_profile_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all duration-150"
+                            style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)' }}
+                          >
+                            Open in CCB
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        )}
+                        <button
+                          onClick={handleSyncCalendar}
+                          disabled={isSyncingCalendar || !leader.ccb_group_id}
+                          title={leader.ccb_group_id
+                            ? 'Re-pull the group’s CCB calendar and refresh the meeting schedule from its dates'
+                            : 'Set a CCB Group ID first'}
+                          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all duration-150 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                          style={{ background: 'rgba(59,130,246,0.18)', border: '1px solid rgba(59,130,246,0.30)', color: 'rgba(147,197,253,1)' }}
+                        >
+                          {isSyncingCalendar ? (
+                            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-300/30 border-t-blue-300" />
+                          ) : (
+                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                          {isSyncingCalendar ? 'Syncing…' : scheduleFromCalendar ? 'Resync Calendar' : 'Sync from CCB Calendar'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Circle Name (circle) / Team Name (host team) - full width */}
                   <div className="sm:col-span-2">
@@ -2616,7 +2792,7 @@ export default function CircleLeaderProfilePage() {
                   {!isHostTeam && <div>
                     <dt className="text-sm font-medium text-slate-400">Meeting Day</dt>
                     <dd className="mt-1">
-                      {isEditing ? (
+                      {isEditing && !scheduleFromCalendar ? (
                         <select
                           value={editedLeader.day || ''}
                           onChange={(e) => handleLeaderFieldChange('day', e.target.value)}
@@ -2639,7 +2815,7 @@ export default function CircleLeaderProfilePage() {
                   {!isHostTeam && <div>
                     <dt className="text-sm font-medium text-slate-400">Meeting Time</dt>
                     <dd className="mt-1">
-                      {isEditing ? (
+                      {isEditing && !scheduleFromCalendar ? (
                         <input
                           type="time"
                           value={leader.time?.includes('AM') || leader.time?.includes('PM')
@@ -2656,7 +2832,7 @@ export default function CircleLeaderProfilePage() {
                   {!isHostTeam && <div>
                     <dt className="text-sm font-medium text-slate-400">Meeting Frequency</dt>
                     <dd className="mt-1">
-                      {isEditing ? (
+                      {isEditing && !scheduleFromCalendar ? (
                         <select
                           value={editedLeader.frequency || ''}
                           onChange={(e) => handleLeaderFieldChange('frequency', e.target.value)}
@@ -2670,7 +2846,14 @@ export default function CircleLeaderProfilePage() {
                           ))}
                         </select>
                       ) : (
-                        <span className="text-sm text-slate-200">{leader.frequency || 'Not specified'}</span>
+                        <>
+                          <span className="text-sm text-slate-200">{leader.frequency || 'Not specified'}</span>
+                          {isEditing && scheduleFromCalendar && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              Day, time &amp; frequency come from the CCB calendar — use Resync Calendar to refresh them.
+                            </p>
+                          )}
+                        </>
                       )}
                     </dd>
                   </div>}
@@ -2678,7 +2861,7 @@ export default function CircleLeaderProfilePage() {
                   <div>
                     <dt className="text-sm font-medium text-slate-400">Bi-weekly Start Date</dt>
                     <dd className="mt-1">
-                      {isEditing ? (
+                      {isEditing && !scheduleFromCalendar ? (
                         <input
                           type="date"
                           value={editedLeader.meeting_start_date !== undefined ? (editedLeader.meeting_start_date || '') : (leader.meeting_start_date || '')}

@@ -50,7 +50,7 @@ export async function POST(
     const sb = getServiceSupabase();
     const { data: leader } = await sb
       .from('circle_leaders')
-      .select('id, name, ccb_group_id, leader_ccb_profile_link, campus, circle_type, day, time, frequency, location, email, phone, birthday, ccb_group_name, ccb_event_ids')
+      .select('id, name, ccb_group_id, leader_ccb_profile_link, campus, circle_type, day, time, frequency, location, email, phone, birthday, ccb_group_name, ccb_event_ids, schedule_source')
       .eq('id', id)
       .maybeSingle();
 
@@ -58,11 +58,21 @@ export async function POST(
       return NextResponse.json({ error: 'Circle leader not found' }, { status: 404 });
     }
 
+    // When the calendar snapshot owns the schedule, this resync must not touch
+    // day/time/frequency — its recurrence-derived values are coarser than the
+    // snapshot's (no "1st, 3rd"), and the Resync Calendar action is the one
+    // that refreshes them. Enforced server-side so a stale client can't fight
+    // the snapshot.
+    const scheduleManagedByCalendar = (leader as any).schedule_source === 'ccb_calendar';
+    const SCHEDULE_FIELDS = ['day', 'time', 'frequency'] as const;
+
     // ---- APPLY: write the confirmed values (whitelisted) and return. ----
     if (confirmedValues) {
       const updates: Record<string, any> = { updated_at: new Date().toISOString() };
       for (const key of SYNCABLE) {
-        if (key in confirmedValues) updates[key] = confirmedValues[key];
+        if (!(key in confirmedValues)) continue;
+        if (scheduleManagedByCalendar && (SCHEDULE_FIELDS as readonly string[]).includes(key)) continue;
+        updates[key] = confirmedValues[key];
       }
       if (Object.keys(updates).length === 1) {
         return NextResponse.json({ error: 'No changes to apply.' }, { status: 400 });
@@ -172,9 +182,11 @@ export async function POST(
     setIf('name', group.mainLeader?.fullName || null);
     setIf('campus', campusName);
     setIf('circle_type', circleType);
-    setIf('day', meeting.day || group.meetDay?.name || null);
-    setIf('time', meeting.time);
-    setIf('frequency', meeting.frequency);
+    if (!scheduleManagedByCalendar) {
+      setIf('day', meeting.day || group.meetDay?.name || null);
+      setIf('time', meeting.time);
+      setIf('frequency', meeting.frequency);
+    }
     setIf('location', meeting.location || fallbackLocation);
     setIf('email', leaderEmail);
     setIf('phone', leaderPhone);
@@ -209,6 +221,7 @@ export async function POST(
       changes,
       values,
       eventIdsLinked: meeting.eventIds.length,
+      scheduleManagedByCalendar,
     });
   } catch (error: any) {
     console.error('❌ resync-ccb error:', error);

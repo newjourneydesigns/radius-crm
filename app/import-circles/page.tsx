@@ -40,6 +40,46 @@ interface CCBGroupPreview {
   ccbLink?: string | null;
   alreadyImported?: boolean;
   existingLeader?: { id: number; name: string } | null;
+  // Schedule derived from actual calendar occurrence dates (vs. the coarser
+  // recurrence code) — occurrenceCount says how many dates backed it.
+  occurrenceCount?: number;
+  scheduleFromCalendar?: boolean;
+}
+
+interface CalendarSyncLeader {
+  id: number;
+  name: string;
+  circle_name: string | null;
+  campus: string | null;
+  status: string | null;
+  ccb_group_id: string | null;
+  schedule_source: 'manual' | 'ccb_calendar' | null;
+  day: string | null;
+  time: string | null;
+  frequency: string | null;
+  sync_state: {
+    last_synced_at: string;
+    status: 'ok' | 'no_events' | 'error';
+    error: string | null;
+    occurrence_count: number;
+    future_count: number;
+    last_occurrence_date: string | null;
+    derived_frequency: string | null;
+  } | null;
+}
+
+// Snapshot health for the Calendar Sync table, computed live against today so
+// a stale sync still reads honestly (runway passed → "No upcoming dates").
+function calendarChip(l: CalendarSyncLeader): { label: string; cls: string } {
+  const s = l.sync_state;
+  if (!s) return { label: 'Never synced', cls: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
+  if (s.status === 'error') return { label: 'Sync failed', cls: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' };
+  const today = new Date().toISOString().slice(0, 10);
+  const runway = s.last_occurrence_date;
+  if (!runway || runway < today) return { label: 'No upcoming dates', cls: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' };
+  const lowEdge = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10);
+  if (runway < lowEdge) return { label: 'Running low', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' };
+  return { label: 'OK', cls: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300' };
 }
 
 interface MassUpdateLeader {
@@ -55,6 +95,7 @@ interface MassUpdateLeader {
   meeting_start_date: string | null;
   email_reminders_enabled: boolean;
   ccb_group_id: string | null;
+  schedule_source: 'manual' | 'ccb_calendar' | null;
 }
 
 type MassUpdateField =
@@ -108,6 +149,8 @@ interface MassUpdateResult {
   failed?: { id: number; name: string; error?: string }[];
   skipped?: { id: number; name: string }[];
   budgetStopped?: boolean;
+  // Rows excluded because their schedule is managed by the CCB calendar.
+  skippedCcbManaged?: number;
 }
 
 interface RowEditValues {
@@ -147,7 +190,7 @@ function Detail({ label, value }: { label: string; value?: string | null }) {
 export default function ImportCirclesPage() {
   const toast = useToast();
   // Tab state
-  const [activeTab, setActiveTab] = useState<'ccb' | 'mass-update'>('ccb');
+  const [activeTab, setActiveTab] = useState<'ccb' | 'mass-update' | 'calendar-sync'>('ccb');
 
   // CCB Import state — look up a single group by ID, preview, then import.
   const [groupIdInput, setGroupIdInput] = useState('');
@@ -277,6 +320,15 @@ export default function ImportCirclesPage() {
   const [editingLeaderId, setEditingLeaderId] = useState<number | null>(null);
   const [editingValues, setEditingValues] = useState<RowEditValues>({ frequency: '', day: '', time: '', meeting_start_date: '' });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Calendar Sync tab — snapshot every circle's CCB calendar (manual backfill)
+  const [calSyncLeaders, setCalSyncLeaders] = useState<CalendarSyncLeader[]>([]);
+  const [calSyncLoading, setCalSyncLoading] = useState(false);
+  const [calSyncSelected, setCalSyncSelected] = useState<Set<number>>(new Set());
+  const [calSyncRunning, setCalSyncRunning] = useState(false);
+  const [calSyncProgress, setCalSyncProgress] = useState<{ done: number; total: number } | null>(null);
+  const [calSyncErrors, setCalSyncErrors] = useState<Array<{ name: string; error: string }>>([]);
+  const calSyncCancelRef = useRef(false);
 
   const isValidHHmm = (t: string) => /^\d{2}:\d{2}(:\d{2})?$/.test(t);
 
@@ -417,6 +469,7 @@ export default function ImportCirclesPage() {
         meeting_start_date: l.meeting_start_date || null,
         email_reminders_enabled: Boolean(l.email_reminders_enabled),
         ccb_group_id: l.ccb_group_id || null,
+        schedule_source: l.schedule_source || null,
       }));
 
       if (massUpdateFilterField === 'campus' && massUpdateFilterValue) {
@@ -433,6 +486,78 @@ export default function ImportCirclesPage() {
       setMassUpdateSearching(false);
     }
   }, [massUpdateFilterField, massUpdateFilterValue]);
+
+  // Load the Calendar Sync table (all CCB-linked circles + their sync state).
+  const loadCalendarSyncLeaders = useCallback(async () => {
+    setCalSyncLoading(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+      const res = await fetch('/api/ccb/sync-circle-calendars', { headers });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+      setCalSyncLeaders(json.leaders || []);
+    } catch (err: any) {
+      toast(err.message || 'Failed to load circles', 'error');
+    } finally {
+      setCalSyncLoading(false);
+    }
+  }, [accessToken, toast]);
+
+  useEffect(() => {
+    if (activeTab === 'calendar-sync') loadCalendarSyncLeaders();
+  }, [activeTab, loadCalendarSyncLeaders]);
+
+  // Sync the selected circles' calendars in batches of 15 (the API's per-request
+  // cap), showing progress. Each batch is one serverless invocation; the loop
+  // is client-driven so a full ~200-circle backfill is resumable and visible.
+  const runCalendarSync = useCallback(async () => {
+    const ids = Array.from(calSyncSelected);
+    if (ids.length === 0 || calSyncRunning) return;
+    setCalSyncRunning(true);
+    setCalSyncErrors([]);
+    setCalSyncProgress({ done: 0, total: ids.length });
+    calSyncCancelRef.current = false;
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    const errors: Array<{ name: string; error: string }> = [];
+    let done = 0;
+
+    try {
+      for (let i = 0; i < ids.length; i += 15) {
+        if (calSyncCancelRef.current) break;
+        const batch = ids.slice(i, i + 15);
+        const res = await fetch('/api/ccb/sync-circle-calendars', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ leader_ids: batch }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+        for (const r of json.results || []) {
+          if (r.status === 'error') errors.push({ name: r.name || `#${r.leader_id}`, error: r.error || 'Sync failed' });
+        }
+        done += batch.length;
+        setCalSyncProgress({ done, total: ids.length });
+      }
+      setCalSyncErrors(errors);
+      const okCount = done - errors.length;
+      toast(
+        calSyncCancelRef.current
+          ? `Stopped after ${done} of ${ids.length}.`
+          : `Synced ${okCount} of ${done} circle calendar${done !== 1 ? 's' : ''}${errors.length ? ` — ${errors.length} failed` : ''}.`,
+        errors.length ? 'error' : 'success'
+      );
+    } catch (err: any) {
+      setCalSyncErrors(errors);
+      toast(`${err.message}. ${done} of ${ids.length} processed — re-run to finish the rest.`, 'error');
+    } finally {
+      setCalSyncRunning(false);
+      setCalSyncProgress(null);
+      await loadCalendarSyncLeaders();
+    }
+  }, [calSyncSelected, calSyncRunning, accessToken, toast, loadCalendarSyncLeaders]);
 
   // Track last clicked index for shift-click range selection
   const lastClickedIndexRef = useRef<number | null>(null);
@@ -560,7 +685,7 @@ export default function ImportCirclesPage() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Update failed');
 
-    setMassUpdateResult({ updated: data.updated });
+    setMassUpdateResult({ updated: data.updated, skippedCcbManaged: data.skippedCcbManaged || 0 });
   };
 
   const handleMassUpdate = async () => {
@@ -641,6 +766,19 @@ export default function ImportCirclesPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 Mass Update
+              </button>
+              <button
+                onClick={() => setActiveTab('calendar-sync')}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                  activeTab === 'calendar-sync'
+                    ? 'bg-white dark:bg-blue-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Calendar Sync
               </button>
             </nav>
           </div>
@@ -1069,6 +1207,15 @@ export default function ImportCirclesPage() {
                                       </svg>
                                     </button>
                                   </div>
+                                ) : leader.schedule_source === 'ccb_calendar' ? (
+                                  <span
+                                    title="Schedule managed by the CCB calendar — update events in CCB, then Resync Calendar"
+                                    className="p-1 text-gray-300 dark:text-gray-600 cursor-not-allowed inline-flex"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </span>
                                 ) : (
                                   <button
                                     onClick={() => startEditRow(leader)}
@@ -1202,6 +1349,13 @@ export default function ImportCirclesPage() {
                               </p>
                             )}
 
+                            {(massUpdateResult.skippedCcbManaged ?? 0) > 0 && (
+                              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                                Skipped {massUpdateResult.skippedCcbManaged} — schedule managed by the CCB calendar
+                                (update the events in CCB, then Resync Calendar).
+                              </p>
+                            )}
+
                             {massUpdateResult.failed && massUpdateResult.failed.length > 0 && (
                               <div className="mt-2 text-sm text-red-800 dark:text-red-300">
                                 <p className="font-medium">
@@ -1244,6 +1398,153 @@ export default function ImportCirclesPage() {
           )}
 
           {/* ===== CCB IMPORT TAB ===== */}
+          {/* ===== CALENDAR SYNC TAB ===== */}
+          {activeTab === 'calendar-sync' && (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+                <div className="p-6">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+                    Sync Circle Calendars from CCB
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    Snapshots each circle&apos;s CCB group calendar and derives its meeting day, time, and frequency from
+                    the actual event dates. CCB becomes the schedule&apos;s source of truth — rerun here (or Resync Calendar
+                    on a circle&apos;s profile) after events change in CCB. Syncs are manual; nothing refreshes on its own.
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <button
+                      onClick={runCalendarSync}
+                      disabled={calSyncRunning || calSyncSelected.size === 0}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {calSyncRunning && (
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      )}
+                      {calSyncRunning
+                        ? `Syncing ${calSyncProgress ? `${calSyncProgress.done} of ${calSyncProgress.total}` : '…'}`
+                        : `Sync Selected (${calSyncSelected.size})`}
+                    </button>
+                    {calSyncRunning ? (
+                      <button
+                        onClick={() => { calSyncCancelRef.current = true; }}
+                        className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        Stop after this batch
+                      </button>
+                    ) : (
+                      <button
+                        onClick={loadCalendarSyncLeaders}
+                        disabled={calSyncLoading}
+                        className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                      >
+                        {calSyncLoading ? 'Loading…' : 'Refresh list'}
+                      </button>
+                    )}
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Runs in batches of 15 (~1 CCB call per circle).
+                    </span>
+                  </div>
+
+                  {calSyncProgress && (
+                    <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                      <div
+                        className="h-full bg-blue-600 transition-all duration-300"
+                        style={{ width: `${Math.round((calSyncProgress.done / Math.max(1, calSyncProgress.total)) * 100)}%` }}
+                      />
+                    </div>
+                  )}
+
+                  {calSyncErrors.length > 0 && (
+                    <div className="mb-4 rounded-md bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-300">
+                      <p className="font-medium mb-1">{calSyncErrors.length} circle{calSyncErrors.length !== 1 ? 's' : ''} failed to sync:</p>
+                      <ul className="list-disc pl-5 space-y-0.5">
+                        {calSyncErrors.map((e, i) => (
+                          <li key={i}><span className="font-medium">{e.name}</span>: {e.error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-900/40">
+                        <tr>
+                          <th className="px-3 py-2 text-left">
+                            <input
+                              type="checkbox"
+                              checked={calSyncLeaders.length > 0 && calSyncSelected.size === calSyncLeaders.length}
+                              onChange={(e) => setCalSyncSelected(e.target.checked ? new Set(calSyncLeaders.map(l => l.id)) : new Set())}
+                              className="rounded border-gray-300 dark:border-gray-600"
+                            />
+                          </th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500 dark:text-gray-400">Circle</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500 dark:text-gray-400">Campus</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500 dark:text-gray-400">Frequency</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500 dark:text-gray-400">Last synced</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500 dark:text-gray-400">Dates through</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                        {calSyncLoading && calSyncLeaders.length === 0 ? (
+                          <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">Loading circles…</td></tr>
+                        ) : calSyncLeaders.length === 0 ? (
+                          <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">No circles with a CCB Group ID found.</td></tr>
+                        ) : (
+                          calSyncLeaders.map((l) => {
+                            const chip = calendarChip(l);
+                            return (
+                              <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={calSyncSelected.has(l.id)}
+                                    onChange={(e) => {
+                                      setCalSyncSelected(prev => {
+                                        const next = new Set(prev);
+                                        if (e.target.checked) next.add(l.id); else next.delete(l.id);
+                                        return next;
+                                      });
+                                    }}
+                                    className="rounded border-gray-300 dark:border-gray-600"
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <Link href={`/circle/${l.id}`} className="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 font-medium">
+                                    {l.name}
+                                  </Link>
+                                  {l.circle_name && l.circle_name !== l.name && (
+                                    <span className="block text-xs text-gray-500 dark:text-gray-400">{l.circle_name}</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600 dark:text-gray-300">{l.campus || '—'}</td>
+                                <td className="px-3 py-2 text-gray-600 dark:text-gray-300">{l.frequency || '—'}</td>
+                                <td className="px-3 py-2 text-gray-600 dark:text-gray-300">
+                                  {l.sync_state ? new Date(l.sync_state.last_synced_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Never'}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600 dark:text-gray-300">
+                                  {l.sync_state?.last_occurrence_date
+                                    ? new Date(`${l.sync_state.last_occurrence_date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                    : '—'}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${chip.cls}`}>
+                                    {chip.label}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'ccb' && (
             <>
 
@@ -1353,9 +1654,16 @@ export default function ImportCirclesPage() {
                     <Detail label="Childcare" value={preview.childcare == null ? null : preview.childcare ? 'Yes' : 'No'} />
                     <Detail label="Location" value={preview.location} />
                   </div>
+                  {preview.scheduleFromCalendar && (preview.occurrenceCount ?? 0) > 0 && (
+                    <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                      Schedule derived from {preview.occurrenceCount} CCB calendar date{preview.occurrenceCount !== 1 ? 's' : ''} —
+                      importing snapshots them so the calendar stays the source of truth.
+                    </p>
+                  )}
                   {preview.eventCount === 0 && (
                     <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
-                      No CCB calendar events found yet, so meeting time/frequency may be blank. They&apos;ll fill in once the circle&apos;s calendar has events.
+                      No CCB calendar events found yet, so meeting time/frequency may be blank. The circle will be flagged
+                      until recurring events exist in CCB — set them up there, then use Resync Calendar on its profile.
                     </p>
                   )}
                   {preview.description && (

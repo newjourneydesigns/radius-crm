@@ -283,6 +283,47 @@ export class CCBv2Client {
   }
 
   /**
+   * GET /groups/{id}/calendar?start&end → every event occurrence on the group's
+   * calendar in the date range, pre-expanded by CCB (no recurrence math needed).
+   * Dates/times are the church's own wall clock — extracted verbatim, never
+   * timezone-shifted (same rule as getGroupMeetingDetails and the occurrence
+   * delete tool). parsedCount counts rows that normalized (before range
+   * filtering) so callers can tell "empty calendar" from "unrecognized payload".
+   */
+  async getGroupCalendar(groupId: string, startDate: string, endDate: string): Promise<{
+    occurrences: GroupCalendarOccurrenceV2[];
+    rawCount: number;
+    parsedCount: number;
+  }> {
+    if (!groupId) return { occurrences: [], rawCount: 0, parsedCount: 0 };
+    const raw = await this.get(`/groups/${encodeURIComponent(groupId)}/calendar`, {
+      start: startDate,
+      end: endDate,
+    });
+    const rows = asArray(raw);
+    const occurrences: GroupCalendarOccurrenceV2[] = [];
+    let parsedCount = 0;
+    for (const row of rows) {
+      const eventId = firstString(row?.event_id, row?.event?.id, row?.id);
+      const start = firstString(row?.start, row?.starts_at, row?.event?.start) || null;
+      const occurrenceDate = occToIso(firstString(row?.occurrence, row?.occurrence_date, row?.date, start ?? ''));
+      if (!eventId || !/^\d{4}-\d{2}-\d{2}$/.test(occurrenceDate)) continue;
+      parsedCount += 1;
+      if (occurrenceDate < startDate || occurrenceDate > endDate) continue;
+      const timeMatch = start ? start.match(/T(\d{2}):(\d{2})/) : null;
+      occurrences.push({
+        eventId,
+        eventName: firstString(row?.event?.name, row?.event_name, row?.name, row?.title) || null,
+        occurrenceDate,
+        startTime: timeMatch ? `${timeMatch[1]}:${timeMatch[2]}` : null,
+        start,
+        end: firstString(row?.end, row?.ends_at, row?.event?.end) || null,
+      });
+    }
+    return { occurrences, rawCount: rows.length, parsedCount };
+  }
+
+  /**
    * GET /groups → List groups, one page at a time. NOTE: CCB v2's /groups endpoint
    * does NOT support server-side filtering (campus_id/department_id/type_id are all
    * silently ignored, and campus_ids returns 412). Callers must filter the returned
@@ -578,6 +619,15 @@ export interface AttendanceSummaryV2 {
   notes?: string;
   prayerRequests?: string;
   attendees?: Array<{ id?: string; name?: string; status?: string }>;
+}
+
+export interface GroupCalendarOccurrenceV2 {
+  eventId: string;
+  eventName: string | null;
+  occurrenceDate: string; // "YYYY-MM-DD", church-local
+  startTime: string | null; // "HH:mm" wall clock
+  start: string | null; // raw CCB start string
+  end: string | null;
 }
 
 export interface GroupDetailV2 {

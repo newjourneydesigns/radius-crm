@@ -3,6 +3,17 @@
     "date": "2026-08-06",
     "date_display": "August 6, 2026",
     "date_iso": "2026-08-06",
+    "version": "2.49.0",
+    "id": "ccb-calendar-schedule-source-of-truth",
+    "type": "feature",
+    "category": "Integrations",
+    "description": "A circle's meeting schedule now comes straight from its CCB group calendar instead of hand-kept day/time/frequency fields. Importing a circle snapshots the calendar's actual event dates (a year ahead) into RADIUS, derives the day, time, and frequency from them — including odd cadences like \"1st, 3rd\" that CCB's recurrence codes couldn't express — and every schedule surface reads those real dates: the event summary tracker, circle reporting, the daily digest, Today, and attendance sync (which no longer invents \"no record\" weeks for ordinal circles). Schedule fields on calendar-synced circles are read-only; change the events in CCB, then hit Resync Calendar on the profile. Syncs are deliberately manual — a new Calendar Sync tab on Import Circles backfills or refreshes everyone in batches. If a circle's calendar has no upcoming dates, RADIUS flags it on the profile and the tracker with instructions (set up the recurring event in CCB, then resync) and falls back to the last known schedule so the circle never disappears.",
+    "page": "/import-circles"
+  },
+  {
+    "date": "2026-08-06",
+    "date_display": "August 6, 2026",
+    "date_iso": "2026-08-06",
     "version": "2.48.1",
     "id": "ccb-roster-phone-timeout",
     "type": "fix",

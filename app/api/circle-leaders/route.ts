@@ -273,10 +273,33 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Service client unavailable' }, { status: 500 });
     }
 
+    // Schedule fields are owned by the CCB calendar snapshot for circles with
+    // schedule_source = 'ccb_calendar' — skip those rows instead of writing
+    // values the next calendar sync would overwrite anyway.
+    const SCHEDULE_FIELDS = ['day', 'time', 'frequency', 'meeting_start_date'];
+    let targetIds: number[] = leaderIds;
+    let skippedCcbManaged = 0;
+    if (SCHEDULE_FIELDS.includes(field)) {
+      const { data: managed } = await db
+        .from('circle_leaders')
+        .select('id')
+        .in('id', leaderIds)
+        .eq('schedule_source', 'ccb_calendar');
+      const managedIds = new Set((managed ?? []).map((r: any) => r.id));
+      skippedCcbManaged = managedIds.size;
+      targetIds = leaderIds.filter((id: number) => !managedIds.has(id));
+      if (targetIds.length === 0) {
+        return NextResponse.json(
+          { updated: 0, skippedCcbManaged, leaders: [] },
+          { status: 200 }
+        );
+      }
+    }
+
     const { data, error } = await db
       .from('circle_leaders')
       .update({ [field]: updateValue, updated_at: new Date().toISOString() })
-      .in('id', leaderIds)
+      .in('id', targetIds)
       .select('id, name, campus, acpd, email_reminders_enabled');
 
     if (error) {
@@ -285,7 +308,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { updated: data?.length || 0, leaders: data },
+      { updated: data?.length || 0, skippedCcbManaged, leaders: data },
       { status: 200 }
     );
   } catch (error) {

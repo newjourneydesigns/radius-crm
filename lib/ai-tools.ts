@@ -1649,6 +1649,24 @@ export async function executeTool(
       if (Object.keys(updateData).length === 0) {
         return { toolName: name, result: { error: 'No fields specified to update. Provide at least one field (phone, email, campus, day, time, circle_type, acpd, frequency).' } };
       }
+      // Schedule fields are derived from the CCB calendar snapshot when the
+      // circle is calendar-managed; a silent edit here would be overwritten by
+      // the next sync, so refuse with the fix path instead.
+      if (['day', 'time', 'frequency'].some((f) => f in updateData)) {
+        const { data: sourceRow } = await supabase
+          .from('circle_leaders')
+          .select('schedule_source')
+          .eq('id', leader.id)
+          .maybeSingle();
+        if (sourceRow?.schedule_source === 'ccb_calendar') {
+          return {
+            toolName: name,
+            result: {
+              error: `Meeting day/time/frequency for ${leader.name} come from their CCB group calendar. Update the recurring event in CCB, then use Resync Calendar on their profile.`,
+            },
+          };
+        }
+      }
       const { error } = await supabase
         .from('circle_leaders')
         .update(updateData)
