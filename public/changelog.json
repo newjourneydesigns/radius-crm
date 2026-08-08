@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-08-08",
+    "date_display": "August 8, 2026",
+    "date_iso": "2026-08-08",
+    "version": "2.49.1",
+    "id": "circle-calendar-sync-412",
+    "type": "fix",
+    "category": "Integrations",
+    "description": "Resync Calendar on a circle's profile (and the Import Circles calendar backfill) could fail with an unexplained \"HTTP 412\" from CCB. The sync asks CCB for the circle's full schedule window — eight weeks back through a year ahead — in a single request, and CCB can refuse a request that wide. When that happens, RADIUS now automatically retries in narrower date slices until CCB accepts, stitches the results back together, and carries on; nothing changes about what gets synced. And if CCB turns a sync down for any other reason, the error message now includes CCB's own explanation instead of just a bare status code, so it's clear what to fix.",
+    "page": "/search"
+  },
+  {
     "date": "2026-08-06",
     "date_display": "August 6, 2026",
     "date_iso": "2026-08-06",

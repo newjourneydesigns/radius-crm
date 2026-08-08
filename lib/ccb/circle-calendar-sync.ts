@@ -5,7 +5,9 @@
  * dates. CCB is the source of truth; RADIUS stops guessing cadence.
  *
  * Sync is MANUAL by design (import, per-circle Resync Calendar, admin bulk
- * backfill) — there is no refresh cron. One CCB call per circle per sync.
+ * backfill) — there is no refresh cron. Normally one CCB call per circle per
+ * sync; when CCB rejects the full ~14-month window with HTTP 412, the client
+ * bisects into narrower sub-range calls until CCB accepts.
  *
  * Dates and times from CCB are the church's own wall clock and are stored
  * verbatim; Luxon is used only for window math in America/Chicago.
