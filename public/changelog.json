@@ -3,6 +3,17 @@
     "date": "2026-08-08",
     "date_display": "August 8, 2026",
     "date_iso": "2026-08-08",
+    "version": "2.49.3",
+    "id": "ccb-429-retry-after",
+    "type": "fix",
+    "category": "Integrations",
+    "description": "The calendar backfill kept tripping CCB's per-endpoint rate limit: after the first few circles, CCB answered every request with \"rate limited (429), retry after 1s\" — and RADIUS treated each of those as a hard failure, so one busy stretch cascaded into a whole run of failed circles. RADIUS now does exactly what CCB's reply asks: it waits the second or two and quietly retries (up to a few attempts), so bulk syncs pace themselves instead of collapsing. Genuine limit problems — a long cool-down or persistent throttling — still surface as errors. Bulk runs take a little longer now; that's the rate limit being respected rather than fought.",
+    "page": "/import-circles"
+  },
+  {
+    "date": "2026-08-08",
+    "date_display": "August 8, 2026",
+    "date_iso": "2026-08-08",
     "version": "2.49.2",
     "id": "calendar-backfill-batch-resilience",
     "type": "fix",

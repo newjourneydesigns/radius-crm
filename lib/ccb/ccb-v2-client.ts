@@ -65,6 +65,7 @@ export class CCBv2Client {
     path: string,
     options: RequestOptions = {},
     retriedAfterUnauthorized: boolean,
+    rateLimitAttempt = 0,
   ): Promise<CCBv2Response<T>> {
     // Shared daily ceiling across all serverless instances (tripwire, not a CCB
     // cap — v2 has no daily limit). Throws CCBDailyBudgetError once reached.
@@ -115,14 +116,25 @@ export class CCBv2Client {
     });
 
     if (res.status === 429) {
-      const retryAfter = headers['retry-after'] ? Number(headers['retry-after']) : null;
+      const parsed = headers['retry-after'] ? Number(headers['retry-after']) : NaN;
+      const retryAfter = Number.isFinite(parsed) ? parsed : null;
+      // CCB's per-endpoint limiter answers with its own instruction ("retry
+      // after Ns", typically 1s). Honor short waits in place instead of failing
+      // the whole job — under a bulk sync a single fatal 429 cascades into
+      // every subsequent call failing. Long retry-afters and exhausted
+      // attempts still throw for callers to handle.
+      const waitSeconds = retryAfter ?? Math.min(2 ** rateLimitAttempt, 8);
+      if (rateLimitAttempt < MAX_RATE_LIMIT_RETRIES && waitSeconds <= MAX_HONORED_RETRY_AFTER_S) {
+        await sleepMs(waitSeconds * 1000 + 250);
+        return this.requestWithResponseAttempt<T>(path, options, retriedAfterUnauthorized, rateLimitAttempt + 1);
+      }
       throw new CCBv2RateLimitError(
         `CCB v2 rate limited (429) on ${service}${retryAfter ? `; retry after ${retryAfter}s` : ''}`,
-        Number.isFinite(retryAfter as number) ? (retryAfter as number) : null,
+        retryAfter,
       );
     }
     if (res.status === 401 && !retriedAfterUnauthorized) {
-      return this.requestWithResponseAttempt<T>(path, options, true);
+      return this.requestWithResponseAttempt<T>(path, options, true, rateLimitAttempt);
     }
     if (!res.ok) {
       throw new CCBv2RequestError(
@@ -696,6 +708,16 @@ export interface GroupDetailV2 {
  * fetchGroupCalendarRows stops bisecting and lets the error surface.
  */
 const MIN_CALENDAR_BISECT_DAYS = 28;
+
+// How many times one request re-tries a 429 before giving up, and the longest
+// retry-after we'll sit out in place. Anything past these throws so callers
+// (and their own time budgets) stay in charge.
+const MAX_RATE_LIMIT_RETRIES = 4;
+const MAX_HONORED_RETRY_AFTER_S = 15;
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function isoToUtcDate(iso: string): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
