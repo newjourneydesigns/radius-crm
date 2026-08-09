@@ -8,15 +8,7 @@ import { supabase } from '../../lib/supabase';
 import type { CircleLeader, EventSummaryState } from '../../lib/supabase';
 import { apiFetch } from '../../lib/apiClient';
 import { useToast } from '../../components/ui/ToastProvider';
-import {
-  buildScheduleContexts,
-  meetingTimeForDate,
-  scheduledDatesInRange,
-  scheduleHealth,
-  type CalendarOccurrenceLite,
-  type CalendarSyncStateLite,
-  type LeaderScheduleContext,
-} from '../../lib/circleSchedule';
+import { doesMeetingFrequencyIncludeDate, isBiWeeklyFrequency } from '../../lib/meetingFrequency';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/ui/Modal';
 import EventSummaryReminderModal from '../../components/modals/EventSummaryReminderModal';
@@ -115,8 +107,6 @@ type PagePayload = {
   snapshots: SnapshotRow[];
   occurrences: OccurrenceRow[];
   submissions: SubmissionRow[];
-  calendarOccurrences: CalendarOccurrenceLite[];
-  calendarSyncStates: CalendarSyncStateLite[];
   tracker: TrackerData | null;
 };
 
@@ -140,9 +130,7 @@ const trackerPageCache = new Map<string, { loadedAt: number; payload: PagePayloa
 // localStorage stale-while-revalidate so warm reloads paint instantly.
 // We always re-fetch in the background to refresh state; the cached payload
 // just gives us something to render right away.
-// v2: payload gained calendarOccurrences/calendarSyncStates — older cached
-// payloads must not render without them.
-const TRACKER_LS_PREFIX = 'est.cache.v2:';
+const TRACKER_LS_PREFIX = 'est.cache.v1:';
 const TRACKER_LS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const ALLOWED_NOTE_TAGS = new Set(['A', 'B', 'BR', 'DIV', 'EM', 'I', 'LI', 'OL', 'P', 'SPAN', 'STRONG', 'U', 'UL']);
 
@@ -292,9 +280,39 @@ function formatWeekLabel(weekStart: string): string {
     : `${start.toFormat('MMM d')} – ${end.toFormat('MMM d, yyyy')}`;
 }
 
-// Scheduling ("does this circle meet this week", and on which date) comes from
-// the shared helper in lib/circleSchedule.ts: the CCB calendar snapshot when it
-// covers the week, legacy day/frequency math otherwise.
+function scheduledMeetingDateForWeek(weekStart: string, meetingDay: string): DateTime | null {
+  const meetingDayIndex = DAY_INDEX[meetingDay];
+  if (meetingDayIndex === undefined) return null;
+
+  const weekStartDt = DateTime.fromISO(weekStart);
+  if (!weekStartDt.isValid) return null;
+
+  return weekStartDt.plus({ days: meetingDayIndex });
+}
+
+function meetsOrdinalFrequencyOnDate(frequency: string | undefined, meetingDate: DateTime): boolean | null {
+  const normalized = (frequency ?? '').trim().toLowerCase();
+  const ordinalChecks = [
+    { week: 1, pattern: /\b(1st|first)\b/ },
+    { week: 2, pattern: /\b(2nd|second)\b/ },
+    { week: 3, pattern: /\b(3rd|third)\b/ },
+    { week: 4, pattern: /\b(4th|fourth)\b/ },
+    { week: 5, pattern: /\b(5th|fifth)\b/ },
+  ];
+  const scheduledWeeks = ordinalChecks
+    .filter(({ pattern }) => pattern.test(normalized))
+    .map(({ week }) => week);
+
+  if (scheduledWeeks.length === 0) return null;
+
+  const mentionsWeekly = normalized.includes('weekly') || normalized.includes('every week');
+  const mentionsBiWeekly = normalized.includes('bi-week')
+    || normalized.includes('biweekly')
+    || normalized.includes('every other');
+  if (mentionsWeekly || mentionsBiWeekly) return null;
+
+  return scheduledWeeks.includes(Math.ceil(meetingDate.day / 7));
+}
 
 // Returns minutes-from-midnight (0–1440) for sorting. Unknown → 9999 so they
 // sort to the end.
@@ -354,8 +372,6 @@ export default function EventSummaryTrackerPage() {
   const [snapshots, setSnapshots] = useState<SnapshotRow[]>([]);
   const [occurrences, setOccurrences] = useState<OccurrenceRow[]>([]);
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
-  const [calendarOccurrences, setCalendarOccurrences] = useState<CalendarOccurrenceLite[]>([]);
-  const [calendarSyncStates, setCalendarSyncStates] = useState<CalendarSyncStateLite[]>([]);
   const [tracker, setTracker] = useState<TrackerData | null>(null);
   const toast = useToast();
   const [loading, setLoading] = useState(true);
@@ -464,8 +480,6 @@ export default function EventSummaryTrackerPage() {
     setSnapshots(payload.snapshots);
     setOccurrences(payload.occurrences);
     setSubmissions(payload.submissions);
-    setCalendarOccurrences(payload.calendarOccurrences ?? []);
-    setCalendarSyncStates(payload.calendarSyncStates ?? []);
     setTracker(payload.tracker);
   }, []);
 
@@ -511,19 +525,6 @@ export default function EventSummaryTrackerPage() {
         .gte('occurrence', `${weekStart}T00:00:00Z`)
         .lte('occurrence', `${weekEnd}T23:59:59Z`);
 
-      // CCB calendar snapshot for this week (dominant series only) + per-leader
-      // sync state (coverage/runway) — drives which circles are scheduled.
-      const calendarOccurrencesPromise = supabase
-        .from('circle_calendar_occurrences')
-        .select('leader_id, ccb_event_id, occurrence_date, start_time, is_dominant')
-        .eq('is_dominant', true)
-        .gte('occurrence_date', weekStart)
-        .lte('occurrence_date', weekEnd);
-
-      const calendarSyncStatesPromise = supabase
-        .from('circle_calendar_sync_state')
-        .select('leader_id, window_start, last_occurrence_date, future_count, last_synced_at, status');
-
       const trackerPromise = apiFetch(`/api/event-summary-tracker?week_start_date=${weekStart}`, { cache: 'no-store' })
         .then(async (res) => {
           const json = await res.json();
@@ -538,30 +539,22 @@ export default function EventSummaryTrackerPage() {
           return null;
         });
 
-      const [leaderRes, occRes, subRes, calOccRes, calStateRes, trackerJson] = await Promise.all([
+      const [leaderRes, occRes, subRes, trackerJson] = await Promise.all([
         leadersPromise,
         occurrencesPromise,
         submissionsPromise,
-        calendarOccurrencesPromise,
-        calendarSyncStatesPromise,
         trackerPromise,
       ]);
 
       if (leaderRes.error) throw leaderRes.error;
       if (occRes.error) throw occRes.error;
       if (subRes.error) throw subRes.error;
-      // Calendar tables may not exist yet (migration not run) — non-fatal, the
-      // schedule math falls back to the legacy frequency fields.
-      if (calOccRes.error) console.warn('[tracker] calendar occurrences unavailable:', calOccRes.error.message);
-      if (calStateRes.error) console.warn('[tracker] calendar sync state unavailable:', calStateRes.error.message);
 
       const payload: PagePayload = {
         leaders: leaderRes.data ?? [],
         snapshots: trackerJson?.snapshots ?? [],
         occurrences: occRes.data ?? [],
         submissions: subRes.data ?? [],
-        calendarOccurrences: (calOccRes.data ?? []) as CalendarOccurrenceLite[],
-        calendarSyncStates: (calStateRes.data ?? []) as CalendarSyncStateLite[],
         tracker: trackerJson,
       };
 
@@ -712,39 +705,36 @@ export default function EventSummaryTrackerPage() {
   const campuses = useMemo(() => Array.from(new Set(leaders.map(l => l.campus).filter(Boolean))).sort() as string[], [leaders]);
   const acpds    = useMemo(() => Array.from(new Set(leaders.map(l => l.acpd).filter(Boolean))).sort() as string[], [leaders]);
 
-  // Per-leader schedule context: CCB calendar snapshot with legacy fallback.
-  const scheduleCtxById = useMemo(
-    () => buildScheduleContexts(leaders, calendarOccurrences, calendarSyncStates),
-    [leaders, calendarOccurrences, calendarSyncStates]
-  );
-
-  // Which leaders are scheduled to meet this week — real CCB occurrence dates
-  // when the snapshot covers the week, legacy day/frequency math otherwise.
+  // Which leaders are scheduled to meet this week — by day-of-week + frequency
   const scheduledLeaderIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const l of leaders) {
-      const ctx = scheduleCtxById.get(l.id);
-      if (ctx && scheduledDatesInRange(ctx, weekStart, weekEnd).dates.length > 0) ids.add(l.id);
-    }
-    return ids;
-  }, [leaders, scheduleCtxById, weekStart, weekEnd]);
+    return new Set(
+      leaders
+        .filter(l => {
+          if (!l.day) return false;
+          const meetingDate = scheduledMeetingDateForWeek(weekStart, l.day);
+          if (!meetingDate) return false;
 
-  // Circles whose CCB calendar snapshot has run out of upcoming dates (red) or
-  // is running low (amber) — the safety-net surface on the tracker.
-  const scheduleAttention = useMemo(() => {
-    const today = DateTime.local().toISODate()!;
-    const none: CircleLeader[] = [];
-    const low: CircleLeader[] = [];
-    for (const l of leaders) {
-      const ctx = scheduleCtxById.get(l.id);
-      if (!ctx) continue;
-      if (l.status && !['active', 'on-boarding'].includes(l.status)) continue;
-      const health = scheduleHealth(ctx, today);
-      if (health.state === 'none' || health.state === 'error') none.push(l);
-      else if (health.state === 'low') low.push(l);
-    }
-    return { none, low };
-  }, [leaders, scheduleCtxById]);
+          const meetsOrdinalFrequency = meetsOrdinalFrequencyOnDate(l.frequency, meetingDate);
+          if (meetsOrdinalFrequency !== null) return meetsOrdinalFrequency;
+
+          // Bi-weekly parity check using meeting_start_date.
+          if (isBiWeeklyFrequency(l.frequency)) {
+            return doesMeetingFrequencyIncludeDate({
+              date: meetingDate.toISODate()!,
+              frequency: l.frequency,
+              meetingStartDate: l.meeting_start_date,
+              meetingDay: l.day,
+            });
+          }
+          if (l.frequency === 'monthly') {
+            // Approximate — keep if leader has not met yet this month
+            return true; // do not exclude; better surface than hide
+          }
+          return true;
+        })
+        .map(l => l.id)
+    );
+  }, [leaders, weekStart]);
 
   // Build rows
   const rows: Row[] = useMemo(() => {
@@ -835,12 +825,10 @@ export default function EventSummaryTrackerPage() {
       // scheduled meeting time. Helps surface circles that have gone silent.
       let overdue = false;
       let hoursOverdue = 0;
-      if (status === 'no_summary') {
-        const ctx = scheduleCtxById.get(l.id);
-        const meetingISO = ctx ? (scheduledDatesInRange(ctx, weekStart, weekEnd).dates[0] ?? null) : null;
-        const meetingDate = meetingISO ? DateTime.fromISO(meetingISO) : null;
-        if (meetingDate?.isValid) {
-          const minutes = parseTimeToMinutes(ctx ? meetingTimeForDate(ctx, meetingISO!) : l.time);
+      if (status === 'no_summary' && l.day) {
+        const meetingDate = scheduledMeetingDateForWeek(weekStart, l.day);
+        if (meetingDate) {
+          const minutes = parseTimeToMinutes(l.time);
           const scheduledDt = minutes < 9999
             ? meetingDate.plus({ minutes })
             : meetingDate.endOf('day');
@@ -869,7 +857,7 @@ export default function EventSummaryTrackerPage() {
         hoursOverdue,
       };
     });
-  }, [leaders, occurrences, submissions, snapshots, scheduledLeaderIds, scheduleCtxById, tracker, campusFilter, acpdFilter, circleStatusFilters, justReviewed, justUnreviewed, weekStart, weekEnd]);
+  }, [leaders, occurrences, submissions, snapshots, scheduledLeaderIds, tracker, campusFilter, acpdFilter, circleStatusFilters, justReviewed, justUnreviewed, weekStart]);
 
   const sortRows = useCallback((arr: Row[]) => {
     const sorted = [...arr];
@@ -917,10 +905,7 @@ export default function EventSummaryTrackerPage() {
   }, [rows, needsReview.length, awaiting.length]);
 
   const orphanCount = (tracker?.orphans.inactive.length ?? 0) + (tracker?.orphans.unknown_group.length ?? 0);
-  const issueCount = orphanCount
-    + (stats.missedCount > 0 ? 1 : 0)
-    + (scheduleAttention.none.length > 0 ? 1 : 0)
-    + (scheduleAttention.low.length > 0 ? 1 : 0);
+  const issueCount = orphanCount + (stats.missedCount > 0 ? 1 : 0);
 
   // -- Actions ------------------------------------------------------------------
   const authHeader = useCallback(async (): Promise<HeadersInit> => {
@@ -1282,37 +1267,6 @@ export default function EventSummaryTrackerPage() {
                   <div className="text-amber-200/90 flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 text-amber-300 flex-shrink-0 mt-0.5" />
                     <span>{stats.missedCount} {stats.missedCount === 1 ? 'circle has' : 'circles have'} not met for 2+ scheduled weeks.</span>
-                  </div>
-                )}
-                {scheduleAttention.none.length > 0 && (
-                  <div className="text-red-200/90 flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-red-300 flex-shrink-0 mt-0.5" />
-                    <span>
-                      {scheduleAttention.none.length === 1 ? 'This circle has' : `${scheduleAttention.none.length} circles have`} no
-                      upcoming dates on their CCB calendar, so scheduling is falling back to their last known day and time.
-                      Set up the recurring event in CCB, then hit Resync Calendar on the profile:{' '}
-                      {scheduleAttention.none.map((l, i) => (
-                        <span key={l.id}>
-                          {i > 0 && ', '}
-                          <Link href={`/circle/${l.id}`} className="underline hover:text-red-100">{l.name}</Link>
-                        </span>
-                      ))}
-                    </span>
-                  </div>
-                )}
-                {scheduleAttention.low.length > 0 && (
-                  <div className="text-amber-200/90 flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-300 flex-shrink-0 mt-0.5" />
-                    <span>
-                      {scheduleAttention.low.length === 1 ? 'One circle’s' : `${scheduleAttention.low.length} circles’`} CCB
-                      calendar runs out of dates within two weeks — extend the recurring event in CCB soon:{' '}
-                      {scheduleAttention.low.map((l, i) => (
-                        <span key={l.id}>
-                          {i > 0 && ', '}
-                          <Link href={`/circle/${l.id}`} className="underline hover:text-amber-100">{l.name}</Link>
-                        </span>
-                      ))}
-                    </span>
                   </div>
                 )}
                 {tracker?.orphans.inactive.map(o => (

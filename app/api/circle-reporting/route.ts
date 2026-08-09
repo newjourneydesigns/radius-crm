@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getUserFromAuthHeader } from '../../../lib/server-supabase';
 import { categorizeDidNotMeetReason } from '../../../lib/circle-leader-toolkit/did-not-meet-reasons';
-import { fetchScheduleContexts, scheduledDatesInRange, snapshotCovers } from '../../../lib/circleSchedule';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -600,12 +599,6 @@ export async function GET(request: Request) {
     const queryEnd = addDays(startOfWeekSunday(endDate), 6);
     const selectedWeekEnd = addDays(selectedWeek, 6);
 
-    // CCB calendar snapshots — fetched alongside the other range queries.
-    const scheduleCtxsPromise = fetchScheduleContexts(db, leaderRows, {
-      from: queryStart,
-      to: queryEnd,
-    });
-
     const [occurrencesRes, submissionsRes, snapshotsRes] = await Promise.all([
       db
         .from('circle_meeting_occurrences')
@@ -688,34 +681,13 @@ export async function GET(request: Request) {
       }
     };
 
-    const scheduleCtxs = await scheduleCtxsPromise;
-
-    // Status + leader-type gates shared by both expectation paths (the same
-    // gates isExpectedThisWeek applies internally on the legacy path).
-    const passesLeaderGates = (leader: LeaderRow, statusOverride?: string | null): boolean => {
-      const effectiveStatus = statusOverride && statusOverride.trim() ? statusOverride : leader.status;
-      if (!ACTIVE_STATUSES.has((effectiveStatus ?? '').toLowerCase())) return false;
-      return (leader.leader_type ?? 'circle') === 'circle';
-    };
-
     for (const week of weekStartsBetween(queryStart, queryEnd)) {
-      const weekEnd = addDays(week, 6);
       for (const leader of leaderRows) {
         const snap = indexes.snapshotsByLeaderWeek.get(`${leader.id}|${week}`);
-        const ctx = scheduleCtxs.get(leader.id);
-        if (ctx && snapshotCovers(ctx, week, weekEnd)) {
-          // Snapshot-covered week: the real CCB occurrence dates decide.
-          if (!passesLeaderGates(leader, snap?.leader_status)) continue;
-          const { dates } = scheduledDatesInRange(ctx, week, weekEnd);
-          if (dates.length === 0) continue;
-          addExpected(leader.id, week, dates[0]);
-        } else {
-          // Outside snapshot coverage: point-in-time cadence overlay, then
-          // current fields — the pre-snapshot behavior, unchanged.
-          const effLeader = applySnapshotCadence(leader, snap);
-          if (!isExpectedThisWeek(effLeader, week, snap?.leader_status)) continue;
-          addExpected(leader.id, week, expectedDateForWeek(week, effLeader));
-        }
+        const effLeader = applySnapshotCadence(leader, snap);
+        if (!isExpectedThisWeek(effLeader, week, snap?.leader_status)) continue;
+        const expectedDate = expectedDateForWeek(week, effLeader);
+        addExpected(leader.id, week, expectedDate);
       }
     }
 

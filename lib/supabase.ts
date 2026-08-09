@@ -123,9 +123,6 @@ export interface CircleLeader {
   director?: string;
   ccb_category_id?: string;
   location?: string;
-  // 'ccb_calendar' = day/time/frequency derived from the CCB calendar snapshot
-  // (read-only in the UI); 'manual' = hand-maintained.
-  schedule_source?: 'manual' | 'ccb_calendar';
   uuid?: string;
   created_at?: string;
   updated_at?: string;
@@ -140,45 +137,6 @@ export interface CircleLeader {
     date_of_connection: string;
     connection_type: string;
   };
-}
-
-// ---- Circle calendar snapshot (CCB v2 group calendar) ----
-
-export type CircleCalendarSyncStatus = 'ok' | 'no_events' | 'error';
-
-export interface CircleCalendarOccurrence {
-  id: string;
-  leader_id: number;
-  ccb_group_id: string;
-  ccb_event_id: string;
-  event_name: string | null;
-  occurrence_date: string; // YYYY-MM-DD, church-local
-  start_time: string | null; // "HH:mm" wall clock
-  starts_at: string | null; // raw CCB start string
-  ends_at: string | null;
-  is_dominant: boolean;
-  synced_at: string;
-}
-
-export interface CircleCalendarSyncState {
-  leader_id: number;
-  ccb_group_id: string;
-  last_synced_at: string;
-  window_start: string;
-  window_end: string;
-  status: CircleCalendarSyncStatus;
-  error: string | null;
-  occurrence_count: number;
-  future_count: number;
-  first_occurrence_date: string | null;
-  last_occurrence_date: string | null; // dominant-series runway end
-  dominant_event_id: string | null;
-  dominant_event_name: string | null;
-  derived_day: string | null;
-  derived_time: string | null;
-  derived_frequency: string | null;
-  derived_meeting_start_date: string | null;
-  last_sync_summary: Record<string, any>;
 }
 
 export interface Note {

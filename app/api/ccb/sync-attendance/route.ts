@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 import { createCCBClient, type LinkRow } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
-import { fetchScheduleContexts, scheduledDatesInRange } from '../../../../lib/circleSchedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,11 +38,52 @@ interface LeaderRow {
   meeting_start_date: string | null;
 }
 
-// Expected meeting dates come from the shared schedule helper: the CCB
-// calendar snapshot when it covers the range (real dates — ordinal and
-// irregular cadences included), legacy day/frequency math otherwise. Dates
-// before the snapshot window keep their previously backfilled rows; this
-// sync only inserts rows for dates it can still vouch for.
+// ── Day-of-week helper ─────────────────────────────────────────────
+const DAY_MAP: Record<string, number> = {
+  sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+  thursday: 4, friday: 5, saturday: 6,
+};
+
+/**
+ * Determine all dates in [startDate, endDate] that fall on the leader's
+ * meeting day. In the future we can incorporate biweekly parity via
+ * meeting_start_date.
+ */
+function getExpectedMeetingDates(
+  leader: LeaderRow,
+  startDate: string,
+  endDate: string
+): string[] {
+  if (!leader.day) return [];
+
+  const targetDay = DAY_MAP[leader.day.toLowerCase().trim()];
+  if (targetDay === undefined) return [];
+
+  const dates: string[] = [];
+  const cursor = new Date(startDate + 'T12:00:00');
+  const end = new Date(endDate + 'T12:00:00');
+
+  while (cursor <= end) {
+    if (cursor.getDay() === targetDay) {
+      dates.push(cursor.toISOString().split('T')[0]);
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  // Biweekly filter: keep every other meeting based on anchor date
+  if (leader.frequency?.toLowerCase().includes('bi') && leader.meeting_start_date) {
+    const anchor = new Date(leader.meeting_start_date + 'T12:00:00');
+    const anchorTime = anchor.getTime();
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+    return dates.filter(d => {
+      const diff = Math.abs(new Date(d + 'T12:00:00').getTime() - anchorTime);
+      const weeksDiff = Math.round(diff / oneWeekMs);
+      return weeksDiff % 2 === 0;
+    });
+  }
+
+  return dates;
+}
 
 /**
  * Build OccurrenceRow records from pre-fetched LinkRow data for a single leader.
@@ -240,12 +280,6 @@ export async function POST(request: NextRequest) {
   attendanceByEventId.forEach((rows) => { totalCCBEvents += rows.length; });
   console.log(`📦 Got ${totalCCBEvents} attendance records across ${attendanceByEventId.size} event IDs`);
 
-  // Calendar snapshots (+ legacy fallback) for expected-meeting math.
-  const scheduleCtxs = await fetchScheduleContexts(supabase, activeLeaders, {
-    from: startDate,
-    to: endDate,
-  });
-
   // ── Cross-reference and upsert ────────────────────────────────────
   const results = {
     synced: 0,
@@ -294,8 +328,7 @@ export async function POST(request: NextRequest) {
       const ccbDates = new Set(ccbRecords.map((r) => r.meeting_date));
 
       // 3. Fill missing expected meeting dates with 'no_record'
-      const ctx = scheduleCtxs.get(leader.id);
-      const expectedDates = ctx ? scheduledDatesInRange(ctx, startDate, endDate).dates : [];
+      const expectedDates = getExpectedMeetingDates(leader, startDate, endDate);
       const today = toDateStr(new Date());
       const missingRecords: OccurrenceRow[] = expectedDates
         .filter((d) => !ccbDates.has(d) && d <= today)

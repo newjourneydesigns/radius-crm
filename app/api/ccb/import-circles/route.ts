@@ -4,13 +4,6 @@ import { fetchCcbCircleType } from '../../../../lib/ccb/circle-type';
 import { createCCBv2Client } from '../../../../lib/ccb/ccb-v2-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
-import {
-  calendarSyncWindow,
-  deriveScheduleFromOccurrences,
-  pickDominantEventId,
-  syncCircleCalendar,
-  type DerivedSchedule,
-} from '../../../../lib/ccb/circle-calendar-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -124,26 +117,6 @@ export async function GET(request: NextRequest) {
       meeting = await ccbv2.getGroupMeetingDetails(groupId);
     } catch { /* non-fatal */ }
 
-    // 4b. Derive the schedule from the actual calendar occurrences — the same
-    // math the post-import snapshot uses. Catches ordinal cadences ("1st, 3rd")
-    // that the event's recurrence code can't express.
-    let derivedSchedule: DerivedSchedule = { day: null, time: null, frequency: null, meetingStartDate: null };
-    let occurrenceCount = 0;
-    try {
-      const window = calendarSyncWindow();
-      const cal = await ccbv2.getGroupCalendar(groupId, window.start, window.end);
-      const dominantId = pickDominantEventId(cal.occurrences, window.today);
-      const dominant = cal.occurrences.filter((o) => o.eventId === dominantId);
-      occurrenceCount = dominant.length;
-      const timesByDate: Record<string, string | null> = {};
-      for (const o of dominant) timesByDate[o.occurrenceDate] = o.startTime;
-      derivedSchedule = deriveScheduleFromOccurrences(
-        dominant.map((o) => o.occurrenceDate),
-        timesByDate,
-        window.today,
-      );
-    } catch { /* non-fatal — preview falls back to recurrence-derived values */ }
-
     // 5. Already imported?
     const sb = getServiceSupabase();
     const { data: existing } = await sb
@@ -173,13 +146,11 @@ export async function GET(request: NextRequest) {
         circleType,
         campus: campusName,
         campusId: group.campus?.id || null,
-        meetingDay: derivedSchedule.day || meeting.day || group.meetDay?.name || null,
-        meetingTime: derivedSchedule.time || meeting.time || group.meetTime?.name || null,
-        meetingFrequency: derivedSchedule.frequency || meeting.frequency,
+        meetingDay: meeting.day || group.meetDay?.name || null,
+        meetingTime: meeting.time || group.meetTime?.name || null,
+        meetingFrequency: meeting.frequency,
         location: meeting.location || fallbackLocation,
         eventCount: meeting.eventIds.length,
-        occurrenceCount,
-        scheduleFromCalendar: Boolean(derivedSchedule.frequency || derivedSchedule.day),
         address: group.address?.street || null,
         city: group.address?.city || null,
         state: group.address?.state || null,
@@ -358,27 +329,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: insertError.message }, { status: 500 });
     }
 
-    // Snapshot the group's calendar so the schedule comes from real occurrence
-    // dates from day one (flips schedule_source to 'ccb_calendar' when the
-    // group has events). Non-fatal: the circle imports either way, and the
-    // profile's Resync Calendar button can capture the snapshot later.
-    let calendarSync: { status: string; occurrenceCount: number; futureCount: number } | null = null;
-    try {
-      const syncResult = await syncCircleCalendar(sb, ccbv2, { id: inserted.id, ccb_group_id: groupId });
-      calendarSync = {
-        status: syncResult.status,
-        occurrenceCount: syncResult.occurrenceCount,
-        futureCount: syncResult.futureCount,
-      };
-    } catch (syncError: any) {
-      console.error('❌ import-circles calendar snapshot failed:', syncError?.message || syncError);
-    }
-
     return NextResponse.json({
       success: true,
       leader: inserted,
       eventIdsLinked: meeting.eventIds.length,
-      calendarSync,
     });
   } catch (error: any) {
     console.error('❌ import-circles POST error:', error);

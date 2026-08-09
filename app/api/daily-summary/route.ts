@@ -13,11 +13,6 @@ import {
   BirthdayItem,
   PrayerRequestItem,
 } from '../../../lib/emailService';
-import {
-  doesLeaderMeetOnDate,
-  fetchScheduleContexts,
-  meetingTimeForDate,
-} from '../../../lib/circleSchedule';
 
 function getSupabaseServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -47,6 +42,64 @@ function getDateOffset(baseDate: string, days: number): string {
 function getDayName(dateStr: string): string {
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   return dayNames[new Date(dateStr + 'T00:00:00').getDay()];
+}
+
+/** Which Nth occurrence of that weekday is this in its month? (1–5) */
+function getWeekOfMonth(dateStr: string): number {
+  const d = new Date(dateStr + 'T00:00:00');
+  return Math.ceil(d.getDate() / 7);
+}
+
+/**
+ * Determines whether a circle actually meets on a given date based on its
+ * frequency pattern (Weekly, Bi-weekly, 1st & 3rd, etc.)
+ */
+function doesCircleMeetOnDate(
+  dateStr: string,
+  leaderDay: string,
+  frequency: string | null,
+  meetingStartDate: string | null,
+): boolean {
+  // Day name must match
+  if (getDayName(dateStr).toLowerCase() !== leaderDay.trim().toLowerCase()) return false;
+
+  const freq = (frequency ?? '').trim().toLowerCase();
+
+  // Week-of-month ordinal patterns ("1st, 3rd", "2nd & 4th", etc.)
+  const has1st = /\b(1st|first)\b/.test(freq);
+  const has2nd = /\b(2nd|second)\b/.test(freq);
+  const has3rd = /\b(3rd|third)\b/.test(freq);
+  const has4th = /\b(4th|fourth)\b/.test(freq);
+  const has5th = /\b(5th|fifth)\b/.test(freq);
+  const hasOrdinal = has1st || has2nd || has3rd || has4th || has5th;
+  const mentionsWeekly = freq.includes('weekly') || freq.includes('every week');
+  const isBiWeekly = freq.includes('bi-week') || freq.includes('biweekly') || freq.includes('every other') || freq.includes('2-week') || freq.includes('2 week');
+
+  if (hasOrdinal && !mentionsWeekly && !isBiWeekly) {
+    const weekNum = getWeekOfMonth(dateStr);
+    const allowed: number[] = [];
+    if (has1st) allowed.push(1);
+    if (has2nd) allowed.push(2);
+    if (has3rd) allowed.push(3);
+    if (has4th) allowed.push(4);
+    if (has5th) allowed.push(5);
+    return allowed.includes(weekNum);
+  }
+
+  if (isBiWeekly) {
+    if (!meetingStartDate) return true; // No anchor — include anyway
+    const target = new Date(dateStr + 'T00:00:00').getTime();
+    const anchor = new Date(meetingStartDate + 'T00:00:00').getTime();
+    const diffWeeks = Math.round((target - anchor) / (7 * 86400000));
+    return diffWeeks % 2 === 0;
+  }
+
+  // Monthly / quarterly — first occurrence of that weekday in the month
+  if (freq.includes('quarter')) return false; // too infrequent
+  if (freq.includes('month')) return getWeekOfMonth(dateStr) === 1;
+
+  // Default: weekly
+  return true;
 }
 
 /**
@@ -197,46 +250,35 @@ async function buildDigestForUser(
     created_at: n.created_at,
   }));
 
-  // 7. Upcoming circles (meetings today & tomorrow). Scheduling comes from the
-  // shared helper — CCB calendar snapshot when present, legacy day/frequency
-  // math otherwise — so no pre-filter on the stored day column (a snapshot can
-  // disagree with a stale day value).
+  // 7. Upcoming circles (meetings today & tomorrow based on recurring schedule)
+  const todayDayName = getDayName(today);
+  const tomorrowDayName = getDayName(tomorrow);
+  const dayNames = [todayDayName, tomorrowDayName];
+  // Query leaders whose day field matches today or tomorrow, filtered to user's ACPD purview
   const { data: circleLeadersRaw } = await supabase
     .from('circle_leaders')
     .select('id, name, circle_type, day, time, frequency, campus, meeting_start_date')
     .eq('acpd', user.name)
+    .in('day', dayNames)
     .not('status', 'in', '("Inactive","Removed")')
     .order('time', { ascending: true });
 
-  const scheduleCtxs = await fetchScheduleContexts(supabase, circleLeadersRaw || [], {
-    from: today,
-    to: tomorrow,
+  const toCircleMeeting = (l: any): CircleMeetingItem => ({
+    leader_id: l.id,
+    leader_name: l.name,
+    circle_type: l.circle_type ?? undefined,
+    day: l.day,
+    time: l.time ?? 'TBD',
+    frequency: l.frequency ?? 'Weekly',
+    campus: l.campus ?? undefined,
   });
 
-  const toCircleMeeting = (l: any, date: string): CircleMeetingItem => {
-    const ctx = scheduleCtxs.get(l.id);
-    return {
-      leader_id: l.id,
-      leader_name: l.name,
-      circle_type: l.circle_type ?? undefined,
-      day: l.day,
-      time: (ctx ? meetingTimeForDate(ctx, date) : l.time) ?? 'TBD',
-      frequency: l.frequency ?? 'Weekly',
-      campus: l.campus ?? undefined,
-    };
-  };
-
-  const meetsOn = (l: any, date: string): boolean => {
-    const ctx = scheduleCtxs.get(l.id);
-    return ctx ? doesLeaderMeetOnDate(ctx, date) : false;
-  };
-
   const circlesToday: CircleMeetingItem[] = (circleLeadersRaw || [])
-    .filter(l => meetsOn(l, today))
-    .map(l => toCircleMeeting(l, today));
+    .filter(l => doesCircleMeetOnDate(today, l.day, l.frequency, l.meeting_start_date))
+    .map(toCircleMeeting);
   const circlesTomorrow: CircleMeetingItem[] = (circleLeadersRaw || [])
-    .filter(l => meetsOn(l, tomorrow))
-    .map(l => toCircleMeeting(l, tomorrow));
+    .filter(l => doesCircleMeetOnDate(tomorrow, l.day, l.frequency, l.meeting_start_date))
+    .map(toCircleMeeting);
 
   // 8. Birthdays today — query all leaders with a birthday and filter by today's month/day
   const { data: birthdayLeaders } = await supabase

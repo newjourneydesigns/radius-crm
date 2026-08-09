@@ -3,6 +3,17 @@
     "date": "2026-08-08",
     "date_display": "August 8, 2026",
     "date_iso": "2026-08-08",
+    "version": "2.49.4",
+    "id": "calendar-schedule-rollback",
+    "type": "fix",
+    "category": "Integrations",
+    "description": "The CCB-calendar-as-schedule feature from August 6 is backed out for now. In practice the calendar sync kept colliding with CCB's per-endpoint rate limits, leaving most circles stuck in \"Sync failed\" states and their schedules locked read-only — so everything returns to how it worked before: day, time, and frequency are hand-editable everywhere again (profile, mass update, row edit), the event summary tracker, daily digest, and Today read those fields directly, and the Calendar Sync tab is gone. Nothing was lost: snapshots that did sync stay stored in the database, and circles whose schedule was filled in from their calendar keep those values — now editable if any look wrong. The feature will come back once the sync is redesigned to live within CCB's limits.",
+    "page": "/search"
+  },
+  {
+    "date": "2026-08-08",
+    "date_display": "August 8, 2026",
+    "date_iso": "2026-08-08",
     "version": "2.49.3",
     "id": "ccb-429-retry-after",
     "type": "fix",

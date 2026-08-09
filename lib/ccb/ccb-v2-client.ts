@@ -65,7 +65,6 @@ export class CCBv2Client {
     path: string,
     options: RequestOptions = {},
     retriedAfterUnauthorized: boolean,
-    rateLimitAttempt = 0,
   ): Promise<CCBv2Response<T>> {
     // Shared daily ceiling across all serverless instances (tripwire, not a CCB
     // cap — v2 has no daily limit). Throws CCBDailyBudgetError once reached.
@@ -116,32 +115,17 @@ export class CCBv2Client {
     });
 
     if (res.status === 429) {
-      const parsed = headers['retry-after'] ? Number(headers['retry-after']) : NaN;
-      const retryAfter = Number.isFinite(parsed) ? parsed : null;
-      // CCB's per-endpoint limiter answers with its own instruction ("retry
-      // after Ns", typically 1s). Honor short waits in place instead of failing
-      // the whole job — under a bulk sync a single fatal 429 cascades into
-      // every subsequent call failing. Long retry-afters and exhausted
-      // attempts still throw for callers to handle.
-      const waitSeconds = retryAfter ?? Math.min(2 ** rateLimitAttempt, 8);
-      if (rateLimitAttempt < MAX_RATE_LIMIT_RETRIES && waitSeconds <= MAX_HONORED_RETRY_AFTER_S) {
-        await sleepMs(waitSeconds * 1000 + 250);
-        return this.requestWithResponseAttempt<T>(path, options, retriedAfterUnauthorized, rateLimitAttempt + 1);
-      }
+      const retryAfter = headers['retry-after'] ? Number(headers['retry-after']) : null;
       throw new CCBv2RateLimitError(
         `CCB v2 rate limited (429) on ${service}${retryAfter ? `; retry after ${retryAfter}s` : ''}`,
-        retryAfter,
+        Number.isFinite(retryAfter as number) ? (retryAfter as number) : null,
       );
     }
     if (res.status === 401 && !retriedAfterUnauthorized) {
-      return this.requestWithResponseAttempt<T>(path, options, true, rateLimitAttempt);
+      return this.requestWithResponseAttempt<T>(path, options, true);
     }
     if (!res.ok) {
-      throw new CCBv2RequestError(
-        `CCB v2 ${method} ${path} failed: HTTP ${res.status}${describeErrorBody(text)}`,
-        res.status,
-        text.slice(0, 500),
-      );
+      throw new CCBv2RequestError(`CCB v2 ${method} ${path} failed: HTTP ${res.status}`, res.status, text.slice(0, 500));
     }
 
     if (res.status === 204 || text.length === 0) {
@@ -296,74 +280,6 @@ export class CCBv2Client {
     ) || null;
 
     return { eventIds, time, day, frequency, location };
-  }
-
-  /**
-   * GET /groups/{id}/calendar?start&end → every event occurrence on the group's
-   * calendar in the date range, pre-expanded by CCB (no recurrence math needed).
-   * Dates/times are the church's own wall clock — extracted verbatim, never
-   * timezone-shifted (same rule as getGroupMeetingDetails and the occurrence
-   * delete tool). parsedCount counts rows that normalized (before range
-   * filtering) so callers can tell "empty calendar" from "unrecognized payload".
-   */
-  async getGroupCalendar(groupId: string, startDate: string, endDate: string): Promise<{
-    occurrences: GroupCalendarOccurrenceV2[];
-    rawCount: number;
-    parsedCount: number;
-  }> {
-    if (!groupId) return { occurrences: [], rawCount: 0, parsedCount: 0 };
-    const rows = await this.fetchGroupCalendarRows(groupId, startDate, endDate);
-    const occurrences: GroupCalendarOccurrenceV2[] = [];
-    const seen = new Set<string>();
-    let parsedCount = 0;
-    for (const row of rows) {
-      const eventId = firstString(row?.event_id, row?.event?.id, row?.id);
-      const start = firstString(row?.start, row?.starts_at, row?.event?.start) || null;
-      const occurrenceDate = occToIso(firstString(row?.occurrence, row?.occurrence_date, row?.date, start ?? ''));
-      if (!eventId || !/^\d{4}-\d{2}-\d{2}$/.test(occurrenceDate)) continue;
-      parsedCount += 1;
-      if (occurrenceDate < startDate || occurrenceDate > endDate) continue;
-      // Bisected sub-range fetches overlap by a day, so drop exact repeats.
-      const key = `${eventId}|${occurrenceDate}|${start ?? ''}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const timeMatch = start ? start.match(/T(\d{2}):(\d{2})/) : null;
-      occurrences.push({
-        eventId,
-        eventName: firstString(row?.event?.name, row?.event_name, row?.name, row?.title) || null,
-        occurrenceDate,
-        startTime: timeMatch ? `${timeMatch[1]}:${timeMatch[2]}` : null,
-        start,
-        end: firstString(row?.end, row?.ends_at, row?.event?.end) || null,
-      });
-    }
-    return { occurrences, rawCount: rows.length, parsedCount };
-  }
-
-  /**
-   * Raw /groups/{id}/calendar rows for [start, end], bisecting on HTTP 412.
-   * CCB v2 answers 412 (Precondition Failed) when it rejects a request's query
-   * (undocumented — same behavior this client already hit with campus_ids on
-   * /groups), and the calendar sync window spans ~14 months in one request.
-   * Halving the range until CCB accepts adapts to whatever span cap is actually
-   * enforced without hardcoding a guess. The halves share a boundary day in
-   * case CCB treats `end` as exclusive; getGroupCalendar dedupes. A range under
-   * MIN_CALENDAR_BISECT_DAYS that still 412s can't be a span problem, so that
-   * error is rethrown (its message now carries CCB's own reason).
-   */
-  private async fetchGroupCalendarRows(groupId: string, start: string, end: string): Promise<any[]> {
-    try {
-      const raw = await this.get(`/groups/${encodeURIComponent(groupId)}/calendar`, { start, end });
-      return asArray(raw);
-    } catch (error) {
-      if (!(error instanceof CCBv2RequestError) || error.status !== 412) throw error;
-      const spanDays = isoDayDiff(start, end);
-      if (spanDays < MIN_CALENDAR_BISECT_DAYS) throw error;
-      const mid = isoAddDays(start, Math.floor(spanDays / 2));
-      const left = await this.fetchGroupCalendarRows(groupId, start, mid);
-      const right = await this.fetchGroupCalendarRows(groupId, mid, end);
-      return left.concat(right);
-    }
   }
 
   /**
@@ -664,15 +580,6 @@ export interface AttendanceSummaryV2 {
   attendees?: Array<{ id?: string; name?: string; status?: string }>;
 }
 
-export interface GroupCalendarOccurrenceV2 {
-  eventId: string;
-  eventName: string | null;
-  occurrenceDate: string; // "YYYY-MM-DD", church-local
-  startTime: string | null; // "HH:mm" wall clock
-  start: string | null; // raw CCB start string
-  end: string | null;
-}
-
 export interface GroupDetailV2 {
   id: string;
   name: string;
@@ -702,72 +609,6 @@ export interface GroupDetailV2 {
 }
 
 // ---- shared mapping helpers ----
-
-/**
- * Below a 4-week span, a 412 can't plausibly mean "date range too wide", so
- * fetchGroupCalendarRows stops bisecting and lets the error surface.
- */
-const MIN_CALENDAR_BISECT_DAYS = 28;
-
-// How many times one request re-tries a 429 before giving up, and the longest
-// retry-after we'll sit out in place. Anything past these throws so callers
-// (and their own time budgets) stay in charge.
-const MAX_RATE_LIMIT_RETRIES = 4;
-const MAX_HONORED_RETRY_AFTER_S = 15;
-
-function sleepMs(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isoToUtcDate(iso: string): Date | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!m) return null;
-  return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-}
-
-/** Whole days from a to b; 0 when either date is malformed (disables bisecting). */
-function isoDayDiff(a: string, b: string): number {
-  const da = isoToUtcDate(a);
-  const db = isoToUtcDate(b);
-  if (!da || !db) return 0;
-  return Math.round((db.getTime() - da.getTime()) / 86_400_000);
-}
-
-function isoAddDays(iso: string, days: number): string {
-  const d = isoToUtcDate(iso);
-  if (!d) return iso;
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-/**
- * Pull the human-readable reason out of a CCB v2 error body — {"messages":[…]},
- * {"message":…}, {"error":…}, or an HTML error page — so thrown errors say WHY
- * the request was rejected, not just the status code.
- */
-function describeErrorBody(text: string): string {
-  const trimmed = (text || '').trim();
-  if (!trimmed) return '';
-  let detail = '';
-  try {
-    const parsed = JSON.parse(trimmed);
-    const parts: string[] = [];
-    const collect = (v: any) => {
-      if (typeof v === 'string' && v.trim()) parts.push(v.trim());
-      else if (Array.isArray(v)) v.forEach(collect);
-      else if (v && typeof v === 'object' && typeof v.message === 'string') collect(v.message);
-    };
-    collect(parsed?.messages);
-    collect(parsed?.message);
-    collect(parsed?.errors);
-    collect(parsed?.error);
-    collect(parsed?.detail);
-    detail = parts.join('; ');
-  } catch {
-    detail = trimmed.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  }
-  return detail ? ` — ${detail.slice(0, 200)}` : '';
-}
 
 /** Single-resource responses may be the object itself or wrapped in {data}. */
 function unwrap(json: any): any {

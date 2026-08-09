@@ -11,7 +11,6 @@ import type {
   BirthdayItem,
   PrayerRequestItem,
 } from '../../../lib/emailService';
-import { doesLeaderMeetOnDate, fetchScheduleContexts } from '../../../lib/circleSchedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,8 +61,42 @@ function getDayName(dateStr: string): string {
   return days[new Date(dateStr + 'T00:00:00').getDay()];
 }
 
-// Circle scheduling comes from the shared helper (CCB calendar snapshot with
-// legacy day/frequency fallback) — see lib/circleSchedule.ts.
+function getWeekOfMonth(dateStr: string): number {
+  return Math.ceil(new Date(dateStr + 'T00:00:00').getDate() / 7);
+}
+
+function doesCircleMeetOnDate(dateStr: string, leaderDay: string, frequency: string | null, meetingStartDate: string | null): boolean {
+  if (getDayName(dateStr).toLowerCase() !== leaderDay.trim().toLowerCase()) return false;
+  const freq = (frequency ?? '').trim().toLowerCase();
+  const has1st = /\b(1st|first)\b/.test(freq);
+  const has2nd = /\b(2nd|second)\b/.test(freq);
+  const has3rd = /\b(3rd|third)\b/.test(freq);
+  const has4th = /\b(4th|fourth)\b/.test(freq);
+  const has5th = /\b(5th|fifth)\b/.test(freq);
+  const hasOrdinal = has1st || has2nd || has3rd || has4th || has5th;
+  const mentionsWeekly = freq.includes('weekly') || freq.includes('every week');
+  const isBiWeekly = freq.includes('bi-week') || freq.includes('biweekly') || freq.includes('every other') || freq.includes('2-week') || freq.includes('2 week');
+  if (hasOrdinal && !mentionsWeekly && !isBiWeekly) {
+    const weekNum = getWeekOfMonth(dateStr);
+    const allowed: number[] = [];
+    if (has1st) allowed.push(1);
+    if (has2nd) allowed.push(2);
+    if (has3rd) allowed.push(3);
+    if (has4th) allowed.push(4);
+    if (has5th) allowed.push(5);
+    return allowed.includes(weekNum);
+  }
+  if (isBiWeekly) {
+    if (!meetingStartDate) return true;
+    const target = new Date(dateStr + 'T00:00:00').getTime();
+    const anchor = new Date(meetingStartDate + 'T00:00:00').getTime();
+    const diffWeeks = Math.round((target - anchor) / (7 * 86400000));
+    return diffWeeks % 2 === 0;
+  }
+  if (freq.includes('quarter')) return false;
+  if (freq.includes('month')) return getWeekOfMonth(dateStr) === 1;
+  return true;
+}
 
 async function buildTodayData(
   supabase: ReturnType<typeof getSupabaseServiceClient>,
@@ -75,6 +108,7 @@ async function buildTodayData(
   const monthEnd    = getDateOffset(today, 30);
   const afterWeek   = getDateOffset(today, 8);
   const weekDates    = Array.from({ length: 7 }, (_, i) => getDateOffset(today, i));
+  const weekDayNames = Array.from(new Set(weekDates.map(getDayName)));
 
   // ── Phase 1: all independent queries fire simultaneously ─────────────────
   const [
@@ -118,12 +152,9 @@ async function buildTodayData(
       .not('birthday', 'is', null).neq('birthday', '')
       .not('status', 'in', '("Inactive","Removed")'),
 
-    // No pre-filter on the stored day column: the schedule helper decides from
-    // the CCB calendar snapshot (or legacy fields), and a snapshot can disagree
-    // with a stale day value.
     supabase.from('circle_leaders')
       .select('id, name, circle_type, day, time, frequency, campus, meeting_start_date')
-      .eq('acpd', user.name)
+      .eq('acpd', user.name).in('day', weekDayNames)
       .not('status', 'in', '("Inactive","Removed")')
       .order('time', { ascending: true }),
 
@@ -136,16 +167,6 @@ async function buildTodayData(
 
     supabase.from('card_assignments').select('card_id').eq('user_id', user.id),
   ]);
-
-  // Calendar snapshots (+ legacy fallback) for the upcoming-circles math.
-  const scheduleCtxs = await fetchScheduleContexts(supabase, circleLeadersRaw || [], {
-    from: today,
-    to: weekEnd,
-  });
-  const meetsOn = (l: any, date: string): boolean => {
-    const ctx = scheduleCtxs.get(l.id);
-    return ctx ? doesLeaderMeetOnDate(ctx, date) : false;
-  };
 
   // ── Derive IDs needed for Phase 2 ────────────────────────────────────────
   const boardMap = new Map<string, string>();
@@ -421,12 +442,12 @@ async function buildTodayData(
       overdue:  allChecklist.filter(c => c.due_date !== null && c.due_date! < today),
     },
     upcomingCircles: {
-      today:    (circleLeadersRaw || []).filter((l: any) => meetsOn(l, today)).map(toCircle),
-      tomorrow: (circleLeadersRaw || []).filter((l: any) => meetsOn(l, tomorrow)).map(toCircle),
+      today:    (circleLeadersRaw || []).filter((l: any) => doesCircleMeetOnDate(today,    l.day, l.frequency, l.meeting_start_date)).map(toCircle),
+      tomorrow: (circleLeadersRaw || []).filter((l: any) => doesCircleMeetOnDate(tomorrow, l.day, l.frequency, l.meeting_start_date)).map(toCircle),
       thisWeek: weekDates.slice(2).map(date => ({
         date,
         dayName: getDayName(date),
-        leaders: (circleLeadersRaw || []).filter((l: any) => meetsOn(l, date)).map(toCircle),
+        leaders: (circleLeadersRaw || []).filter((l: any) => doesCircleMeetOnDate(date, l.day, l.frequency, l.meeting_start_date)).map(toCircle),
       })).filter(d => d.leaders.length > 0),
     },
     recentNotes: (notesRaw || []).map((n: any) => ({
