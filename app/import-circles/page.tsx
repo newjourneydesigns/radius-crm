@@ -511,47 +511,82 @@ export default function ImportCirclesPage() {
   // Sync the selected circles' calendars in batches of 15 (the API's per-request
   // cap), showing progress. Each batch is one serverless invocation; the loop
   // is client-driven so a full ~200-circle backfill is resumable and visible.
+  // A batch that runs long comes back partial with `unprocessed_ids`, which get
+  // re-queued; a batch that dies entirely is reported and skipped — one bad
+  // batch never kills the run.
   const runCalendarSync = useCallback(async () => {
-    const ids = Array.from(calSyncSelected);
-    if (ids.length === 0 || calSyncRunning) return;
+    const queue = Array.from(calSyncSelected);
+    const total = queue.length;
+    if (total === 0 || calSyncRunning) return;
     setCalSyncRunning(true);
     setCalSyncErrors([]);
-    setCalSyncProgress({ done: 0, total: ids.length });
+    setCalSyncProgress({ done: 0, total });
     calSyncCancelRef.current = false;
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
     const errors: Array<{ name: string; error: string }> = [];
     let done = 0;
+    let failedCount = 0;
 
     try {
-      for (let i = 0; i < ids.length; i += 15) {
+      while (queue.length > 0) {
         if (calSyncCancelRef.current) break;
-        const batch = ids.slice(i, i + 15);
+        const batch = queue.splice(0, 15);
         const res = await fetch('/api/ccb/sync-circle-calendars', {
           method: 'POST',
           headers,
           body: JSON.stringify({ leader_ids: batch }),
         });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
-        for (const r of json.results || []) {
-          if (r.status === 'error') errors.push({ name: r.name || `#${r.leader_id}`, error: r.error || 'Sync failed' });
+        // A batch killed at the serverless time limit answers with a non-JSON
+        // error page; res.json() on that is the Safari "string did not match
+        // the expected pattern" crash. Parse defensively and keep going.
+        const json: any = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const why = json.error || (res.status === 502 || res.status === 504
+            ? 'The batch timed out'
+            : `HTTP ${res.status}`);
+          errors.push({
+            name: `A batch of ${batch.length} circles`,
+            error: `${why}. Their statuses below show whatever each reached before it stopped — re-run to finish.`,
+          });
+          failedCount += batch.length;
+          done += batch.length;
+          setCalSyncProgress({ done, total });
+          continue;
         }
-        done += batch.length;
-        setCalSyncProgress({ done, total: ids.length });
+        for (const r of json.results || []) {
+          if (r.status === 'error') {
+            errors.push({ name: r.name || `#${r.leader_id}`, error: r.error || 'Sync failed' });
+            failedCount += 1;
+          }
+        }
+        const requeued: number[] = Array.isArray(json.unprocessed_ids)
+          ? json.unprocessed_ids.filter((v: any) => Number.isInteger(v))
+          : [];
+        // The server guarantees progress on every 200; this guard just makes a
+        // no-progress response impossible to loop on.
+        if (requeued.length >= batch.length) {
+          errors.push({ name: `A batch of ${batch.length} circles`, error: 'Server made no progress; skipping this batch.' });
+          failedCount += batch.length;
+          done += batch.length;
+        } else {
+          if (requeued.length > 0) queue.unshift(...requeued);
+          done += batch.length - requeued.length;
+        }
+        setCalSyncProgress({ done, total });
       }
       setCalSyncErrors(errors);
-      const okCount = done - errors.length;
+      const okCount = done - failedCount;
       toast(
         calSyncCancelRef.current
-          ? `Stopped after ${done} of ${ids.length}.`
-          : `Synced ${okCount} of ${done} circle calendar${done !== 1 ? 's' : ''}${errors.length ? ` — ${errors.length} failed` : ''}.`,
-        errors.length ? 'error' : 'success'
+          ? `Stopped after ${done} of ${total}.`
+          : `Synced ${okCount} of ${done} circle calendar${done !== 1 ? 's' : ''}${failedCount ? ` — ${failedCount} failed` : ''}.`,
+        failedCount ? 'error' : 'success'
       );
     } catch (err: any) {
       setCalSyncErrors(errors);
-      toast(`${err.message}. ${done} of ${ids.length} processed — re-run to finish the rest.`, 'error');
+      toast(`${err.message}. ${done} of ${total} processed — re-run to finish the rest.`, 'error');
     } finally {
       setCalSyncRunning(false);
       setCalSyncProgress(null);
@@ -1532,6 +1567,11 @@ export default function ImportCirclesPage() {
                                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${chip.cls}`}>
                                     {chip.label}
                                   </span>
+                                  {l.sync_state?.status === 'error' && l.sync_state.error && (
+                                    <span className="mt-1 block max-w-xs text-xs leading-snug text-red-600 dark:text-red-300/80 line-clamp-2">
+                                      {l.sync_state.error}
+                                    </span>
+                                  )}
                                 </td>
                               </tr>
                             );

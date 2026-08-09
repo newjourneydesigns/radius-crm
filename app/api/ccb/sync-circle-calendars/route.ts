@@ -12,6 +12,11 @@ export const maxDuration = 60;
 
 const MAX_PER_REQUEST = 15;
 const PER_GROUP_DELAY_MS = 1200;
+// Stop STARTING circles this far into the invocation and hand the rest back to
+// the client. A circle whose calendar needs bisected sub-range fetches can take
+// several seconds; without this, a slow batch blows maxDuration and Netlify
+// kills it mid-run — statuses get written but the client never gets the report.
+const TIME_BUDGET_MS = 40_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -119,7 +124,14 @@ export async function POST(request: NextRequest) {
       frequency?: string | null;
     }> = [];
 
+    const startedAt = Date.now();
     for (let i = 0; i < requestedIds.length; i++) {
+      // Out of time budget: return what finished plus the ids we never started,
+      // so the client re-queues them. i > 0 guarantees every response makes
+      // progress (the client's re-queue loop can't spin on an empty result).
+      if (i > 0 && Date.now() - startedAt > TIME_BUDGET_MS) {
+        return NextResponse.json({ success: true, results, unprocessed_ids: requestedIds.slice(i) });
+      }
       const leader = byId.get(requestedIds[i]);
       if (!leader) {
         results.push({ leader_id: requestedIds[i], name: null, status: 'error', error: 'Leader not found' });

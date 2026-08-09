@@ -3,6 +3,17 @@
     "date": "2026-08-08",
     "date_display": "August 8, 2026",
     "date_iso": "2026-08-08",
+    "version": "2.49.2",
+    "id": "calendar-backfill-batch-resilience",
+    "type": "fix",
+    "category": "Integrations",
+    "description": "The Calendar Sync backfill could die mid-run: a batch with several slow-failing circles ran past the server's time limit, got killed, and the page then crashed on the dead response (on iPad that surfaced as Safari's cryptic \"The string did not match the expected pattern\") — abandoning every circle it hadn't reached yet. The server now stops before its time limit and hands unfinished circles back, the page automatically re-queues them and keeps going, and a batch that dies outright is reported without ending the run. The Status column also now shows the actual reason under each \"Sync failed\" badge, so a failing circle explains itself right in the table.",
+    "page": "/import-circles"
+  },
+  {
+    "date": "2026-08-08",
+    "date_display": "August 8, 2026",
+    "date_iso": "2026-08-08",
     "version": "2.49.1",
     "id": "circle-calendar-sync-412",
     "type": "fix",
