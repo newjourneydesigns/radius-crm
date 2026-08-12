@@ -55,6 +55,40 @@ interface Row {
  * apply   – false (default) previews the changes; true writes them
  * limit   – circles per call (default 25, max 100)
  * cursor  – resume point; pass the previous response's nextCursor
+ *
+ * Running it: paste the snippet below into the browser console while signed
+ * into RADIUS as an ACPD. It drives the batches to completion. There is no
+ * global Supabase client to borrow, so it reads the session out of storage —
+ * which is localStorage or sessionStorage depending on the "remember me"
+ * preference (see lib/rememberMeStorage.ts), hence checking both.
+ *
+ *   async function backfillLocations(apply = false) {
+ *     const token = [localStorage, sessionStorage].flatMap(s => Object.keys(s).map(k => [s, k]))
+ *       .filter(([, k]) => /^sb-.+-auth-token$/.test(k))
+ *       .map(([s, k]) => { try { return JSON.parse(s.getItem(k)).access_token } catch { return null } })
+ *       .find(Boolean);
+ *     if (!token) return console.error('No session found — sign in first.');
+ *     let cursor = 0, all = [], done = false;
+ *     while (!done) {
+ *       const res = await fetch('/api/admin/backfill-circle-locations', {
+ *         method: 'POST',
+ *         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+ *         body: JSON.stringify({ apply, limit: 25, cursor }),
+ *       }).then(r => r.json());
+ *       if (res.error) return console.error(res.error);
+ *       all.push(...res.rows);
+ *       done = res.done;
+ *       cursor = res.nextCursor;
+ *       console.log(all.length + ' checked');
+ *       if (res.rateLimited) { console.warn('Rate limited, retry in ' + res.retryAfterSeconds + 's'); break }
+ *     }
+ *     console.table(all.filter(r => r.outcome === 'changed'), ['id', 'name', 'from', 'to']);
+ *     console.log(all.reduce((a, r) => ({ ...a, [r.outcome]: (a[r.outcome] || 0) + 1 }), {}));
+ *     return all;
+ *   }
+ *
+ *   await backfillLocations();       // preview
+ *   await backfillLocations(true);   // then write
  */
 export async function POST(request: NextRequest) {
   try {
