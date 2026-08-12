@@ -3,6 +3,17 @@
     "date": "2026-08-12",
     "date_display": "August 12, 2026",
     "date_iso": "2026-08-12",
+    "version": "2.49.6",
+    "id": "auto-send-full-disk-access-steps",
+    "type": "improvement",
+    "category": "Auto Send",
+    "description": "The Mac Companion setup guide now walks all the way through turning on delivery tracking. Python never shows up in the Full Disk Access list on its own — macOS only lists apps that ask for the permission — so the guide says that up front, explains that the file picker hides the folder Python lives in, and tells you what the entry looks like once it's added (\"Python\" or a version number like python3.13, not lowercase \"python\"). It also adds the step that was missing entirely: restarting the companion. macOS only checks Full Disk Access when a program starts, so until the companion restarts the switch looks on in System Settings while RADIUS still reads delivery tracking as off — the guide now gives you that one-line restart command with a copy button, and the Delivery tracking card points there too. And if the companion isn't responding when you open the guide, the path step no longer comes up blank: it explains why and hands you the command to look the path up yourself.",
+    "page": "/settings?tab=auto_send"
+  },
+  {
+    "date": "2026-08-12",
+    "date_display": "August 12, 2026",
+    "date_iso": "2026-08-12",
     "version": "2.49.5",
     "id": "export-location-field",
     "type": "improvement",
