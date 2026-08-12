@@ -96,9 +96,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // gate). v2's /groups/{id}/members returns phones in JSON format reliably.
   const v2PhoneMap: Record<string, { phone: string; mobilePhone: string }> = {};
   // Birthdays come from the same v2 call — no extra CCB requests. They feed the
-  // under-18 gate that keeps minors out of a bulk text. (v1's XML omits them, so
-  // on v1 this map stays empty and coverage comes from phone enrichment or a
-  // pasted roster's Birthdate/Age column instead.)
+  // under-18 gate that keeps minors out of a bulk text. This path is always v2
+  // regardless of CCB_API_VERSION, but it needs v2 to be authorized: with no
+  // stored OAuth token the catch below swallows the failure, and coverage falls
+  // back to phone enrichment or a pasted roster's Birthdate/Age column.
   const ccbBirthdayMap: Record<string, string> = {};
   await Promise.all(groupIds.map(async (gid) => {
     try {

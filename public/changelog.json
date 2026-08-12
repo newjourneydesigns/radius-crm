@@ -3,6 +3,17 @@
     "date": "2026-08-12",
     "date_display": "August 12, 2026",
     "date_iso": "2026-08-12",
+    "version": "2.50.1",
+    "id": "roster-import-ccb-v2-fallback",
+    "type": "improvement",
+    "category": "Integrations",
+    "description": "Adding a circle's roster to a bulk message can now pull from CCB's newer API, which returns everyone's phone number and birthday in a single call. The old path asked CCB for one person at a time and ran out of time on Netlify at around eighteen people, and it only ever learned a birthday for someone whose phone number was missing — so most rosters came in with no ages to check against. If the newer API is unavailable the roster still loads the old way rather than failing, and inactive members stay excluded either way. Turning this on is a setting change; nothing about the roster looks different when it's off.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-08-12",
+    "date_display": "August 12, 2026",
+    "date_iso": "2026-08-12",
     "version": "2.50.0",
     "id": "under-18-send-block",
     "type": "feature",
