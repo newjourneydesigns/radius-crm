@@ -11,6 +11,10 @@ export const dynamic = 'force-dynamic';
 // profile from CCB one-by-one with throttling (300ms between calls) to stay
 // well under the 40 req/60s circuit breaker cap. Called by the client after
 // reconcile completes — runs serially so it doesn't burst the CCB rate limit.
+//
+// The profile also carries a birthday, so we store that in the same write. It
+// costs nothing extra here and feeds the under-18 gate on the campaign's send
+// paths.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getUserFromAuthHeader(req);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -55,13 +59,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       const profile = await ccb.getIndividualProfile(person.ccb_individual_id);
       const phone = normalizePhone(profile?.phone || '') || null;
       const mobilePhone = normalizePhone(profile?.mobilePhone || '') || null;
+      const birthdate = profile?.birthday?.trim() || null;
 
-      if (phone || mobilePhone) {
+      if (phone || mobilePhone || birthdate) {
+        const update: Record<string, string | null> = {};
+        if (phone || mobilePhone) {
+          update.phone = phone;
+          update.mobile_phone = mobilePhone;
+        }
+        // Only ever set a birthdate, never clear one we already have.
+        if (birthdate) update.birthdate = birthdate;
+
         await supabase
           .from('follow_up_campaign_people')
-          .update({ phone, mobile_phone: mobilePhone })
+          .update(update)
           .eq('id', person.id);
-        enriched++;
+        if (phone || mobilePhone) enriched++;
       }
     } catch {
       // CCB unavailable for this individual — skip

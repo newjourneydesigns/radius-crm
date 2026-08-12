@@ -14,7 +14,9 @@ import { useMacCompanion } from '../../../hooks/useMacCompanion';
 import { isEventAttendanceEnabled } from '../../../lib/campaigns/event-attendance-flag';
 import { attrValues } from '../../../lib/campaigns/parseRoster';
 import { guessCampusFromGroupName } from '../../../lib/campaigns/campus';
-import { StickyNote, ChevronDown, ChevronUp, Download, Trash2, Check, X, MessageCircle, Phone } from 'lucide-react';
+import { ageOf, blockFor, isMinorPerson, splitBySendability } from '../../../lib/campaigns/sendEligibility';
+import { MINOR_BLOCK_LABEL, blockSummary, isMinor } from '../../../lib/messaging/minorGuard';
+import { StickyNote, ChevronDown, ChevronUp, Download, Trash2, Check, X, MessageCircle, Phone, ShieldAlert } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -573,6 +575,22 @@ export default function CampaignDetailPage() {
       (qDigits.length >= 3 && bestPhone(p).replace(/\D/g, '').includes(qDigits))
     );
   }, [globalSearch, allPeople]);
+
+  // Age per person, resolved once per load. Row renders only look it up —
+  // re-parsing a birthdate for every row on every render adds up on a big campaign.
+  const ageById = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of allPeople) {
+      const age = ageOf(p);
+      if (age !== null) map.set(p.id, age);
+    }
+    return map;
+  }, [allPeople]);
+
+  const isMinorRow = useCallback(
+    (p: CampaignPerson) => isMinor(ageById.get(p.id) ?? null),
+    [ageById],
+  );
 
   function tabForPerson(p: CampaignPerson): TabKey {
     if (p.reconcile_status === 'submitted') return 'submitted';
@@ -1138,23 +1156,28 @@ export default function CampaignDetailPage() {
     }
 
     const header = [
-      'First Name', 'Last Name', 'CCB ID', 'Email', 'Phone', 'Status', 'Contacted At',
+      'First Name', 'Last Name', 'CCB ID', 'Email', 'Phone', 'Age', 'Can Text', 'Status', 'Contacted At',
       ...(hasEvents ? ['Checked In'] : []),
       ...attrKeys, ...formKeys, 'Note',
     ];
-    const rows = exportPeople.map(p => [
-      p.first_name || '',
-      p.last_name || '',
-      p.ccb_individual_id || '',
-      p.email || '',
-      bestPhone(p) || '',
-      STATUS_LABELS[p.reconcile_status] || p.reconcile_status,
-      p.contacted_at ? DateTime.fromISO(p.contacted_at).toFormat('yyyy-MM-dd HH:mm') : '',
-      ...(hasEvents ? [p.attended ? 'Yes' : ''] : []),
-      ...attrKeys.map(k => attrValues(p.attributes?.[k]).join('; ')),
-      ...formKeys.map(k => attrValues(formAnswersById.get(p.id)?.[k]).join('; ')),
-      p.note || '',
-    ]);
+    const rows = exportPeople.map(p => {
+      const block = blockFor(p);
+      return [
+        p.first_name || '',
+        p.last_name || '',
+        p.ccb_individual_id || '',
+        p.email || '',
+        bestPhone(p) || '',
+        ageById.get(p.id) ?? '',
+        block ? blockSummary(block) : 'Yes',
+        STATUS_LABELS[p.reconcile_status] || p.reconcile_status,
+        p.contacted_at ? DateTime.fromISO(p.contacted_at).toFormat('yyyy-MM-dd HH:mm') : '',
+        ...(hasEvents ? [p.attended ? 'Yes' : ''] : []),
+        ...attrKeys.map(k => attrValues(p.attributes?.[k]).join('; ')),
+        ...formKeys.map(k => attrValues(formAnswersById.get(p.id)?.[k]).join('; ')),
+        p.note || '',
+      ];
+    });
 
     const csv = [header, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
     // Prepend a BOM so Excel reads UTF-8 (accents, etc.) correctly.
@@ -1213,27 +1236,35 @@ export default function CampaignDetailPage() {
     [filteredPeople, selected],
   );
 
-  const previewPerson = selectedPeople[0] ?? null;
+  // Anyone under 18 is held out of every send path, as is anyone with no number
+  // to text. `blockedFromSend` is what the Can't send list renders.
+  const { sendable: sendablePeople, blocked: blockedFromSend, ageUnknown } = useMemo(
+    () => splitBySendability(selectedPeople),
+    [selectedPeople],
+  );
+  const blockedMinorCount = blockedFromSend.filter(b => b.block.reason === 'minor').length;
+
+  const previewPerson = sendablePeople[0] ?? null;
   const previewMessage = campaign && previewPerson
     ? resolveMessage(msgTemplate, previewPerson, campaign)
     : '';
 
   // Delivery-verification rollups for the Auto Send summary + guidance.
-  const failedPeople = selectedPeople.filter(p => deliveryStatus[p.id] === 'failed');
-  const unconfirmedPeople = selectedPeople.filter(p => deliveryStatus[p.id] === 'unconfirmed');
-  const deliveredCount = selectedPeople.filter(p => deliveryStatus[p.id] === 'delivered').length;
+  const failedPeople = sendablePeople.filter(p => deliveryStatus[p.id] === 'failed');
+  const unconfirmedPeople = sendablePeople.filter(p => deliveryStatus[p.id] === 'unconfirmed');
+  const deliveredCount = sendablePeople.filter(p => deliveryStatus[p.id] === 'delivered').length;
   // Surface the ones needing attention (not delivered / unconfirmed) at the top
   // so they're easy to tap through on a phone.
   const deliveryRank: Record<string, number> = { failed: 0, unconfirmed: 1, pending: 2 };
-  const orderedSelected = [...selectedPeople].sort(
+  const orderedSelected = [...sendablePeople].sort(
     (a, b) => (deliveryRank[deliveryStatus[a.id] ?? ''] ?? 3) - (deliveryRank[deliveryStatus[b.id] ?? ''] ?? 3),
   );
 
   async function handleMarkContacted() {
-    if (!selectedPeople.length) return;
-    // Don't mark a message that never delivered as "contacted" — leave those
-    // people uncontacted so they resurface for a follow-up on another device.
-    const contactablePeople = selectedPeople.filter(p => deliveryStatus[p.id] !== 'failed');
+    // Nobody who was never sent to gets marked contacted: not the people held
+    // back by the age gate or a missing number, and not the ones whose message
+    // failed to deliver — they all need to resurface for follow-up.
+    const contactablePeople = sendablePeople.filter(p => deliveryStatus[p.id] !== 'failed');
     if (!contactablePeople.length) return;
     setContacting(true);
     try {
@@ -1282,6 +1313,9 @@ export default function CampaignDetailPage() {
 
   async function sendMessage(person: CampaignPerson) {
     if (!campaign) return;
+    // Last line of defense for the age gate: every send in the page routes
+    // through here, so a minor can't be texted even from a stale render.
+    if (isMinorPerson(person)) return;
     const msg = resolveMessage(msgTemplate, person, campaign);
     // The copy must finish before the sms: launch — Messages steals document
     // focus, which rejects a still-pending writeText and leaves the previous
@@ -1298,7 +1332,7 @@ export default function CampaignDetailPage() {
   }
 
   async function handleAutoSendAll() {
-    if (!selectedPeople.length || !msgTemplate.trim() || !companion.available || !campaign) return;
+    if (!sendablePeople.length || !msgTemplate.trim() || !companion.available || !campaign) return;
     // An out-of-date companion is the one that can silently fake "sent" — force
     // the update rather than trusting it.
     if (companion.needsUpdate) {
@@ -1320,14 +1354,18 @@ export default function CampaignDetailPage() {
     setVerifyUnavailable(false);
     setVerifying(false);
     setIsAutoSending(true);
-    setAutoProgress({ done: 0, total: selectedPeople.length });
-    const delayMs = selectedPeople.length < 25 ? 0 : selectedPeople.length < 100 ? 1000 : 2000;
+    // Only the sendable ones are in this batch — minors and people with no
+    // number were split out before it started, so they aren't counted as
+    // failures here.
+    const batch = sendablePeople;
+    setAutoProgress({ done: 0, total: batch.length });
+    const delayMs = batch.length < 25 ? 0 : batch.length < 100 ? 1000 : 2000;
     // Batch start — anything sent after this is what delivery verification looks at.
     const sinceMs = Date.now();
     const attempted: { personId: string; phone: string }[] = [];
     let sent = 0, failed = 0;
-    for (let i = 0; i < selectedPeople.length; i++) {
-      const p = selectedPeople[i];
+    for (let i = 0; i < batch.length; i++) {
+      const p = batch[i];
       const phone = normalizePhone(bestPhone(p));
       if (phone) {
         const result = await companion.send(phone, resolveMessage(msgTemplate, p, campaign), delayMs);
@@ -1342,7 +1380,7 @@ export default function CampaignDetailPage() {
       } else {
         failed++;
       }
-      setAutoProgress({ done: i + 1, total: selectedPeople.length });
+      setAutoProgress({ done: i + 1, total: batch.length });
     }
     await companion.notify(sent, failed);
     setIsAutoSending(false);
@@ -1690,23 +1728,30 @@ export default function CampaignDetailPage() {
     const phone = normalizePhone(bestPhone(p));
     if (!phone) return null;
     const sent = sentIds.has(p.id);
+    const minor = isMinorRow(p);
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-          title="Opens Messages with the campaign message filled in"
-          onClick={() => sendMessage(p)}
-        >
-          <MessageCircle className="w-3.5 h-3.5" strokeWidth={2} /> {sent ? 'Text again' : 'Text'}
-        </button>
+        {minor ? (
+          <span className="inline-flex items-center gap-1.5 bg-amber-500/10 text-amber-300 px-3 py-1.5 rounded-lg text-xs font-medium">
+            <ShieldAlert className="w-3.5 h-3.5" strokeWidth={2} /> Under 18 — can’t text
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            title="Opens Messages with the campaign message filled in"
+            onClick={() => sendMessage(p)}
+          >
+            <MessageCircle className="w-3.5 h-3.5" strokeWidth={2} /> {sent ? 'Text again' : 'Text'}
+          </button>
+        )}
         <a
           href={`tel:${phone}`}
           className="inline-flex items-center gap-1.5 bg-zinc-700/60 hover:bg-zinc-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
         >
           <Phone className="w-3.5 h-3.5" strokeWidth={2} /> Call
         </a>
-        {admin && sent && (
+        {admin && sent && !minor && (
           <button
             type="button"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-indigo-300 px-2 py-1.5 transition-colors disabled:opacity-50"
@@ -2266,6 +2311,14 @@ export default function CampaignDetailPage() {
                                   left group
                                 </span>
                               )}
+                              {isMinorRow(p) && (
+                                <span
+                                  className="text-xs font-semibold text-amber-300 bg-amber-500/15 rounded px-1.5 py-0.5 leading-none"
+                                  title={`${ageById.get(p.id)} years old — held out of every text send`}
+                                >
+                                  {MINOR_BLOCK_LABEL}
+                                </span>
+                              )}
                             </div>
 
                             {/* Contact */}
@@ -2471,6 +2524,14 @@ export default function CampaignDetailPage() {
                                   left group
                                 </span>
                               )}
+                              {isMinorRow(p) && (
+                                <span
+                                  className="ml-2 text-xs font-semibold text-amber-300 bg-amber-500/15 rounded px-1.5 py-0.5 leading-none"
+                                  title={`${ageById.get(p.id)} years old — held out of every text send`}
+                                >
+                                  {MINOR_BLOCK_LABEL}
+                                </span>
+                              )}
                             </td>
                             <td id={`campaign-row-${p.id}`} className={`px-4 py-3 text-slate-400 transition-colors duration-500 ${highlightedId === p.id ? 'bg-indigo-500/10' : ''}`}>{p.email || '—'}</td>
                             <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{bestPhone(p) || '—'}</td>
@@ -2589,6 +2650,14 @@ export default function CampaignDetailPage() {
         <div className="fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 shadow-xl z-40">
           <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
             <span className="text-sm font-medium text-white">{selected.size} selected</span>
+            {/* Hidden on phones so the bar's buttons still fit — the Follow Up
+                modal leads with the same count right before you send. */}
+            {blockedMinorCount > 0 && (
+              <span className="hidden sm:flex text-xs font-medium text-amber-300 items-center gap-1.5 whitespace-nowrap">
+                <ShieldAlert className="w-3.5 h-3.5" strokeWidth={2} />
+                {blockedMinorCount} under 18
+              </span>
+            )}
             {activeTab === 'needs_review' ? (
               <>
                 <button
@@ -3087,7 +3156,7 @@ export default function CampaignDetailPage() {
                   With multiple selected, the per-person buttons + Auto Send in
                   the list below are the send controls — a button on the preview
                   reads as "send to just this one" and is confusing. */}
-              {selectedPeople.length === 1 && (
+              {sendablePeople.length === 1 && (
                 <div className="pt-1 flex items-center gap-2">
                   {sentIds.has(previewPerson.id) ? (
                     <>
@@ -3114,11 +3183,61 @@ export default function CampaignDetailPage() {
             </div>
           )}
 
+          {/* Can't send — everyone held back, and why */}
+          {blockedFromSend.length > 0 && (
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 overflow-hidden">
+              <div className="flex items-start gap-2 px-3 py-2.5 border-b border-amber-500/20">
+                <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-amber-300">
+                    Can’t send to {blockedFromSend.length} of {selectedPeople.length}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                    {blockedMinorCount > 0
+                      ? `Anyone under 18 is held back — reach a minor through a parent or guardian instead. `
+                      : ''}
+                    They’re left out of Auto Send and won’t be marked contacted.
+                  </p>
+                </div>
+              </div>
+              <div className="divide-y divide-amber-500/10">
+                {blockedFromSend.map(({ person, block }) => (
+                  <div key={person.id} className="flex items-center gap-3 px-3 py-2">
+                    <span className="text-sm text-slate-300 flex-1 min-w-0 truncate">
+                      {person.first_name} {person.last_name}
+                    </span>
+                    {block.evidence && (
+                      <span className="text-[11px] text-slate-500 flex-shrink-0">{block.evidence}</span>
+                    )}
+                    <span
+                      className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0 ${
+                        block.reason === 'minor'
+                          ? 'bg-amber-500/20 text-amber-300'
+                          : 'bg-slate-500/20 text-slate-400'
+                      }`}
+                    >
+                      {block.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Everyone selected is blocked — there's no message to send */}
+          {selectedPeople.length > 0 && sendablePeople.length === 0 && (
+            <p className="text-sm text-slate-400">
+              No one in this selection can be texted. Adjust the selection to send a follow-up.
+            </p>
+          )}
+
           {/* Multi-person list */}
-          {selectedPeople.length > 1 && (
+          {sendablePeople.length > 1 && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">All selected</p>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                  {blockedFromSend.length > 0 ? 'Sending to' : 'All selected'}
+                </p>
                 {companion.available === true && !companion.needsUpdate && (
                   <button
                     onClick={handleAutoSendAll}
@@ -3126,11 +3245,22 @@ export default function CampaignDetailPage() {
                     className="bg-btn-success text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {isAutoSending
-                      ? `Sending ${autoProgress?.done ?? 0} / ${autoProgress?.total ?? selectedPeople.length}…`
-                      : `Auto Send All (${selectedPeople.length})`}
+                      ? `Sending ${autoProgress?.done ?? 0} / ${autoProgress?.total ?? sendablePeople.length}…`
+                      : `Auto Send All (${sendablePeople.length})`}
                   </button>
                 )}
               </div>
+              {/* The gate only covers people whose age we know — say so rather
+                  than implying the whole list was checked. */}
+              {ageUnknown > 0 && (
+                <p className="mb-2 text-[11px] text-slate-500 leading-relaxed">
+                  {ageUnknown === sendablePeople.length
+                    ? 'No one here has a birthdate or age on file, so the under-18 check couldn’t run.'
+                    : ageUnknown === 1
+                      ? 'One person here has no birthdate or age on file, so the under-18 check couldn’t run for them.'
+                      : `${ageUnknown} people here have no birthdate or age on file, so the under-18 check couldn’t run for them.`}
+                </p>
+              )}
               {/* An out-of-date companion could report messages as sent when
                   nothing went out — block Auto Send until it's updated. */}
               {companion.available === true && companion.needsUpdate && (
@@ -3316,9 +3446,14 @@ export default function CampaignDetailPage() {
           {/* Actions */}
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-zinc-800">
             <p className="text-[11px] text-slate-500 leading-snug min-w-0">
-              {failedPeople.length > 0
-                ? `${failedPeople.length} not-delivered ${failedPeople.length === 1 ? 'person is' : 'people are'} left unmarked to follow up.`
-                : ''}
+              {[
+                failedPeople.length > 0
+                  ? `${failedPeople.length} not-delivered ${failedPeople.length === 1 ? 'person is' : 'people are'} left unmarked to follow up.`
+                  : '',
+                blockedFromSend.length > 0
+                  ? `${blockedFromSend.length} can’t be texted and stay${blockedFromSend.length === 1 ? 's' : ''} unmarked.`
+                  : '',
+              ].filter(Boolean).join(' ')}
             </p>
             <div className="flex items-center gap-3 flex-shrink-0">
             <button
@@ -3330,7 +3465,8 @@ export default function CampaignDetailPage() {
             <button
               className="bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
               onClick={handleMarkContacted}
-              disabled={contacting}
+              disabled={contacting || sendablePeople.length === 0}
+              title={sendablePeople.length === 0 ? 'No one in this selection can be texted' : undefined}
             >
               {contacting
                 ? <><Spinner size="sm" /> Marking…</>

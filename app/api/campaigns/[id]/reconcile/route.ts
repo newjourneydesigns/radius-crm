@@ -95,13 +95,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // v1's group_participants XML often omits phone numbers (contact-info permission
   // gate). v2's /groups/{id}/members returns phones in JSON format reliably.
   const v2PhoneMap: Record<string, { phone: string; mobilePhone: string }> = {};
+  // Birthdays come from the same v2 call — no extra CCB requests. They feed the
+  // under-18 gate that keeps minors out of a bulk text. (v1's XML omits them, so
+  // on v1 this map stays empty and coverage comes from phone enrichment or a
+  // pasted roster's Birthdate/Age column instead.)
+  const ccbBirthdayMap: Record<string, string> = {};
   await Promise.all(groupIds.map(async (gid) => {
     try {
       const v2Members = await ccbV2.getGroupParticipants(gid);
       for (const m of v2Members) {
-        if (m.id && (m.phone || m.mobilePhone)) {
+        if (!m.id) continue;
+        if (m.phone || m.mobilePhone) {
           v2PhoneMap[m.id] = { phone: m.phone, mobilePhone: m.mobilePhone };
         }
+        if (m.birthday) ccbBirthdayMap[m.id] = m.birthday;
       }
     } catch {
       // v2 unavailable for this group — fall back to whatever v1 returned
@@ -324,6 +331,30 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     else contactedNullMap.set(`${normName(r.first_name)}|${normName(r.last_name)}`, r as ContactedRow);
   }
 
+  // 6a-2. Carry known birthdates forward. Phone enrichment fills these in one
+  // profile call at a time, and CCB v1 never returns them from the group pull —
+  // so a reconcile that didn't see a birthday must not erase the one we have.
+  const existingBirthdates = await fetchAllRows<{
+    ccb_individual_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    birthdate: string | null;
+  }>((from, to) =>
+    supabase
+      .from('follow_up_campaign_people')
+      .select('ccb_individual_id, first_name, last_name, birthdate')
+      .eq('campaign_id', params.id)
+      .not('birthdate', 'is', null)
+      .range(from, to),
+  );
+  const birthdateByCcbId = new Map<string, string>();
+  const birthdateByName = new Map<string, string>();
+  for (const r of existingBirthdates ?? []) {
+    if (!r.birthdate) continue;
+    if (r.ccb_individual_id) birthdateByCcbId.set(r.ccb_individual_id, r.birthdate);
+    else birthdateByName.set(`${normName(r.first_name)}|${normName(r.last_name)}`, r.birthdate);
+  }
+
   // 6b. Load admin decisions on fuzzy matches so a confirmed/rejected match isn't
   // re-flagged as needs_review on every reconcile.
   const resolved = await fetchAllRows<{
@@ -424,6 +455,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       email: p.email || null,
       phone: v2Ph?.phone || p.phone || null,
       mobile_phone: v2Ph?.mobilePhone || p.mobilePhone || null,
+      // Fresh from CCB when this pull carried one, otherwise whatever we already
+      // knew — never null it out. Drives the under-18 send block.
+      birthdate: (p.ccbIndividualId ? ccbBirthdayMap[p.ccbIndividualId] : '')
+        || (p.ccbIndividualId ? birthdateByCcbId.get(p.ccbIndividualId) : birthdateByName.get(nameKey))
+        || null,
       in_group: p.inGroup,
       // Explicitly false for people found in the group so the flag clears if
       // someone rejoins.

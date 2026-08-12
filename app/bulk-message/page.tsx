@@ -9,6 +9,13 @@ import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
 import { useMacCompanion } from '../../hooks/useMacCompanion';
 import { apiFetch } from '../../lib/apiClient';
+import {
+  ageFromBirthdate,
+  isMinor,
+  parseAgeValue,
+  sendBlockFor,
+  type SendBlock,
+} from '../../lib/messaging/minorGuard';
 
 // ─── Types ────────────────────────────────────────────────────
 enum SendStatus { IDLE = 'IDLE', SENDING = 'SENDING', AUTO_SENDING = 'AUTO_SENDING', COMPLETED = 'COMPLETED' }
@@ -31,6 +38,16 @@ interface Recipient {
   circleLeaderName?: string;
   additionalLeaderName?: string;
   additionalLeaderPhone?: string;
+  /** Whatever the source gave us — a birthdate string, an age, or neither. */
+  birthdate?: string;
+  /** Resolved age in whole years; null when nothing on file says. */
+  age?: number | null;
+}
+
+/** A recipient held back from sending, and the reason. */
+interface BlockedRecipient {
+  recipient: Recipient;
+  block: SendBlock;
 }
 
 interface PastedEntry {
@@ -40,6 +57,9 @@ interface PastedEntry {
   phone: string;
   campus?: string;
   email?: string;
+  /** Birthdate or age column from the paste, when the sheet had one. */
+  birthdate?: string;
+  age?: string;
 }
 
 interface RosterMember {
@@ -49,6 +69,7 @@ interface RosterMember {
   lastName?: string;
   mobilePhone?: string;
   phone?: string;
+  birthday?: string;
 }
 
 interface SendLog {
@@ -74,7 +95,9 @@ interface MessageTemplate {
 interface SavedRecipientList {
   id: string;
   name: string;
-  people: Pick<Recipient, 'id' | 'name' | 'firstName' | 'phone'>[];
+  // Age travels with the list so reloading it can't quietly reintroduce a minor.
+  // Lists saved before the age gate carry no age and read as "unknown".
+  people: Pick<Recipient, 'id' | 'name' | 'firstName' | 'phone' | 'birthdate' | 'age'>[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -115,6 +138,8 @@ const ccbPersonToRecipient = (person: CCBPerson): Recipient | null => {
     firstName: person.firstName,
     phone,
     isFromCCB: true,
+    birthdate: person.birthday,
+    age: ageFromBirthdate(person.birthday),
   };
 };
 
@@ -128,8 +153,11 @@ const resolveMessage = (template: string, recipient: Recipient): string => {
     .replace(/\{\{circle_leader\}\}/g, recipient.circleLeaderName || '');
 };
 
-const openMessagesApp = (phone: string, message: string) => {
-  const clean = phone.replace(/\s+/g, '');
+const openMessagesApp = (recipient: Recipient, message: string) => {
+  // Last line of defense for the age gate: every send routes through here, so a
+  // minor can't be texted even from a stale render or a resend off the log.
+  if (isMinor(recipient.age) || !recipient.phone) return;
+  const clean = recipient.phone.replace(/\s+/g, '');
   const encoded = encodeURIComponent(message);
   window.location.href = `sms:${clean}&body=${encoded}`;
 };
@@ -151,11 +179,13 @@ const splitImportRow = (row: string, delimiter: string): string[] => {
   return row.split(delimiter).map(cell => cell.trim());
 };
 
-const toRecipient = (leader: CircleLeader): Recipient | null => {
-  if (!leader.phone) return null;
-  const clean = normalizePhone(leader.phone);
-  if (clean.length < 7) return null;
-
+/**
+ * A circle leader as a recipient. Leaders with no usable phone still come
+ * through with an empty `phone` so they land on the Can't send list instead of
+ * disappearing from the count with no explanation.
+ */
+const toRecipient = (leader: CircleLeader): Recipient => {
+  const clean = normalizePhone(leader.phone || '');
   const fullName = leader.name || 'Friend';
   let firstName = fullName;
   if (fullName.includes('&')) {
@@ -168,7 +198,7 @@ const toRecipient = (leader: CircleLeader): Recipient | null => {
     id: leader.id,
     name: fullName,
     firstName,
-    phone: clean,
+    phone: clean.length >= 7 ? clean : '',
     campus: leader.campus,
     status: leader.status,
     circleType: leader.circle_type,
@@ -177,8 +207,14 @@ const toRecipient = (leader: CircleLeader): Recipient | null => {
     isAdditionalLeader: false,
     additionalLeaderName: leader.additional_leader_name || undefined,
     additionalLeaderPhone: leader.additional_leader_phone || undefined,
+    birthdate: leader.birthday,
+    age: ageFromBirthdate(leader.birthday),
   };
 };
+
+/** Stable dedupe key: phone when there is one, otherwise the person's identity. */
+const recipientKey = (r: Recipient): string =>
+  r.phone ? `phone:${r.phone}` : `person:${r.id}:${r.name.toLowerCase()}`;
 
 // ─── Icon Components ──────────────────────────────────────────
 const MessageIcon = () => (
@@ -190,6 +226,13 @@ const MessageIcon = () => (
 const BackIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+  </svg>
+);
+
+const ShieldIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M11.998 2.25c2.203 1.83 5.03 2.83 7.94 2.808A12.02 12.02 0 0112 21.75 12.02 12.02 0 014.06 5.058c2.91.022 5.736-.978 7.938-2.808z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25v4.5m0 3h.008v.008H12v-.008z" />
   </svg>
 );
 
@@ -309,7 +352,7 @@ function BulkMessageContent() {
     try {
       const { data, error } = await supabase
         .from('circle_leaders')
-        .select('id, name, phone, email, campus, acpd, status, circle_type, day, time, frequency, additional_leader_name, additional_leader_phone, ccb_group_id')
+        .select('id, name, phone, email, campus, acpd, status, circle_type, day, time, frequency, birthday, additional_leader_name, additional_leader_phone, additional_leader_birthday, ccb_group_id')
         .order('name');
 
       if (error) throw error;
@@ -349,7 +392,8 @@ function BulkMessageContent() {
   }, [leaders]);
 
   // ─── Build recipient list ──────────────────────────────────
-  const recipients = useMemo(() => {
+  // Everyone the current selection points at, before the age/phone gate.
+  const candidates = useMemo(() => {
     // When selectNone is active, skip all circle leaders
     const filtered = selectNone ? [] : leaders.filter(l => {
       if (filterCampus.length > 0 && (!l.campus || !filterCampus.includes(l.campus))) return false;
@@ -360,25 +404,25 @@ function BulkMessageContent() {
       return true;
     });
 
-    // Convert to recipients (excluding those without phone numbers)
     const result: Recipient[] = [];
-    const seenPhones = new Set<string>();
+    const seen = new Set<string>();
+    const add = (r: Recipient) => {
+      const key = recipientKey(r);
+      if (seen.has(key)) return;
+      seen.add(key);
+      result.push(r);
+    };
 
     for (const l of filtered) {
-      const r = toRecipient(l);
-      if (r && !seenPhones.has(r.phone)) {
-        seenPhones.add(r.phone);
-        result.push(r);
-      }
+      add(toRecipient(l));
       // Include additional leaders if toggled
       if (includeAdditionalLeaders && l.additional_leader_phone) {
         const alPhone = normalizePhone(l.additional_leader_phone);
-        if (alPhone.length >= 7 && !seenPhones.has(alPhone)) {
-          seenPhones.add(alPhone);
+        if (alPhone.length >= 7) {
           const alName = l.additional_leader_name || 'Additional Leader';
           let alFirst = alName;
           if (alName.includes(' ')) alFirst = alName.split(' ')[0];
-          result.push({
+          add({
             id: l.id * -1, // negative to differentiate
             name: alName,
             firstName: alFirst,
@@ -390,32 +434,49 @@ function BulkMessageContent() {
             acpd: l.acpd,
             isAdditionalLeader: true,
             circleLeaderName: l.name || '',
+            birthdate: l.additional_leader_birthday,
+            age: ageFromBirthdate(l.additional_leader_birthday),
           });
         }
       }
     }
 
-    // Merge CCB-added recipients (deduped by phone)
-    for (const r of ccbRecipients) {
-      if (!seenPhones.has(r.phone)) {
-        seenPhones.add(r.phone);
-        result.push(r);
-      }
-    }
-
-    // Merge manually pinned leaders (deduped by phone)
-    for (const r of pinnedLeaderRecipients) {
-      if (!seenPhones.has(r.phone)) {
-        seenPhones.add(r.phone);
-        result.push(r);
-      }
-    }
+    ccbRecipients.forEach(add);
+    pinnedLeaderRecipients.forEach(add);
 
     return result;
   }, [leaders, filterCampus, filterStatus, filterCircleType, filterDay, filterAcpd, includeAdditionalLeaders, ccbRecipients, pinnedLeaderRecipients, selectNone]);
 
+  // Split into who gets the message and who doesn't. Anyone under 18 is held
+  // back on every path — step-through, Auto Send, and resend — and so is anyone
+  // with no number to text. `blockedRecipients` is what the Can't send list shows.
+  const { recipients, blockedRecipients, ageUnknownCount } = useMemo(() => {
+    const sendable: Recipient[] = [];
+    const blocked: BlockedRecipient[] = [];
+    let ageUnknown = 0;
+
+    for (const recipient of candidates) {
+      const block = sendBlockFor({ age: recipient.age ?? null, phone: recipient.phone });
+      if (block) {
+        blocked.push({ recipient, block });
+        continue;
+      }
+      if (recipient.age == null) ageUnknown++;
+      sendable.push(recipient);
+    }
+
+    // Minors first — that's the reason worth reading before anything else.
+    blocked.sort((a, b) => (a.block.reason === b.block.reason ? 0 : a.block.reason === 'minor' ? -1 : 1));
+
+    return { recipients: sendable, blockedRecipients: blocked, ageUnknownCount: ageUnknown };
+  }, [candidates]);
+
+  const blockedMinorCount = blockedRecipients.filter(b => b.block.reason === 'minor').length;
+
   // ─── Current / next recipient ──────────────────────────────
-  const recipientPhoneSet = useMemo(() => new Set(recipients.map(r => r.phone)), [recipients]);
+  // Keyed off every candidate, not just the sendable ones, so someone already on
+  // the Can't send list doesn't read as addable in the search dropdown.
+  const recipientKeySet = useMemo(() => new Set(candidates.map(recipientKey)), [candidates]);
   const currentRecipient = recipients[currentIndex] || null;
   const nextRecipient = sendStatus === SendStatus.SENDING ? (recipients[currentIndex + 1] || null) : null;
 
@@ -496,7 +557,7 @@ function BulkMessageContent() {
       setTimeout(() => setCopyFeedback(false), 2000);
 
       setTimeout(() => {
-        openMessagesApp(currentRecipient.phone, personalizedMessage);
+        openMessagesApp(currentRecipient, personalizedMessage);
       }, 400);
 
       const newLog: SendLog = {
@@ -514,7 +575,7 @@ function BulkMessageContent() {
       }
     } catch (err) {
       console.error('Send failed:', err);
-      openMessagesApp(currentRecipient.phone, personalizedMessage);
+      openMessagesApp(currentRecipient, personalizedMessage);
     }
   }, [currentRecipient, message, currentIndex, recipients.length]);
 
@@ -555,7 +616,7 @@ function BulkMessageContent() {
   const handleResend = async (log: SendLog) => {
     const personalizedMessage = resolveMessage(message, log.recipient);
     await navigator.clipboard.writeText(personalizedMessage);
-    openMessagesApp(log.recipient.phone, personalizedMessage);
+    openMessagesApp(log.recipient, personalizedMessage);
   };
 
   const handleAbort = () => {
@@ -613,6 +674,13 @@ function BulkMessageContent() {
         if (autoAbortRef.current) break;
 
         const r = recipients[i];
+        // Belt and braces: `recipients` already excludes minors, but nothing
+        // here should be able to text one.
+        if (isMinor(r.age) || !r.phone) {
+          live[i] = { ...live[i], status: 'failed', error: 'Blocked from sending' };
+          setAutoEntries([...live]);
+          continue;
+        }
         live[i] = { ...live[i], status: 'sending' };
         setAutoEntries([...live]);
 
@@ -646,7 +714,8 @@ function BulkMessageContent() {
   // ─── Search & add leader helpers ──────────────────────────
   const handleAddLeaderFromSearch = (leader: CircleLeader) => {
     const r = toRecipient(leader);
-    if (!r) return;
+    // Adding someone who can't be texted would only grow the Can't send list.
+    if (sendBlockFor({ age: r.age ?? null, phone: r.phone })) return;
     setPinnedLeaderRecipients(prev => {
       if (prev.some(p => p.phone === r.phone)) return prev;
       return [...prev, r];
@@ -709,6 +778,8 @@ function BulkMessageContent() {
             isFromCCB: true,
             isFromRoster: true,
             circleLeaderName: leader.name || '',
+            birthdate: m.birthday,
+            age: ageFromBirthdate(m.birthday),
           };
         })
         .filter((r): r is Recipient => r !== null);
@@ -743,7 +814,10 @@ function BulkMessageContent() {
     const newList: SavedRecipientList = {
       id: `l-${Date.now()}`,
       name: listNameInput.trim(),
-      people: recipients.map(r => ({ id: r.id, name: r.name, firstName: r.firstName, phone: r.phone })),
+      people: recipients.map(r => ({
+        id: r.id, name: r.name, firstName: r.firstName, phone: r.phone,
+        birthdate: r.birthdate, age: r.age,
+      })),
     };
     setSavedLists(prev => [...prev, newList]);
     setSelectedListId(newList.id);
@@ -754,7 +828,13 @@ function BulkMessageContent() {
   const handleLoadList = (listId: string) => {
     const list = savedLists.find(l => l.id === listId);
     if (!list) { setSelectedListId(''); return; }
-    setCcbRecipients(list.people.map(p => ({ ...p, isFromCCB: true })));
+    // Re-derive age from the stored birthdate where there is one — a list saved
+    // last year holds an age that has since gone stale.
+    setCcbRecipients(list.people.map(p => ({
+      ...p,
+      isFromCCB: true,
+      age: ageFromBirthdate(p.birthdate) ?? p.age ?? null,
+    })));
     setSelectedListId(listId);
   };
 
@@ -784,6 +864,10 @@ function BulkMessageContent() {
     const phoneIndex = findImportColumn(firstRow, ['preferred phone', 'phone', 'mobile phone', 'cell phone', 'mobile', 'cell', 'primary phone']);
     const campusIndex = findImportColumn(firstRow, ['campus', 'campus name']);
     const emailIndex = findImportColumn(firstRow, ['email', 'email address']);
+    // A pasted export often carries a birthdate or age column. Picking it up
+    // here is what lets the under-18 gate cover pasted lists at all.
+    const birthdateIndex = findImportColumn(firstRow, ['birthdate', 'birth date', 'birthday', 'date of birth', 'dob']);
+    const ageIndex = findImportColumn(firstRow, ['age', 'current age']);
     const hasHeader = firstNameIndex >= 0 && phoneIndex >= 0;
 
     let entries: PastedEntry[] = [];
@@ -797,6 +881,8 @@ function BulkMessageContent() {
           const phone = cells[phoneIndex] || '';
           const campus = campusIndex >= 0 ? cells[campusIndex] || undefined : undefined;
           const email = emailIndex >= 0 ? cells[emailIndex] || undefined : undefined;
+          const birthdate = birthdateIndex >= 0 ? cells[birthdateIndex] || undefined : undefined;
+          const age = ageIndex >= 0 ? cells[ageIndex] || undefined : undefined;
           if (!firstName && !lastName && !phone && !campus && !email) return null;
           return {
             id: `p-${Date.now()}-${index}`,
@@ -805,6 +891,8 @@ function BulkMessageContent() {
             phone,
             campus,
             email,
+            birthdate,
+            age,
           };
         })
         .filter((entry): entry is PastedEntry => entry !== null);
@@ -860,6 +948,9 @@ function BulkMessageContent() {
       .map((e): Recipient | null => {
         const phone = normalizePhone(e.phone);
         if (phone.length < 7) return null;
+        // A birthdate stays right as time passes; a typed-in age is a snapshot
+        // from whenever the sheet was exported, so it's the fallback.
+        const age = ageFromBirthdate(e.birthdate) ?? parseAgeValue(e.age);
         return {
           id: -(Date.now() + Math.floor(Math.random() * 10000)),
           name: `${e.firstName} ${e.lastName}`.trim(),
@@ -868,6 +959,8 @@ function BulkMessageContent() {
           campus: e.campus,
           isFromCCB: true,
           isFromPaste: true,
+          birthdate: e.birthdate,
+          age,
         };
       })
       .filter((r): r is Recipient => r !== null);
@@ -925,6 +1018,11 @@ function BulkMessageContent() {
               <div className="text-xs text-gray-500 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">
                 <span className="text-blue-400 font-bold">{recipients.length}</span> recipients selected
               </div>
+              {blockedRecipients.length > 0 && (
+                <div className="text-xs text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/25">
+                  <span className="font-bold">{blockedRecipients.length}</span> can&apos;t send
+                </div>
+              )}
               {sendStatus !== SendStatus.IDLE && (
                 <button
                   onClick={handleReset}
@@ -1118,26 +1216,32 @@ function BulkMessageContent() {
                             {leaderSearchResults.map(l => {
                               const r = toRecipient(l);
                               const alreadyPinned = pinnedLeaderRecipients.some(p => p.id === l.id);
-                              const alreadyInList = r ? recipientPhoneSet.has(r.phone) : false;
+                              const alreadyInList = recipientKeySet.has(recipientKey(r));
+                              // A leader with no number can't be texted, and a minor
+                              // would only land on the Can't send list — neither is
+                              // worth adding by hand.
+                              const blocked = sendBlockFor({ age: r.age ?? null, phone: r.phone });
                               return (
                                 <button
                                   key={l.id}
                                   type="button"
                                   onClick={() => handleAddLeaderFromSearch(l)}
-                                  disabled={alreadyPinned || alreadyInList || !r}
+                                  disabled={alreadyPinned || alreadyInList || !!blocked}
                                   className="w-full text-left px-4 py-2.5 hover:bg-gray-700 transition-colors flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed border-b border-gray-700/50 last:border-0"
                                 >
                                   <div>
                                     <span className="text-sm font-medium text-white">{l.name}</span>
-                                    <span className="text-xs text-gray-500 ml-2 font-mono">{r?.phone || 'no phone'}</span>
+                                    <span className="text-xs text-gray-500 ml-2 font-mono">{r.phone || 'no phone'}</span>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {l.campus && <span className="text-[10px] text-gray-500">{l.campus}</span>}
-                                    {alreadyInList
-                                      ? <span className="text-[10px] font-bold text-gray-500 uppercase">In list</span>
-                                      : alreadyPinned
-                                        ? <span className="text-[10px] font-bold text-green-400 uppercase">Added</span>
-                                        : r && <span className="text-[10px] font-bold text-blue-400 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Add</span>
+                                    {blocked
+                                      ? <span className="text-[10px] font-bold text-amber-400 uppercase">{blocked.label}</span>
+                                      : alreadyInList
+                                        ? <span className="text-[10px] font-bold text-gray-500 uppercase">In list</span>
+                                        : alreadyPinned
+                                          ? <span className="text-[10px] font-bold text-green-400 uppercase">Added</span>
+                                          : <span className="text-[10px] font-bold text-blue-400 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Add</span>
                                     }
                                   </div>
                                 </button>
@@ -1164,12 +1268,15 @@ function BulkMessageContent() {
                 {buildTab === 'person' && (
                   <div className="space-y-4">
                     <p className="text-xs text-gray-500">Search CCB to add an individual by name or phone number.</p>
+                    {/* withFullProfile costs one extra CCB call per pick, and
+                        buys the birthday the under-18 check needs. */}
                     <CCBPersonLookup
                       key={ccbLookupKey}
                       onSelect={handleAddCCBPerson}
                       placeholder="Search CCB by name or phone..."
                       label="Search & Add Person"
                       size="sm"
+                      withFullProfile
                     />
                     {ccbRecipients.filter(r => !r.isFromPaste && !r.isFromRoster).length > 0 && (
                       <div className="pt-3 border-t border-gray-800">
@@ -1433,6 +1540,43 @@ function BulkMessageContent() {
               )}
             </section>
 
+            {/* ── Can't Send ── */}
+            {blockedRecipients.length > 0 && (
+              <section className="bg-gray-900 border border-amber-500/25 rounded-2xl shadow-lg overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-amber-500/20 bg-amber-500/5">
+                  <h2 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                    <ShieldIcon />
+                    Can&apos;t Send ({blockedRecipients.length})
+                  </h2>
+                  <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                    {blockedMinorCount > 0
+                      ? 'Anyone under 18 is held back — reach a minor through a parent or guardian instead. '
+                      : ''}
+                    These people are left out of the batch and Auto Send.
+                  </p>
+                </div>
+                <div className="max-h-56 overflow-y-auto divide-y divide-gray-800/50">
+                  {blockedRecipients.map(({ recipient, block }) => (
+                    <div key={`${recipient.id}-${recipient.name}`} className="flex items-center gap-3 px-5 py-2">
+                      <span className="text-sm text-gray-300 flex-1 min-w-0 truncate">{recipient.name}</span>
+                      {block.evidence && (
+                        <span className="text-[11px] text-gray-500 flex-shrink-0">{block.evidence}</span>
+                      )}
+                      <span
+                        className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0 ${
+                          block.reason === 'minor'
+                            ? 'bg-amber-500/20 text-amber-300'
+                            : 'bg-gray-700/60 text-gray-400'
+                        }`}
+                      >
+                        {block.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* ── Next Step CTA ── */}
             <button
               onClick={() => setWizardStep('compose')}
@@ -1463,6 +1607,42 @@ function BulkMessageContent() {
                   </svg>
                   <span>Recipients — <span className="font-bold text-white">{recipients.length}</span> selected</span>
                 </button>
+
+                {/* Who's being held back, carried into the send step so it's
+                    visible at the moment it matters. */}
+                {blockedRecipients.length > 0 && (
+                  <div className="bg-amber-500/5 border border-amber-500/25 rounded-2xl px-5 py-3.5 flex items-start gap-3">
+                    <span className="text-amber-400 flex-shrink-0 mt-0.5"><ShieldIcon /></span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-amber-300">
+                        {blockedRecipients.length} {blockedRecipients.length === 1 ? 'person' : 'people'} won&apos;t get this message
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                        {blockedMinorCount > 0 && `${blockedMinorCount} under 18. `}
+                        {blockedRecipients.length - blockedMinorCount > 0 &&
+                          `${blockedRecipients.length - blockedMinorCount} with no phone number. `}
+                        <button
+                          onClick={() => setWizardStep('build')}
+                          className="text-amber-300/90 hover:text-amber-200 underline transition-colors"
+                        >
+                          See the full list
+                        </button>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* The gate only covers people whose age we know — say so rather
+                    than implying the whole list was checked. */}
+                {recipients.length > 0 && ageUnknownCount > 0 && (
+                  <p className="text-[11px] text-gray-500 leading-relaxed px-1">
+                    {ageUnknownCount === recipients.length
+                      ? 'No one on this list has a birthdate on file, so the under-18 check couldn’t run.'
+                      : ageUnknownCount === 1
+                        ? 'One person on this list has no birthdate on file, so the under-18 check couldn’t run for them.'
+                        : `${ageUnknownCount} people on this list have no birthdate on file, so the under-18 check couldn’t run for them.`}
+                  </p>
+                )}
 
                 {/* Message Composer */}
                 <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">

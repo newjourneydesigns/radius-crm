@@ -3,6 +3,17 @@
     "date": "2026-08-12",
     "date_display": "August 12, 2026",
     "date_iso": "2026-08-12",
+    "version": "2.50.0",
+    "id": "under-18-send-block",
+    "type": "feature",
+    "category": "Messaging",
+    "description": "Anyone under 18 is now held back from bulk texting. On Bulk Message and on a campaign's Follow Up, people who can't be texted move to their own \"Can't send\" list that names each person and the reason — \"Under 18\" with their age, or \"No phone\". They're skipped by the step-through batch, by Auto Send, and by the per-person Send button, and they're never marked contacted, so they stay on your list to follow up another way. Ages come from a leader's birthday in RADIUS, a birthdate CCB has on file, or a Birthdate or Age column on a pasted roster or list. When someone has no birthdate on record the check can't run for them, and the page says so instead of implying the whole list was verified — a campaign's CSV export now carries Age and Can Text columns so you can see the coverage yourself.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-08-12",
+    "date_display": "August 12, 2026",
+    "date_iso": "2026-08-12",
     "version": "2.49.5",
     "id": "export-location-field",
     "type": "improvement",
