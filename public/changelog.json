@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-08-12",
+    "date_display": "August 12, 2026",
+    "date_iso": "2026-08-12",
+    "version": "2.49.5",
+    "id": "export-location-field",
+    "type": "improvement",
+    "category": "Find a Circle",
+    "description": "The export on Find a Circle can now include each circle's location. Location joins the Include fields checkboxes — checked by default, and you can uncheck it like any other field — and it carries through all three outputs: copy to clipboard, the text file, and the CSV. Circles with no location recorded read \"Not specified\" in the text export and come through as an empty cell in the CSV, so the column still lines up in a spreadsheet.",
+    "page": "/search"
+  },
+  {
     "date": "2026-08-08",
     "date_display": "August 8, 2026",
     "date_iso": "2026-08-08",

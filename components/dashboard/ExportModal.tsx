@@ -19,6 +19,7 @@ export default function ExportModal({ isOpen, onClose, leaders }: ExportModalPro
     campus: true,
     meetingDay: true,
     meetingTime: true,
+    location: true,
     status: true,
   });
 
@@ -87,6 +88,7 @@ export default function ExportModal({ isOpen, onClose, leaders }: ExportModalPro
     if (options.campus) lines.push(`Campus: ${leader.campus || 'Not specified'}`);
     const meetingLine = buildMeetingLine(leader);
     if (meetingLine) lines.push(meetingLine);
+    if (options.location) lines.push(`Location: ${leader.location || 'Not specified'}`);
     if (options.status) {
       const status = leader.status ? leader.status.charAt(0).toUpperCase() + leader.status.slice(1) : 'Not specified';
       const statusWithFollow = leader.follow_up_required ? `${status} (Follow-up Required)` : status;
@@ -137,6 +139,7 @@ ${leaders.map((leader) => buildLeaderBlock(leader)).join('\n\n')}`;
     if (options.campus) headers.push('Campus');
     if (options.meetingDay) headers.push('Meeting Day');
     if (options.meetingTime) headers.push('Meeting Time');
+    if (options.location) headers.push('Location');
     if (options.status) headers.push('Status');
 
     const csvData = leaders.map(leader => {
@@ -147,6 +150,7 @@ ${leaders.map((leader) => buildLeaderBlock(leader)).join('\n\n')}`;
       if (options.campus) row.push(leader.campus || '');
       if (options.meetingDay) row.push(leader.day || '');
       if (options.meetingTime) row.push(formatTime(leader.time));
+      if (options.location) row.push(leader.location || '');
       if (options.status) row.push(leader.status || '');
       
       return row.map(field => `"${field.replace(/"/g, '""')}"`).join(',');
@@ -245,6 +249,10 @@ ${leaders.map((leader) => buildLeaderBlock(leader)).join('\n\n')}`;
                 <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
                   <input type="checkbox" checked={options.meetingTime} onChange={() => toggleOption('meetingTime')} className="rounded border-gray-300 dark:border-gray-600" />
                   <span>Meeting Time</span>
+                </label>
+                <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input type="checkbox" checked={options.location} onChange={() => toggleOption('location')} className="rounded border-gray-300 dark:border-gray-600" />
+                  <span>Location</span>
                 </label>
                 <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
                   <input type="checkbox" checked={options.status} onChange={() => toggleOption('status')} className="rounded border-gray-300 dark:border-gray-600" />
