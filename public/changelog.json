@@ -3,6 +3,17 @@
     "date": "2026-08-12",
     "date_display": "August 12, 2026",
     "date_iso": "2026-08-12",
+    "version": "2.49.7",
+    "id": "ccb-location-backfill",
+    "type": "improvement",
+    "category": "Integrations",
+    "description": "Circles already holding a wrong location can now be repaired in bulk instead of one re-sync at a time. An admin-only backfill re-reads every circle's location from its CCB group address, previews exactly what would change before anything is written, and skips circles whose CCB group has no address on file so a blank in CCB can never wipe a location in RADIUS.",
+    "page": "/import-circles"
+  },
+  {
+    "date": "2026-08-12",
+    "date_display": "August 12, 2026",
+    "date_iso": "2026-08-12",
     "version": "2.49.6",
     "id": "ccb-location-source-fix",
     "type": "fix",
