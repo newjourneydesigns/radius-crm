@@ -3,6 +3,17 @@
     "date": "2026-08-12",
     "date_display": "August 12, 2026",
     "date_iso": "2026-08-12",
+    "version": "2.49.7",
+    "id": "auto-send-restart-button",
+    "type": "improvement",
+    "category": "Auto Send",
+    "description": "Turning on delivery tracking no longer sends you back to Terminal. After you add Python to Full Disk Access, the setup guide has a Restart companion button that does it for you — it restarts the helper on your Mac, waits for it to come back, and rechecks Full Disk Access, so step 6 flips to \"Delivery tracking is on\" without you doing anything else. If the restart doesn't work, or your companion is too old to support it, the guide falls back to showing the Terminal command like before. Requires companion 1.6.0 — reinstall from the Auto Send page to get it, though nothing breaks if you don't.",
+    "page": "/settings?tab=auto_send"
+  },
+  {
+    "date": "2026-08-12",
+    "date_display": "August 12, 2026",
+    "date_iso": "2026-08-12",
     "version": "2.49.6",
     "id": "auto-send-full-disk-access-steps",
     "type": "improvement",

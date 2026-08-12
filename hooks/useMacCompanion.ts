@@ -6,8 +6,30 @@ export const COMPANION_BASE = 'http://localhost:5123';
 const BASE = COMPANION_BASE;
 const PING_TIMEOUT_MS = 2000;
 
-// Bump this whenever server.py changes — RADIUS will prompt users to reinstall.
+// How long to wait for the companion to come back after /restart. launchd
+// normally has it up in about a second, but it throttles relaunches of a job
+// that just started, so give it room before calling the restart a failure.
+const RESTART_POLL_INTERVAL_MS = 500;
+const RESTART_POLL_ATTEMPTS = 40;
+
+// The oldest companion RADIUS will work with. This is a floor, not an exact
+// match: a newer companion than the app knows about is fine, so only an older
+// one prompts a reinstall. Raise it only when server.py ships a change RADIUS
+// actually depends on — every bump blocks sending until users reinstall.
 export const COMPANION_VERSION = '1.5.0';
+
+/** True when `installed` is behind `required`. Unparseable versions count as
+ *  behind, so a garbled response prompts a reinstall rather than passing. */
+function isOlderThan(installed: string, required: string): boolean {
+  const a = installed.split('.').map(Number);
+  const b = required.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const x = a[i], y = b[i] ?? 0;
+    if (!Number.isFinite(x)) return true;
+    if (x !== y) return x < y;
+  }
+  return false;
+}
 
 export interface CompanionSendResult {
   success: boolean;
@@ -39,6 +61,13 @@ export interface CompanionVerifyCapability {
   pythonPath?: string;
 }
 
+export interface CompanionRestartResult {
+  /** True once the companion is answering again. */
+  ok: boolean;
+  /** The companion predates /restart — fall back to the Terminal command. */
+  unsupported?: boolean;
+}
+
 export function useMacCompanion() {
   const [available, setAvailable] = useState<boolean | null>(null);
   const [needsUpdate, setNeedsUpdate] = useState(false);
@@ -59,7 +88,7 @@ export function useMacCompanion() {
     try {
       const res = await fetch(`${BASE}/version`);
       const data = await res.json();
-      setNeedsUpdate(data.version !== COMPANION_VERSION);
+      setNeedsUpdate(typeof data.version === 'string' && isOlderThan(data.version, COMPANION_VERSION));
     } catch {
       setNeedsUpdate(false);
     }
@@ -132,6 +161,25 @@ export function useMacCompanion() {
     }
   }, []);
 
+  // Restart the companion so a Full Disk Access grant made while it was running
+  // takes effect. The companion quits and its LaunchAgent relaunches it, so
+  // "restarted" means /ping is answering again — not that /restart returned.
+  const restart = useCallback(async (): Promise<CompanionRestartResult> => {
+    try {
+      const res = await fetch(`${BASE}/restart`, { method: 'POST' });
+      // Companions older than 1.6.0 don't have this endpoint.
+      if (res.status === 404) return { ok: false, unsupported: true };
+      if (!res.ok) return { ok: false };
+    } catch {
+      return { ok: false };
+    }
+    for (let i = 0; i < RESTART_POLL_ATTEMPTS; i++) {
+      await new Promise(resolve => setTimeout(resolve, RESTART_POLL_INTERVAL_MS));
+      if (await ping()) return { ok: true };
+    }
+    return { ok: false };
+  }, [ping]);
+
   const notify = useCallback(async (sent: number, failed: number): Promise<void> => {
     try {
       await fetch(`${BASE}/notify`, {
@@ -160,5 +208,5 @@ export function useMacCompanion() {
     });
   }, [ping, checkVersion]);
 
-  return { available, needsUpdate, preflight, send, verify, verifyCapable, notify, recheck };
+  return { available, needsUpdate, preflight, send, verify, verifyCapable, restart, notify, recheck };
 }

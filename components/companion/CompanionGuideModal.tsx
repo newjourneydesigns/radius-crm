@@ -29,6 +29,8 @@ interface CompanionGuideModalProps {
   pythonPath?: string;
   /** Whether delivery tracking (Full Disk Access) is already granted. */
   deliveryTrackingOn?: boolean;
+  /** Restart the companion so a fresh Full Disk Access grant takes effect. */
+  onRestart?: () => Promise<{ ok: boolean; unsupported?: boolean }>;
 }
 
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
@@ -52,6 +54,8 @@ function Key({ children }: { children: React.ReactNode }) {
     </kbd>
   );
 }
+
+type RestartState = 'idle' | 'running' | 'done' | 'failed' | 'unsupported';
 
 function CopyRow({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -110,8 +114,20 @@ export default function CompanionGuideModal({
   checking = false,
   pythonPath,
   deliveryTrackingOn,
+  onRestart,
 }: CompanionGuideModalProps) {
   const isUpdate = mode === 'update';
+  const [restartState, setRestartState] = useState<RestartState>('idle');
+
+  const handleRestart = async () => {
+    if (!onRestart) return;
+    setRestartState('running');
+    const result = await onRestart();
+    setRestartState(result.ok ? 'done' : result.unsupported ? 'unsupported' : 'failed');
+    // Re-read Full Disk Access so step 6 flips to its granted state without the
+    // user having to work out that they need to check again.
+    if (result.ok) onRecheck?.();
+  };
 
   return (
     <Modal
@@ -234,19 +250,58 @@ export default function CompanionGuideModal({
                   <SubStep letter="d">
                     <span className="font-semibold">Restart the companion.</span> macOS only checks
                     this permission when a program starts, so the companion has to be restarted
-                    before it can use the access you just granted. Paste this into Terminal and press{' '}
-                    <Key>Return</Key>:
-                    <CopyRow value={RESTART_COMMAND} />
+                    before it can use the access you just granted.
+                    {onRestart && restartState !== 'unsupported' ? (
+                      <>
+                        <div className="mt-2">
+                          <button
+                            onClick={handleRestart}
+                            disabled={restartState === 'running'}
+                            className="inline-flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50"
+                          >
+                            {restartState === 'running' ? 'Restarting…'
+                              : restartState === 'done' ? '✓ Restarted'
+                              : 'Restart companion'}
+                          </button>
+                        </div>
+                        {restartState === 'running' && (
+                          <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            Waiting for it to come back — usually a second or two.
+                          </p>
+                        )}
+                        {restartState === 'failed' && (
+                          <>
+                            <p className="mt-1.5">
+                              It didn’t come back on its own. Paste this into Terminal and press{' '}
+                              <Key>Return</Key>:
+                            </p>
+                            <CopyRow value={RESTART_COMMAND} />
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="mt-1.5">
+                          {restartState === 'unsupported'
+                            ? 'Your companion is too old to restart from here. Paste this into Terminal and press '
+                            : 'Paste this into Terminal and press '}
+                          <Key>Return</Key>:
+                        </p>
+                        <CopyRow value={RESTART_COMMAND} />
+                      </>
+                    )}
                   </SubStep>
                 </ol>
 
-                <div className="mt-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-500/30 px-3 py-2">
-                  <p className="text-xs text-amber-800 dark:text-amber-200">
-                    <span className="font-semibold">Don’t skip step d.</span> Without the restart the
-                    switch looks on in System Settings, but RADIUS still reads delivery tracking as
-                    off.
-                  </p>
-                </div>
+                {restartState !== 'done' && (
+                  <div className="mt-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-500/30 px-3 py-2">
+                    <p className="text-xs text-amber-800 dark:text-amber-200">
+                      <span className="font-semibold">Don’t skip step d.</span> Without the restart
+                      the switch looks on in System Settings, but RADIUS still reads delivery
+                      tracking as off.
+                    </p>
+                  </div>
+                )}
 
                 <p className="mt-2.5 text-xs text-gray-500 dark:text-gray-400">
                   🔒 This only ever reads delivery receipts — never the contents of your messages.

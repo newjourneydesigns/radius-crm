@@ -496,6 +496,7 @@ export default function AutoSendManager() {
         checking={checking || companion.available === null}
         pythonPath={fda?.pythonPath}
         deliveryTrackingOn={fda?.capable}
+        onRestart={companion.restart}
       />
     </div>
   );
