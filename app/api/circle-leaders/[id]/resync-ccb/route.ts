@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createCCBv2Client } from '../../../../../lib/ccb/ccb-v2-client';
+import { createCCBv2Client, formatCcbAddress } from '../../../../../lib/ccb/ccb-v2-client';
 import { getCCBRequestContext } from '../../../../../lib/ccb/ccb-api-gateway';
 import { fetchCcbCircleType } from '../../../../../lib/ccb/circle-type';
 import { verifyAdminAccessDemo } from '../../../../../lib/auth-middleware';
@@ -127,14 +127,16 @@ export async function POST(
       } catch { /* non-fatal */ }
     }
 
-    // Calendar → meeting time/day/frequency/location + event IDs.
-    let meeting = { eventIds: [] as string[], time: null as string | null, day: null as string | null, frequency: null as string | null, location: null as string | null };
+    // Calendar → meeting time/day/frequency + event IDs.
+    let meeting = { eventIds: [] as string[], time: null as string | null, day: null as string | null, frequency: null as string | null, eventLocation: null as string | null };
     try {
       meeting = await ccbv2.getGroupMeetingDetails(groupId);
     } catch { /* non-fatal */ }
 
-    const fallbackLocation = [group.address?.street, group.address?.city, group.address?.state, group.address?.zip]
-      .filter(Boolean).join(', ') || null;
+    // The group's own "Where this group meets" address is what staff edit, so it
+    // wins. An event's address is only a snapshot taken when that event was
+    // created, and goes stale the moment a circle changes venue.
+    const meetingLocation = formatCcbAddress(group.address) || meeting.eventLocation;
 
     // Circle Type is a custom field on the CCB group profile, reachable only
     // through v1 — the same lookup the importer uses. `group.type.name` from v2
@@ -175,7 +177,7 @@ export async function POST(
     setIf('day', meeting.day || group.meetDay?.name || null);
     setIf('time', meeting.time);
     setIf('frequency', meeting.frequency);
-    setIf('location', meeting.location || fallbackLocation);
+    setIf('location', meetingLocation);
     setIf('email', leaderEmail);
     setIf('phone', leaderPhone);
     setIf('birthday', leaderBirthday);

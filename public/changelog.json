@@ -14,6 +14,28 @@
     "date": "2026-08-12",
     "date_display": "August 12, 2026",
     "date_iso": "2026-08-12",
+    "version": "2.50.3",
+    "id": "ccb-location-backfill",
+    "type": "improvement",
+    "category": "Integrations",
+    "description": "Circles already holding a wrong location can now be repaired in bulk instead of one re-sync at a time. An admin-only backfill re-reads every circle's location from its CCB group address, previews exactly what would change before anything is written, and skips circles whose CCB group has no address on file so a blank in CCB can never wipe a location in RADIUS.",
+    "page": "/import-circles"
+  },
+  {
+    "date": "2026-08-12",
+    "date_display": "August 12, 2026",
+    "date_iso": "2026-08-12",
+    "version": "2.50.2",
+    "id": "ccb-location-source-fix",
+    "type": "fix",
+    "category": "Integrations",
+    "description": "Circle locations now come from the address on the group's \"When & Where\" tab in CCB, which is the field you actually edit. Previously RADIUS read the address off the group's calendar event instead — and CCB only copies the address onto an event when that event is created, so any circle that changed venue kept showing its old meeting spot no matter how many times you re-synced. Venue names also stopped getting shortened: a group whose street reads \"Einstein Bros. Bagels\" no longer comes through as just \"Einstein Bros\", and a multi-line address is tidied onto one line. Re-sync any circle whose location looks wrong to pull the corrected value.",
+    "page": "/import-circles"
+  },
+  {
+    "date": "2026-08-12",
+    "date_display": "August 12, 2026",
+    "date_iso": "2026-08-12",
     "version": "2.50.1",
     "id": "bulk-message-excluded-leaders",
     "type": "improvement",

@@ -219,19 +219,25 @@ export class CCBv2Client {
 
   /**
    * Derive the real meeting schedule from a circle's CCB calendar event — its
-   * exact start time, weekday, recurrence-based frequency, and location. This is
-   * more authoritative than the group's coarse meet_day / meet_time labels
+   * exact start time, weekday, and recurrence-based frequency. This is more
+   * authoritative than the group's coarse meet_day / meet_time labels
    * (e.g. "Evening"), which don't carry a real clock time. Returns the event IDs
    * too so callers can seed ccb_event_ids in the same pass.
+   *
+   * `eventLocation` is the one field here that is NOT authoritative. An event
+   * stores a *copy* of the address made when the event was created, and editing
+   * the group's address never rewrites events that already exist — so a circle
+   * that changes venue keeps reporting the old one forever. Callers should
+   * prefer the group's own address and fall back to this only when it has none.
    */
   async getGroupMeetingDetails(groupId: string): Promise<{
     eventIds: string[];
-    time: string | null;       // "HH:mm"
-    day: string | null;        // "Monday".."Sunday"
-    frequency: string | null;  // "Weekly" | "Bi-weekly" | "Monthly" | "Quarterly"
-    location: string | null;
+    time: string | null;          // "HH:mm"
+    day: string | null;           // "Monday".."Sunday"
+    frequency: string | null;     // "Weekly" | "Bi-weekly" | "Monthly" | "Quarterly"
+    eventLocation: string | null; // stale-prone — see note above
   }> {
-    const empty = { eventIds: [] as string[], time: null, day: null, frequency: null, location: null };
+    const empty = { eventIds: [] as string[], time: null, day: null, frequency: null, eventLocation: null };
     if (!groupId) return empty;
 
     const listRaw = await this.get(`/groups/${encodeURIComponent(groupId)}/events`);
@@ -272,14 +278,9 @@ export class CCBv2Client {
     else if (freqCode === 'M') frequency = interval >= 3 ? 'Quarterly' : 'Monthly';
     else if (freqCode === 'Q') frequency = 'Quarterly';
 
-    // Location → prefer the event address (more specific than the group's).
-    const addr = ev?.address ?? {};
-    const location = firstString(
-      addr?.name,
-      [addr?.street, addr?.city, addr?.state, addr?.zip].map((s: any) => firstString(s)).filter(Boolean).join(', '),
-    ) || null;
+    const eventLocation = formatCcbAddress(ev?.address) || null;
 
-    return { eventIds, time, day, frequency, location };
+    return { eventIds, time, day, frequency, eventLocation };
   }
 
   /**
@@ -629,6 +630,35 @@ function firstString(...vals: any[]): string {
     if (s) return s;
   }
   return '';
+}
+
+/** CCB's street field is a free-text textarea — flatten it onto one line. */
+function oneLine(v: any): string {
+  return firstString(v).replace(/\s*\r?\n+\s*/g, ', ').replace(/[ \t]+/g, ' ').trim();
+}
+
+/**
+ * Compose a one-line meeting location from a CCB address block.
+ *
+ * The label and the street routinely restate each other with different amounts
+ * of detail — an event labelled "Einstein Bros" against a street of "Einstein
+ * Bros. Bagels" — so keep whichever is fuller instead of letting the label win
+ * by default, and only print both when they're genuinely different places.
+ */
+export function formatCcbAddress(addr: any): string {
+  const name = oneLine(addr?.name);
+  const street = oneLine(addr?.street);
+  const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+  let head: string;
+  if (!name || !street) head = name || street;
+  else if (key(street).includes(key(name))) head = street;
+  else if (key(name).includes(key(street))) head = name;
+  else head = `${name}, ${street}`;
+
+  return [head, oneLine(addr?.city), oneLine(addr?.state), oneLine(addr?.zip)]
+    .filter(Boolean)
+    .join(', ');
 }
 
 /** Normalize CCB's response wording to a small, stable set. Unknown non-empty

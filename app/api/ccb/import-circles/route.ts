@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchCcbCircleType } from '../../../../lib/ccb/circle-type';
-import { createCCBv2Client } from '../../../../lib/ccb/ccb-v2-client';
+import { createCCBv2Client, formatCcbAddress } from '../../../../lib/ccb/ccb-v2-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
 
@@ -111,8 +111,8 @@ export async function GET(request: NextRequest) {
       } catch { /* non-fatal */ }
     }
 
-    // 4. Pull precise meeting time/day/frequency/location from the group's calendar.
-    let meeting = { eventIds: [] as string[], time: null as string | null, day: null as string | null, frequency: null as string | null, location: null as string | null };
+    // 4. Pull precise meeting time/day/frequency from the group's calendar.
+    let meeting = { eventIds: [] as string[], time: null as string | null, day: null as string | null, frequency: null as string | null, eventLocation: null as string | null };
     try {
       meeting = await ccbv2.getGroupMeetingDetails(groupId);
     } catch { /* non-fatal */ }
@@ -132,8 +132,10 @@ export async function GET(request: NextRequest) {
       : subdomain ? `https://${subdomain}.ccbchurch.com` : '';
     const ccbLinkBase = ccbBase.replace(/\/api\.php$/, '');
 
-    const fallbackLocation = [group.address?.street, group.address?.city, group.address?.state, group.address?.zip]
-      .filter(Boolean).join(', ') || null;
+    // The group's own "Where this group meets" address is what staff edit, so it
+    // wins. An event's address is only a snapshot taken when that event was
+    // created, and goes stale the moment a circle changes venue.
+    const meetingLocation = formatCcbAddress(group.address) || meeting.eventLocation;
     const circleType = await fetchCcbCircleType(request, groupId, { module: 'Import Circles (v1)' });
 
     return NextResponse.json({
@@ -149,7 +151,7 @@ export async function GET(request: NextRequest) {
         meetingDay: meeting.day || group.meetDay?.name || null,
         meetingTime: meeting.time || group.meetTime?.name || null,
         meetingFrequency: meeting.frequency,
-        location: meeting.location || fallbackLocation,
+        location: meetingLocation,
         eventCount: meeting.eventIds.length,
         address: group.address?.street || null,
         city: group.address?.city || null,
@@ -268,20 +270,22 @@ export async function POST(request: NextRequest) {
       } catch { /* non-fatal */ }
     }
 
-    // Group calendar → precise meeting time/day/frequency/location + event IDs.
-    // The event detail is authoritative; the group's meet_day/meet_time labels
-    // (e.g. "Evening") are coarse and lack a real clock time. Fall back to them
-    // only when the group has no calendar events yet.
-    let meeting = { eventIds: [] as string[], time: null as string | null, day: null as string | null, frequency: null as string | null, location: null as string | null };
+    // Group calendar → precise meeting time/day/frequency + event IDs.
+    // The event detail is authoritative for the schedule; the group's
+    // meet_day/meet_time labels (e.g. "Evening") are coarse and lack a real
+    // clock time. Fall back to them only when the group has no calendar events
+    // yet. Location goes the other way round — see below.
+    let meeting = { eventIds: [] as string[], time: null as string | null, day: null as string | null, frequency: null as string | null, eventLocation: null as string | null };
     try {
       meeting = await ccbv2.getGroupMeetingDetails(groupId);
     } catch { /* non-fatal — discover-events / sync will backfill later */ }
 
     const meetingTime = meeting.time;                       // real "HH:mm" or null
     const meetingDay = meeting.day || group.meetDay?.name || null;
-    const meetingLocation = meeting.location
-      || [group.address?.street, group.address?.city, group.address?.state, group.address?.zip].filter(Boolean).join(', ')
-      || null;
+    // The group's own "Where this group meets" address is what staff edit, so it
+    // wins. An event's address is only a snapshot taken when that event was
+    // created, and goes stale the moment a circle changes venue.
+    const meetingLocation = formatCcbAddress(group.address) || meeting.eventLocation;
     const circleType = await fetchCcbCircleType(request, groupId, { module: 'Import Circles (v1)' });
 
     const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
