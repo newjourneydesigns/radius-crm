@@ -3,6 +3,17 @@
     "date": "2026-08-12",
     "date_display": "August 12, 2026",
     "date_iso": "2026-08-12",
+    "version": "2.50.1",
+    "id": "bulk-message-excluded-leaders",
+    "type": "improvement",
+    "category": "Bulk Message",
+    "description": "Bulk Message now explains why the recipient count is smaller than the number of leaders your filters matched. Filtering by an ACPD could match 75 leaders and produce 33 recipients with nothing to explain the gap — leaders with no phone number on file can't be texted, and anyone sharing a number with someone already on the list is skipped so they don't get the same message twice. A line above the recipients now reads how many matched and how many were left out, split by reason, and Show lists them by name and campus with a link straight to each profile. That doubles as a to-do list: fill in a missing phone number and the leader joins the next list automatically.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-08-12",
+    "date_display": "August 12, 2026",
+    "date_iso": "2026-08-12",
     "version": "2.50.0",
     "id": "additional-leader-card",
     "type": "feature",

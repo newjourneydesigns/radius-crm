@@ -42,6 +42,15 @@ interface PastedEntry {
   email?: string;
 }
 
+/** A leader the filters matched who can't be texted, and why. */
+interface ExcludedLeader {
+  id: number;
+  name: string;
+  campus?: string;
+  /** Set only when the leader was dropped because this number is already on the list. */
+  phone?: string;
+}
+
 interface RosterMember {
   id?: string;
   fullName?: string;
@@ -208,6 +217,7 @@ function BulkMessageContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [includeAdditionalLeaders, setIncludeAdditionalLeaders] = useState(false);
   const [selectNone, setSelectNone] = useState(true);
+  const [showExcluded, setShowExcluded] = useState(false);
 
   // Message state
   const [message, setMessage] = useState('');
@@ -349,7 +359,10 @@ function BulkMessageContent() {
   }, [leaders]);
 
   // ─── Build recipient list ──────────────────────────────────
-  const recipients = useMemo(() => {
+  // Returns the excluded leaders alongside the list: a filter can match far more
+  // leaders than end up textable, and without that breakdown the recipient count
+  // looks like the filter is broken.
+  const recipientBuild = useMemo(() => {
     // When selectNone is active, skip all circle leaders
     const filtered = selectNone ? [] : leaders.filter(l => {
       if (filterCampus.length > 0 && (!l.campus || !filterCampus.includes(l.campus))) return false;
@@ -363,10 +376,16 @@ function BulkMessageContent() {
     // Convert to recipients (excluding those without phone numbers)
     const result: Recipient[] = [];
     const seenPhones = new Set<string>();
+    const noPhone: ExcludedLeader[] = [];
+    const duplicatePhone: ExcludedLeader[] = [];
 
     for (const l of filtered) {
       const r = toRecipient(l);
-      if (r && !seenPhones.has(r.phone)) {
+      if (!r) {
+        noPhone.push({ id: l.id, name: l.name || 'Unnamed leader', campus: l.campus });
+      } else if (seenPhones.has(r.phone)) {
+        duplicatePhone.push({ id: l.id, name: l.name || 'Unnamed leader', campus: l.campus, phone: r.phone });
+      } else {
         seenPhones.add(r.phone);
         result.push(r);
       }
@@ -411,8 +430,14 @@ function BulkMessageContent() {
       }
     }
 
-    return result;
+    return { list: result, matchedCount: filtered.length, noPhone, duplicatePhone };
   }, [leaders, filterCampus, filterStatus, filterCircleType, filterDay, filterAcpd, includeAdditionalLeaders, ccbRecipients, pinnedLeaderRecipients, selectNone]);
+
+  const recipients = recipientBuild.list;
+  const excludedLeaders = useMemo(
+    () => [...recipientBuild.noPhone, ...recipientBuild.duplicatePhone].sort((a, b) => a.name.localeCompare(b.name)),
+    [recipientBuild]
+  );
 
   // ─── Current / next recipient ──────────────────────────────
   const recipientPhoneSet = useMemo(() => new Set(recipients.map(r => r.phone)), [recipients]);
@@ -1354,6 +1379,46 @@ function BulkMessageContent() {
                   )}
                 </div>
               </div>
+
+              {/* Why the count is lower than the number of leaders the filters matched. */}
+              {excludedLeaders.length > 0 && (
+                <div className="px-5 py-3 border-b border-gray-800 bg-amber-500/[0.06]">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-xs text-amber-200/90 leading-relaxed">
+                      {recipientBuild.matchedCount} leaders match these filters, {excludedLeaders.length} can&apos;t be texted
+                      <span className="text-amber-200/60">
+                        {' — '}
+                        {[
+                          recipientBuild.noPhone.length > 0 && `${recipientBuild.noPhone.length} with no phone number in Radius`,
+                          recipientBuild.duplicatePhone.length > 0 && `${recipientBuild.duplicatePhone.length} sharing a number already on the list`,
+                        ].filter(Boolean).join(', ')}
+                      </span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowExcluded(v => !v)}
+                      className="shrink-0 text-[10px] font-bold text-amber-300 hover:text-amber-200 uppercase tracking-widest underline transition-colors"
+                    >
+                      {showExcluded ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  {showExcluded && (
+                    <ul className="mt-2.5 max-h-40 overflow-y-auto space-y-1">
+                      {excludedLeaders.map(l => (
+                        <li key={l.id} className="flex items-baseline justify-between gap-3 text-xs">
+                          <a href={`/circle/${l.id}`} className="text-amber-100/90 hover:text-white hover:underline truncate">
+                            {l.name}
+                            {l.campus && <span className="text-amber-200/50"> · {l.campus}</span>}
+                          </a>
+                          <span className="shrink-0 text-[10px] text-amber-200/60">
+                            {l.phone ? <>shares <span className="font-mono">{l.phone}</span></> : 'no phone'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
 
               <div className="max-h-64 overflow-y-auto">
                 {recipients.length === 0 ? (
