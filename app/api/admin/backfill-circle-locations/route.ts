@@ -70,11 +70,15 @@ interface Row {
  *     if (!token) return console.error('No session found — sign in first.');
  *     let cursor = 0, all = [], done = false;
  *     while (!done) {
- *       const res = await fetch('/api/admin/backfill-circle-locations', {
+ *       const r = await fetch('/api/admin/backfill-circle-locations', {
  *         method: 'POST',
  *         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
  *         body: JSON.stringify({ apply, limit: 25, cursor }),
- *       }).then(r => r.json());
+ *       });
+ *       // A 404 serves Netlify's HTML page, so parsing it as JSON would fail
+ *       // with a confusing "Unexpected token '<'" instead of the real cause.
+ *       const res = await r.json().catch(() => null);
+ *       if (!res) return console.error('HTTP ' + r.status + ' — not JSON. Is this build deployed?');
  *       if (res.error) return console.error(res.error);
  *       all.push(...res.rows);
  *       done = res.done;
