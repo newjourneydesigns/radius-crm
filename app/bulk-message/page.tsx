@@ -42,6 +42,17 @@ interface PastedEntry {
   email?: string;
 }
 
+/** Progress and outcome of a CCB phone backfill run. */
+interface BackfillState {
+  running: boolean;
+  done: number;
+  total: number;
+  filled: number;
+  noNumber: string[];
+  unlinked: string[];
+  error?: string;
+}
+
 /** A leader the filters matched who can't be texted, and why. */
 interface ExcludedLeader {
   id: number;
@@ -147,6 +158,12 @@ const normalizePhone = (phone: string): string => {
   return phone.replace(/[^+\d]/g, '');
 };
 
+/**
+ * Leaders per CCB backfill request. The route caps at 10; five keeps each round
+ * trip short enough that progress updates stay responsive on a slow CCB day.
+ */
+const BACKFILL_BATCH_SIZE = 5;
+
 const normalizeImportHeader = (value: string): string => {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 };
@@ -218,6 +235,7 @@ function BulkMessageContent() {
   const [includeAdditionalLeaders, setIncludeAdditionalLeaders] = useState(false);
   const [selectNone, setSelectNone] = useState(true);
   const [showExcluded, setShowExcluded] = useState(false);
+  const [backfillState, setBackfillState] = useState<BackfillState | null>(null);
 
   // Message state
   const [message, setMessage] = useState('');
@@ -906,6 +924,68 @@ function BulkMessageContent() {
     setShowPastePanel(false);
   };
 
+  // ─── Fill missing phone numbers from CCB ───────────────────
+  // Each leader is one or two reads from CCB, so the selection goes over in
+  // small batches — one request for forty of them runs past the function
+  // timeout and loses the report even though the writes landed.
+  const handleBackfillPhones = async () => {
+    const ids = recipientBuild.noPhone.map(l => l.id);
+    if (ids.length === 0) return;
+
+    const { data: sess } = await supabase.auth.getSession();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = sess?.session?.access_token;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let filled = 0;
+    const noNumber: string[] = [];
+    const unlinked: string[] = [];
+    setBackfillState({ running: true, done: 0, total: ids.length, filled, noNumber, unlinked });
+
+    for (let i = 0; i < ids.length; i += BACKFILL_BATCH_SIZE) {
+      const chunk = ids.slice(i, i + BACKFILL_BATCH_SIZE);
+      try {
+        const res = await fetch('/api/ccb/backfill-phones', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ leaderIds: chunk }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || `CCB lookup failed (HTTP ${res.status})`);
+
+        filled += data.updated || 0;
+        noNumber.push(...(data.noNumber || []).map((l: { name: string }) => l.name));
+        unlinked.push(
+          ...(data.skipped || [])
+            .filter((s: { reason: string }) => s.reason !== 'already has a phone')
+            .map((s: { name: string }) => s.name)
+        );
+
+        const done = Math.min(i + chunk.length, ids.length);
+        if (data.budgetStoppedAfter !== null && data.budgetStoppedAfter !== undefined) {
+          setBackfillState({
+            running: false, done, total: ids.length, filled, noNumber, unlinked,
+            error: `CCB's daily read budget ran out. ${filled} filled in before it stopped — re-run tomorrow to finish the rest.`,
+          });
+          await loadLeaders();
+          return;
+        }
+        setBackfillState({ running: true, done, total: ids.length, filled, noNumber, unlinked });
+      } catch (err) {
+        // Report what already landed — those are real numbers now saved.
+        setBackfillState({
+          running: false, done: i, total: ids.length, filled, noNumber, unlinked,
+          error: `${err instanceof Error ? err.message : 'Lookup failed'}. ${filled} filled in before it stopped — re-run to continue.`,
+        });
+        await loadLeaders();
+        return;
+      }
+    }
+
+    setBackfillState({ running: false, done: ids.length, total: ids.length, filled, noNumber, unlinked });
+    await loadLeaders();
+  };
+
   // ─── Filter toggle helpers ─────────────────────────────────
   const toggleFilter = (arr: string[], setArr: (v: string[]) => void, value: string) => {
     setSelectNone(false);
@@ -1383,7 +1463,7 @@ function BulkMessageContent() {
               {/* Why the count is lower than the number of leaders the filters matched. */}
               {excludedLeaders.length > 0 && (
                 <div className="px-5 py-3 border-b border-gray-800 bg-amber-500/[0.06]">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                     <p className="text-xs text-amber-200/90 leading-relaxed">
                       {recipientBuild.matchedCount} leaders match these filters, {excludedLeaders.length} can&apos;t be texted
                       <span className="text-amber-200/60">
@@ -1394,14 +1474,55 @@ function BulkMessageContent() {
                         ].filter(Boolean).join(', ')}
                       </span>
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => setShowExcluded(v => !v)}
-                      className="shrink-0 text-[10px] font-bold text-amber-300 hover:text-amber-200 uppercase tracking-widest underline transition-colors"
-                    >
-                      {showExcluded ? 'Hide' : 'Show'}
-                    </button>
+                    <div className="shrink-0 flex items-center gap-3">
+                      {recipientBuild.noPhone.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleBackfillPhones}
+                          disabled={backfillState?.running}
+                          className="text-[10px] font-bold text-amber-200 uppercase tracking-widest px-2.5 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                          title="Look each one up in CCB and save any phone number it has"
+                        >
+                          {backfillState?.running
+                            ? `Checking CCB… ${backfillState.done}/${backfillState.total}`
+                            : 'Fill from CCB'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowExcluded(v => !v)}
+                        className="text-[10px] font-bold text-amber-300 hover:text-amber-200 uppercase tracking-widest underline transition-colors"
+                      >
+                        {showExcluded ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
                   </div>
+
+                  {backfillState && !backfillState.running && (
+                    <div className="mt-2.5 pt-2.5 border-t border-amber-500/20 text-xs leading-relaxed">
+                      {backfillState.error ? (
+                        <p className="text-rose-300">{backfillState.error}</p>
+                      ) : (
+                        <p className="text-amber-100/90">
+                          {backfillState.filled > 0
+                            ? `Filled in ${backfillState.filled} phone number${backfillState.filled !== 1 ? 's' : ''} from CCB.`
+                            : 'CCB had no new numbers to add.'}
+                          {backfillState.noNumber.length > 0 && (
+                            <span className="text-amber-200/60">
+                              {' '}CCB has no number on file for {backfillState.noNumber.length}: {backfillState.noNumber.slice(0, 6).join(', ')}
+                              {backfillState.noNumber.length > 6 ? ` +${backfillState.noNumber.length - 6} more` : ''}.
+                            </span>
+                          )}
+                          {backfillState.unlinked.length > 0 && (
+                            <span className="text-amber-200/60">
+                              {' '}{backfillState.unlinked.length} couldn&apos;t be matched to a CCB profile: {backfillState.unlinked.slice(0, 6).join(', ')}
+                              {backfillState.unlinked.length > 6 ? ` +${backfillState.unlinked.length - 6} more` : ''}.
+                            </span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {showExcluded && (
                     <ul className="mt-2.5 max-h-40 overflow-y-auto space-y-1">
                       {excludedLeaders.map(l => (

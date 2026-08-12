@@ -3,6 +3,17 @@
     "date": "2026-08-12",
     "date_display": "August 12, 2026",
     "date_iso": "2026-08-12",
+    "version": "2.51.0",
+    "id": "bulk-message-fill-phones-from-ccb",
+    "type": "feature",
+    "category": "Bulk Message",
+    "description": "Leaders missing a phone number can now be filled in from CCB without leaving Bulk Message. Where the recipients panel lists who can't be texted, a Fill from CCB button looks each one up and saves any number CCB has, then refreshes the list so they join the recipients immediately. Anyone CCB has no number for is named separately from anyone who couldn't be matched to a CCB profile at all — so what's left is a real worklist rather than a guess. It only ever fills blanks, never overwriting a number already in Radius, so it's safe to re-run. Lookups go to CCB in small batches with a pause between each, and if CCB's daily read budget runs out it says how many were saved before it stopped.",
+    "page": "/bulk-message"
+  },
+  {
+    "date": "2026-08-12",
+    "date_display": "August 12, 2026",
+    "date_iso": "2026-08-12",
     "version": "2.50.1",
     "id": "bulk-message-excluded-leaders",
     "type": "improvement",
