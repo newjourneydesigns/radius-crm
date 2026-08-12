@@ -264,6 +264,7 @@ export default function CircleLeaderProfilePage() {
   const [resyncSelected, setResyncSelected] = useState<Set<string>>(new Set());
   // CCB ID overrides (edit mode). We store IDs and derive the CCB URLs from them.
   const [ccbIndividualIdInput, setCcbIndividualIdInput] = useState('');
+  const [additionalCcbIndividualIdInput, setAdditionalCcbIndividualIdInput] = useState('');
   const [ccbEventIdsInput, setCcbEventIdsInput] = useState('');
   const [leaderError, setLeaderError] = useState('');
   const [directors, setDirectors] = useState<Array<{id: number, name: string}>>([]);
@@ -1638,7 +1639,23 @@ export default function CircleLeaderProfilePage() {
     
     setEditedLeader(editData);
     setCcbIndividualIdInput(extractCcbIndividualId(leader.leader_ccb_profile_link) || '');
+    setAdditionalCcbIndividualIdInput(extractCcbIndividualId(leader.additional_leader_ccb_profile_link) || '');
     setCcbEventIdsInput((leader.ccb_event_ids || []).join(', '));
+  };
+
+  // Clears every additional-leader field at once. Used when someone steps down —
+  // wiping the name alone would leave their phone/email in bulk messaging and
+  // their birthday on the birthday list.
+  const handleRemoveAdditionalLeader = () => {
+    setEditedLeader(prev => ({
+      ...prev,
+      additional_leader_name: '',
+      additional_leader_phone: '',
+      additional_leader_email: '',
+      additional_leader_birthday: '',
+      additional_leader_ccb_profile_link: '',
+    }));
+    setAdditionalCcbIndividualIdInput('');
   };
 
   const handleSaveLeader = async () => {
@@ -1652,6 +1669,10 @@ export default function CircleLeaderProfilePage() {
     const leaderProfileLink = individualId
       ? `${CCB_BASE_URL}/goto/individuals/${individualId}`
       : (editedLeader.leader_ccb_profile_link || null);
+    const additionalIndividualId = extractCcbIndividualId(additionalCcbIndividualIdInput);
+    const additionalLeaderProfileLink = additionalIndividualId
+      ? `${CCB_BASE_URL}/goto/individuals/${additionalIndividualId}`
+      : (editedLeader.additional_leader_ccb_profile_link || null);
     // Parse the comma/space-separated event IDs into a clean numeric array.
     const eventIds = ccbEventIdsInput
       .split(/[\s,]+/)
@@ -1694,7 +1715,7 @@ export default function CircleLeaderProfilePage() {
           additional_leader_phone: editedLeader.additional_leader_phone || null,
           additional_leader_email: editedLeader.additional_leader_email || null,
           additional_leader_birthday: editedLeader.additional_leader_birthday || null,
-          additional_leader_ccb_profile_link: editedLeader.additional_leader_ccb_profile_link || null,
+          additional_leader_ccb_profile_link: additionalLeaderProfileLink,
           check_in_cadence: editedLeader.check_in_cadence || 'none',
         })
         .eq('id', leaderId)
@@ -1945,6 +1966,15 @@ export default function CircleLeaderProfilePage() {
   }
 
   const isHostTeam = leader?.leader_type === 'host_team';
+  // Any additional-leader data at all keeps the card visible, so a leftover phone
+  // or birthday can be cleared even when the name is already blank.
+  const hasAdditionalLeader = !!(
+    leader.additional_leader_name ||
+    leader.additional_leader_phone ||
+    leader.additional_leader_email ||
+    leader.additional_leader_birthday ||
+    leader.additional_leader_ccb_profile_link
+  );
   const circleSummaryBlockedByStatus =
     circleSummaryAccess?.blockedByStatus ?? ['archive', 'archived'].includes((leader.status || '').toLowerCase());
   const circleSummaryMigrationRequired = circleSummaryAccess?.migrationRequired === true;
@@ -2531,7 +2561,7 @@ export default function CircleLeaderProfilePage() {
           {/* Main Profile Info */}
           <div className="lg:col-span-2 flex flex-col gap-6">
             {/* Circle / Team Info */}
-            <div className="order-3 lg:order-2 lg:flex-1 bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass">
+            <div className="order-4 lg:order-3 lg:flex-1 bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass">
               <div className="px-6 py-4 border-b border-zinc-700">
                 <h2 className="text-base font-semibold text-white">{isHostTeam ? 'Team Info' : 'Circle Info'}</h2>
               </div>
@@ -3015,6 +3045,182 @@ export default function CircleLeaderProfilePage() {
                 </dl>
               </div>
             </div>
+
+            {/* Additional Leader — only for circles, and only once someone is set
+                (or while editing, so one can be added or cleared out). */}
+            {!isHostTeam && (hasAdditionalLeader || isEditing) && (
+              <div className="order-2 lg:order-2 bg-brand-dark border border-zinc-700 rounded-xl shadow-card-glass">
+                <div className="px-6 py-4 border-b border-zinc-700 flex items-center justify-between gap-3">
+                  <h2 className="text-base font-semibold text-white">Additional Leader</h2>
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAdditionalLeader}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium text-red-300 bg-red-500/15 border border-red-500/30 hover:bg-red-500/25 transition-colors"
+                      title="Clear this person from the circle"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <div className="p-6">
+                  {isEditing && (
+                    <div className="mb-4">
+                      <CCBPersonLookup
+                        size="sm"
+                        label="Fill from CCB"
+                        placeholder="Search CCB by name or phone to auto-fill..."
+                        withFullProfile
+                        onSelect={(person: CCBPerson) => {
+                          handleLeaderFieldChange('additional_leader_name', person.fullName);
+                          if (person.mobilePhone || person.phone) {
+                            handleLeaderFieldChange('additional_leader_phone', person.mobilePhone || person.phone);
+                          }
+                          if (person.email) {
+                            handleLeaderFieldChange('additional_leader_email', person.email);
+                          }
+                          if (person.birthday) {
+                            handleLeaderFieldChange('additional_leader_birthday', person.birthday);
+                          }
+                          if (person.profileLink) {
+                            handleLeaderFieldChange('additional_leader_ccb_profile_link', person.profileLink);
+                            setAdditionalCcbIndividualIdInput(extractCcbIndividualId(person.profileLink) || '');
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <dt className="text-sm font-medium text-slate-400">Name</dt>
+                      <dd className="mt-1">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editedLeader.additional_leader_name || ''}
+                            onChange={(e) => handleLeaderFieldChange('additional_leader_name', e.target.value)}
+                            className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+                            placeholder="Enter additional leader name"
+                          />
+                        ) : (
+                          <span className="text-sm text-slate-200">{leader.additional_leader_name || 'Not provided'}</span>
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-slate-400">Phone</dt>
+                      <dd className="mt-1">
+                        {isEditing ? (
+                          <input
+                            type="tel"
+                            value={editedLeader.additional_leader_phone || ''}
+                            onChange={(e) => handleLeaderFieldChange('additional_leader_phone', e.target.value)}
+                            className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+                            placeholder="Enter phone"
+                          />
+                        ) : leader.additional_leader_phone ? (
+                          <button
+                            onClick={() => setPhoneActionModal({ phone: leader.additional_leader_phone!, name: leader.additional_leader_name || 'Additional Leader' })}
+                            className="inline-flex items-center gap-1.5 text-sm text-vc-400 hover:text-vc-300 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            {leader.additional_leader_phone}
+                          </button>
+                        ) : (
+                          <span className="text-sm text-slate-500">Not provided</span>
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-slate-400">Email</dt>
+                      <dd className="mt-1">
+                        {isEditing ? (
+                          <input
+                            type="email"
+                            value={editedLeader.additional_leader_email || ''}
+                            onChange={(e) => handleLeaderFieldChange('additional_leader_email', e.target.value)}
+                            className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+                            placeholder="Enter email"
+                          />
+                        ) : leader.additional_leader_email ? (
+                          <button
+                            onClick={() => openEmailLink(leader.additional_leader_email!, leader.additional_leader_name || '')}
+                            title={leader.additional_leader_email}
+                            className="inline-flex items-center gap-1.5 text-sm text-vc-400 hover:text-vc-300 transition-colors max-w-full min-w-0"
+                          >
+                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <span className="truncate">{leader.additional_leader_email}</span>
+                          </button>
+                        ) : (
+                          <span className="text-sm text-slate-500">Not provided</span>
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-400"><Cake className="h-4 w-4" />Birthday</dt>
+                      <dd className="mt-1">
+                        {isEditing ? (
+                          <input
+                            type="date"
+                            value={editedLeader.additional_leader_birthday || ''}
+                            onChange={(e) => handleLeaderFieldChange('additional_leader_birthday', e.target.value)}
+                            className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+                          />
+                        ) : (
+                          <span className="text-sm text-slate-200">
+                            {leader.additional_leader_birthday
+                              ? new Date(leader.additional_leader_birthday + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                              : 'Not set'}
+                          </span>
+                        )}
+                      </dd>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-sm font-medium text-slate-400">
+                        {isEditing ? 'CCB Individual ID' : 'CCB Profile Link'}
+                        {isEditing && <span className="ml-1.5 text-xs font-normal text-slate-500">(optional)</span>}
+                      </dt>
+                      <dd className="mt-1">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={additionalCcbIndividualIdInput}
+                            onChange={(e) => setAdditionalCcbIndividualIdInput(e.target.value)}
+                            placeholder="e.g. 10501"
+                            className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+                          />
+                        ) : (
+                          <span className="text-sm text-slate-200">
+                            {leader.additional_leader_ccb_profile_link ? (
+                              <a
+                                href={leader.additional_leader_ccb_profile_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center px-3 py-2 bg-gray-100/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/60 rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
+                              >
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                View Leader Profile
+                              </a>
+                            ) : (
+                              'Not specified'
+                            )}
+                          </span>
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            )}
 
           </div>
 

@@ -3,6 +3,17 @@
     "date": "2026-08-12",
     "date_display": "August 12, 2026",
     "date_iso": "2026-08-12",
+    "version": "2.50.0",
+    "id": "additional-leader-card",
+    "type": "feature",
+    "category": "Circle Leaders",
+    "description": "An additional leader can now be edited or removed from a circle's profile. Until now the additional leader's name showed next to the circle name in the header, on dashboard cards, and in search results, but there was nowhere to change it — so when someone stepped down, their name stayed. The profile now has an Additional Leader card holding their name, phone, email, birthday, and CCB profile link, with the same Fill from CCB search the primary leader has. Hit Edit and the card gains a Remove button that clears all five fields at once, so the person also drops out of bulk messaging, the prayer list, and the birthday list rather than lingering with a leftover phone number. Save to apply, or Cancel to back out. The card appears once someone is set, and while editing so one can be added.",
+    "page": "/dashboard"
+  },
+  {
+    "date": "2026-08-12",
+    "date_display": "August 12, 2026",
+    "date_iso": "2026-08-12",
     "version": "2.49.5",
     "id": "export-location-field",
     "type": "improvement",
