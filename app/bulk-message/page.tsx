@@ -62,6 +62,26 @@ interface PastedEntry {
   age?: string;
 }
 
+/** Progress and outcome of a CCB phone backfill run. */
+interface BackfillState {
+  running: boolean;
+  done: number;
+  total: number;
+  filled: number;
+  noNumber: string[];
+  unlinked: string[];
+  error?: string;
+}
+
+/** A leader the filters matched who can't be texted, and why. */
+interface ExcludedLeader {
+  id: number;
+  name: string;
+  campus?: string;
+  /** Set only when the leader was dropped because this number is already on the list. */
+  phone?: string;
+}
+
 interface RosterMember {
   id?: string;
   fullName?: string;
@@ -166,6 +186,12 @@ const normalizePhone = (phone: string): string => {
   return phone.replace(/[^+\d]/g, '');
 };
 
+/**
+ * Leaders per CCB backfill request. The route caps at 10; five keeps each round
+ * trip short enough that progress updates stay responsive on a slow CCB day.
+ */
+const BACKFILL_BATCH_SIZE = 5;
+
 const normalizeImportHeader = (value: string): string => {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 };
@@ -179,13 +205,11 @@ const splitImportRow = (row: string, delimiter: string): string[] => {
   return row.split(delimiter).map(cell => cell.trim());
 };
 
-/**
- * A circle leader as a recipient. Leaders with no usable phone still come
- * through with an empty `phone` so they land on the Can't send list instead of
- * disappearing from the count with no explanation.
- */
-const toRecipient = (leader: CircleLeader): Recipient => {
-  const clean = normalizePhone(leader.phone || '');
+const toRecipient = (leader: CircleLeader): Recipient | null => {
+  if (!leader.phone) return null;
+  const clean = normalizePhone(leader.phone);
+  if (clean.length < 7) return null;
+
   const fullName = leader.name || 'Friend';
   let firstName = fullName;
   if (fullName.includes('&')) {
@@ -198,7 +222,7 @@ const toRecipient = (leader: CircleLeader): Recipient => {
     id: leader.id,
     name: fullName,
     firstName,
-    phone: clean.length >= 7 ? clean : '',
+    phone: clean,
     campus: leader.campus,
     status: leader.status,
     circleType: leader.circle_type,
@@ -211,10 +235,6 @@ const toRecipient = (leader: CircleLeader): Recipient => {
     age: ageFromBirthdate(leader.birthday),
   };
 };
-
-/** Stable dedupe key: phone when there is one, otherwise the person's identity. */
-const recipientKey = (r: Recipient): string =>
-  r.phone ? `phone:${r.phone}` : `person:${r.id}:${r.name.toLowerCase()}`;
 
 // ─── Icon Components ──────────────────────────────────────────
 const MessageIcon = () => (
@@ -251,6 +271,8 @@ function BulkMessageContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [includeAdditionalLeaders, setIncludeAdditionalLeaders] = useState(false);
   const [selectNone, setSelectNone] = useState(true);
+  const [showExcluded, setShowExcluded] = useState(false);
+  const [backfillState, setBackfillState] = useState<BackfillState | null>(null);
 
   // Message state
   const [message, setMessage] = useState('');
@@ -392,8 +414,10 @@ function BulkMessageContent() {
   }, [leaders]);
 
   // ─── Build recipient list ──────────────────────────────────
-  // Everyone the current selection points at, before the age/phone gate.
-  const candidates = useMemo(() => {
+  // Returns the excluded leaders alongside the list: a filter can match far more
+  // leaders than end up textable, and without that breakdown the recipient count
+  // looks like the filter is broken.
+  const recipientBuild = useMemo(() => {
     // When selectNone is active, skip all circle leaders
     const filtered = selectNone ? [] : leaders.filter(l => {
       if (filterCampus.length > 0 && (!l.campus || !filterCampus.includes(l.campus))) return false;
@@ -404,25 +428,31 @@ function BulkMessageContent() {
       return true;
     });
 
+    // Convert to recipients (excluding those without phone numbers)
     const result: Recipient[] = [];
-    const seen = new Set<string>();
-    const add = (r: Recipient) => {
-      const key = recipientKey(r);
-      if (seen.has(key)) return;
-      seen.add(key);
-      result.push(r);
-    };
+    const seenPhones = new Set<string>();
+    const noPhone: ExcludedLeader[] = [];
+    const duplicatePhone: ExcludedLeader[] = [];
 
     for (const l of filtered) {
-      add(toRecipient(l));
+      const r = toRecipient(l);
+      if (!r) {
+        noPhone.push({ id: l.id, name: l.name || 'Unnamed leader', campus: l.campus });
+      } else if (seenPhones.has(r.phone)) {
+        duplicatePhone.push({ id: l.id, name: l.name || 'Unnamed leader', campus: l.campus, phone: r.phone });
+      } else {
+        seenPhones.add(r.phone);
+        result.push(r);
+      }
       // Include additional leaders if toggled
       if (includeAdditionalLeaders && l.additional_leader_phone) {
         const alPhone = normalizePhone(l.additional_leader_phone);
-        if (alPhone.length >= 7) {
+        if (alPhone.length >= 7 && !seenPhones.has(alPhone)) {
+          seenPhones.add(alPhone);
           const alName = l.additional_leader_name || 'Additional Leader';
           let alFirst = alName;
           if (alName.includes(' ')) alFirst = alName.split(' ')[0];
-          add({
+          result.push({
             id: l.id * -1, // negative to differentiate
             name: alName,
             firstName: alFirst,
@@ -441,21 +471,40 @@ function BulkMessageContent() {
       }
     }
 
-    ccbRecipients.forEach(add);
-    pinnedLeaderRecipients.forEach(add);
+    // Merge CCB-added recipients (deduped by phone)
+    for (const r of ccbRecipients) {
+      if (!seenPhones.has(r.phone)) {
+        seenPhones.add(r.phone);
+        result.push(r);
+      }
+    }
 
-    return result;
+    // Merge manually pinned leaders (deduped by phone)
+    for (const r of pinnedLeaderRecipients) {
+      if (!seenPhones.has(r.phone)) {
+        seenPhones.add(r.phone);
+        result.push(r);
+      }
+    }
+
+    return { list: result, matchedCount: filtered.length, noPhone, duplicatePhone };
   }, [leaders, filterCampus, filterStatus, filterCircleType, filterDay, filterAcpd, includeAdditionalLeaders, ccbRecipients, pinnedLeaderRecipients, selectNone]);
 
-  // Split into who gets the message and who doesn't. Anyone under 18 is held
-  // back on every path — step-through, Auto Send, and resend — and so is anyone
-  // with no number to text. `blockedRecipients` is what the Can't send list shows.
+  const excludedLeaders = useMemo(
+    () => [...recipientBuild.noPhone, ...recipientBuild.duplicatePhone].sort((a, b) => a.name.localeCompare(b.name)),
+    [recipientBuild]
+  );
+
+  // Anyone under 18 is held back from every send path — step-through, Auto Send,
+  // and resend. This runs on the built list, so everyone reaching it already has
+  // a phone; leaders without one are accounted for in `excludedLeaders` above,
+  // which can also fill them in from CCB.
   const { recipients, blockedRecipients, ageUnknownCount } = useMemo(() => {
     const sendable: Recipient[] = [];
     const blocked: BlockedRecipient[] = [];
     let ageUnknown = 0;
 
-    for (const recipient of candidates) {
+    for (const recipient of recipientBuild.list) {
       const block = sendBlockFor({ age: recipient.age ?? null, phone: recipient.phone });
       if (block) {
         blocked.push({ recipient, block });
@@ -465,18 +514,13 @@ function BulkMessageContent() {
       sendable.push(recipient);
     }
 
-    // Minors first — that's the reason worth reading before anything else.
-    blocked.sort((a, b) => (a.block.reason === b.block.reason ? 0 : a.block.reason === 'minor' ? -1 : 1));
-
     return { recipients: sendable, blockedRecipients: blocked, ageUnknownCount: ageUnknown };
-  }, [candidates]);
+  }, [recipientBuild]);
 
   const blockedMinorCount = blockedRecipients.filter(b => b.block.reason === 'minor').length;
 
   // ─── Current / next recipient ──────────────────────────────
-  // Keyed off every candidate, not just the sendable ones, so someone already on
-  // the Can't send list doesn't read as addable in the search dropdown.
-  const recipientKeySet = useMemo(() => new Set(candidates.map(recipientKey)), [candidates]);
+  const recipientPhoneSet = useMemo(() => new Set(recipients.map(r => r.phone)), [recipients]);
   const currentRecipient = recipients[currentIndex] || null;
   const nextRecipient = sendStatus === SendStatus.SENDING ? (recipients[currentIndex + 1] || null) : null;
 
@@ -714,7 +758,8 @@ function BulkMessageContent() {
   // ─── Search & add leader helpers ──────────────────────────
   const handleAddLeaderFromSearch = (leader: CircleLeader) => {
     const r = toRecipient(leader);
-    // Adding someone who can't be texted would only grow the Can't send list.
+    if (!r) return;
+    // Adding someone who can't be texted would only grow the Held back list.
     if (sendBlockFor({ age: r.age ?? null, phone: r.phone })) return;
     setPinnedLeaderRecipients(prev => {
       if (prev.some(p => p.phone === r.phone)) return prev;
@@ -999,6 +1044,68 @@ function BulkMessageContent() {
     setShowPastePanel(false);
   };
 
+  // ─── Fill missing phone numbers from CCB ───────────────────
+  // Each leader is one or two reads from CCB, so the selection goes over in
+  // small batches — one request for forty of them runs past the function
+  // timeout and loses the report even though the writes landed.
+  const handleBackfillPhones = async () => {
+    const ids = recipientBuild.noPhone.map(l => l.id);
+    if (ids.length === 0) return;
+
+    const { data: sess } = await supabase.auth.getSession();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = sess?.session?.access_token;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let filled = 0;
+    const noNumber: string[] = [];
+    const unlinked: string[] = [];
+    setBackfillState({ running: true, done: 0, total: ids.length, filled, noNumber, unlinked });
+
+    for (let i = 0; i < ids.length; i += BACKFILL_BATCH_SIZE) {
+      const chunk = ids.slice(i, i + BACKFILL_BATCH_SIZE);
+      try {
+        const res = await fetch('/api/ccb/backfill-phones', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ leaderIds: chunk }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || `CCB lookup failed (HTTP ${res.status})`);
+
+        filled += data.updated || 0;
+        noNumber.push(...(data.noNumber || []).map((l: { name: string }) => l.name));
+        unlinked.push(
+          ...(data.skipped || [])
+            .filter((s: { reason: string }) => s.reason !== 'already has a phone')
+            .map((s: { name: string }) => s.name)
+        );
+
+        const done = Math.min(i + chunk.length, ids.length);
+        if (data.budgetStoppedAfter !== null && data.budgetStoppedAfter !== undefined) {
+          setBackfillState({
+            running: false, done, total: ids.length, filled, noNumber, unlinked,
+            error: `CCB's daily read budget ran out. ${filled} filled in before it stopped — re-run tomorrow to finish the rest.`,
+          });
+          await loadLeaders();
+          return;
+        }
+        setBackfillState({ running: true, done, total: ids.length, filled, noNumber, unlinked });
+      } catch (err) {
+        // Report what already landed — those are real numbers now saved.
+        setBackfillState({
+          running: false, done: i, total: ids.length, filled, noNumber, unlinked,
+          error: `${err instanceof Error ? err.message : 'Lookup failed'}. ${filled} filled in before it stopped — re-run to continue.`,
+        });
+        await loadLeaders();
+        return;
+      }
+    }
+
+    setBackfillState({ running: false, done: ids.length, total: ids.length, filled, noNumber, unlinked });
+    await loadLeaders();
+  };
+
   // ─── Filter toggle helpers ─────────────────────────────────
   const toggleFilter = (arr: string[], setArr: (v: string[]) => void, value: string) => {
     setSelectNone(false);
@@ -1045,7 +1152,7 @@ function BulkMessageContent() {
               </div>
               {blockedRecipients.length > 0 && (
                 <div className="text-xs text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/25">
-                  <span className="font-bold">{blockedRecipients.length}</span> can&apos;t send
+                  <span className="font-bold">{blockedRecipients.length}</span> held back
                 </div>
               )}
               {sendStatus !== SendStatus.IDLE && (
@@ -1241,22 +1348,21 @@ function BulkMessageContent() {
                             {leaderSearchResults.map(l => {
                               const r = toRecipient(l);
                               const alreadyPinned = pinnedLeaderRecipients.some(p => p.id === l.id);
-                              const alreadyInList = recipientKeySet.has(recipientKey(r));
-                              // A leader with no number can't be texted, and a minor
-                              // would only land on the Can't send list — neither is
-                              // worth adding by hand.
-                              const blocked = sendBlockFor({ age: r.age ?? null, phone: r.phone });
+                              const alreadyInList = r ? recipientPhoneSet.has(r.phone) : false;
+                              // A minor would only land on the Held back list, so
+                              // there's nothing to gain by adding one by hand.
+                              const blocked = r ? sendBlockFor({ age: r.age ?? null, phone: r.phone }) : null;
                               return (
                                 <button
                                   key={l.id}
                                   type="button"
                                   onClick={() => handleAddLeaderFromSearch(l)}
-                                  disabled={alreadyPinned || alreadyInList || !!blocked}
+                                  disabled={alreadyPinned || alreadyInList || !r || !!blocked}
                                   className="w-full text-left px-4 py-2.5 hover:bg-gray-700 transition-colors flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed border-b border-gray-700/50 last:border-0"
                                 >
                                   <div>
                                     <span className="text-sm font-medium text-white">{l.name}</span>
-                                    <span className="text-xs text-gray-500 ml-2 font-mono">{r.phone || 'no phone'}</span>
+                                    <span className="text-xs text-gray-500 ml-2 font-mono">{r?.phone || 'no phone'}</span>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {l.campus && <span className="text-[10px] text-gray-500">{l.campus}</span>}
@@ -1266,7 +1372,7 @@ function BulkMessageContent() {
                                         ? <span className="text-[10px] font-bold text-gray-500 uppercase">In list</span>
                                         : alreadyPinned
                                           ? <span className="text-[10px] font-bold text-green-400 uppercase">Added</span>
-                                          : <span className="text-[10px] font-bold text-blue-400 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Add</span>
+                                          : r && <span className="text-[10px] font-bold text-blue-400 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Add</span>
                                     }
                                   </div>
                                 </button>
@@ -1487,6 +1593,87 @@ function BulkMessageContent() {
                 </div>
               </div>
 
+              {/* Why the count is lower than the number of leaders the filters matched. */}
+              {excludedLeaders.length > 0 && (
+                <div className="px-5 py-3 border-b border-gray-800 bg-amber-500/[0.06]">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                    <p className="text-xs text-amber-200/90 leading-relaxed">
+                      {recipientBuild.matchedCount} leaders match these filters, {excludedLeaders.length} can&apos;t be texted
+                      <span className="text-amber-200/60">
+                        {' — '}
+                        {[
+                          recipientBuild.noPhone.length > 0 && `${recipientBuild.noPhone.length} with no phone number in Radius`,
+                          recipientBuild.duplicatePhone.length > 0 && `${recipientBuild.duplicatePhone.length} sharing a number already on the list`,
+                        ].filter(Boolean).join(', ')}
+                      </span>
+                    </p>
+                    <div className="shrink-0 flex items-center gap-3">
+                      {recipientBuild.noPhone.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleBackfillPhones}
+                          disabled={backfillState?.running}
+                          className="text-[10px] font-bold text-amber-200 uppercase tracking-widest px-2.5 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                          title="Look each one up in CCB and save any phone number it has"
+                        >
+                          {backfillState?.running
+                            ? `Checking CCB… ${backfillState.done}/${backfillState.total}`
+                            : 'Fill from CCB'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowExcluded(v => !v)}
+                        className="text-[10px] font-bold text-amber-300 hover:text-amber-200 uppercase tracking-widest underline transition-colors"
+                      >
+                        {showExcluded ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {backfillState && !backfillState.running && (
+                    <div className="mt-2.5 pt-2.5 border-t border-amber-500/20 text-xs leading-relaxed">
+                      {backfillState.error ? (
+                        <p className="text-rose-300">{backfillState.error}</p>
+                      ) : (
+                        <p className="text-amber-100/90">
+                          {backfillState.filled > 0
+                            ? `Filled in ${backfillState.filled} phone number${backfillState.filled !== 1 ? 's' : ''} from CCB.`
+                            : 'CCB had no new numbers to add.'}
+                          {backfillState.noNumber.length > 0 && (
+                            <span className="text-amber-200/60">
+                              {' '}CCB has no number on file for {backfillState.noNumber.length}: {backfillState.noNumber.slice(0, 6).join(', ')}
+                              {backfillState.noNumber.length > 6 ? ` +${backfillState.noNumber.length - 6} more` : ''}.
+                            </span>
+                          )}
+                          {backfillState.unlinked.length > 0 && (
+                            <span className="text-amber-200/60">
+                              {' '}{backfillState.unlinked.length} couldn&apos;t be matched to a CCB profile: {backfillState.unlinked.slice(0, 6).join(', ')}
+                              {backfillState.unlinked.length > 6 ? ` +${backfillState.unlinked.length - 6} more` : ''}.
+                            </span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {showExcluded && (
+                    <ul className="mt-2.5 max-h-40 overflow-y-auto space-y-1">
+                      {excludedLeaders.map(l => (
+                        <li key={l.id} className="flex items-baseline justify-between gap-3 text-xs">
+                          <a href={`/circle/${l.id}`} className="text-amber-100/90 hover:text-white hover:underline truncate">
+                            {l.name}
+                            {l.campus && <span className="text-amber-200/50"> · {l.campus}</span>}
+                          </a>
+                          <span className="shrink-0 text-[10px] text-amber-200/60">
+                            {l.phone ? <>shares <span className="font-mono">{l.phone}</span></> : 'no phone'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
               <div className="max-h-64 overflow-y-auto">
                 {recipients.length === 0 ? (
                   <p className="text-center text-gray-600 text-sm py-12">No recipients yet — use the tabs above to build your list.</p>
@@ -1565,19 +1752,21 @@ function BulkMessageContent() {
               )}
             </section>
 
-            {/* ── Can't Send ── */}
+            {/* ── Held Back ── Distinct from the excluded-leaders line above:
+                these people ARE on the recipient list, but the age gate stops
+                the message going to them. */}
             {blockedRecipients.length > 0 && (
               <section className="bg-gray-900 border border-amber-500/25 rounded-2xl shadow-lg overflow-hidden">
                 <div className="px-5 py-3.5 border-b border-amber-500/20 bg-amber-500/5">
                   <h2 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
                     <ShieldIcon />
-                    Can&apos;t Send ({blockedRecipients.length})
+                    Held Back ({blockedRecipients.length})
                   </h2>
                   <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
                     {blockedMinorCount > 0
                       ? 'Anyone under 18 is held back — reach a minor through a parent or guardian instead. '
                       : ''}
-                    These people are left out of the batch and Auto Send.
+                    They stay out of the batch and Auto Send.
                   </p>
                 </div>
                 <div className="max-h-56 overflow-y-auto divide-y divide-gray-800/50">
@@ -1644,8 +1833,6 @@ function BulkMessageContent() {
                       </p>
                       <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
                         {blockedMinorCount > 0 && `${blockedMinorCount} under 18. `}
-                        {blockedRecipients.length - blockedMinorCount > 0 &&
-                          `${blockedRecipients.length - blockedMinorCount} with no phone number. `}
                         <button
                           onClick={() => setWizardStep('build')}
                           className="text-amber-300/90 hover:text-amber-200 underline transition-colors"

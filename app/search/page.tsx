@@ -36,6 +36,17 @@ type CircleLeadersSearchQuery = {
 
 const ROSTER_COUNT_PAGE_SIZE = 1000;
 
+const formatPhoneForDisplay = (phone: string) => {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone;
+};
+
 const DAY_ORDER: Record<string, number> = {
   sunday: 0,
   monday: 1,
@@ -525,6 +536,14 @@ export default function SearchPage() {
                         )}
                       </div>
                     </th>
+                    {signedIn && (
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                      >
+                        Phone
+                      </th>
+                    )}
                     <th
                       scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
@@ -635,6 +654,20 @@ export default function SearchPage() {
                           {circle.name || 'Unknown'}
                         </Link>
                       </td>
+                      {signedIn && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {circle.phone ? (
+                            <a
+                              href={`tel:${circle.phone.replace(/[^\d+]/g, '')}`}
+                              className="text-sm text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+                            >
+                              {formatPhoneForDisplay(circle.phone)}
+                            </a>
+                          ) : (
+                            <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
                           {circle.circle_type || '-'}
