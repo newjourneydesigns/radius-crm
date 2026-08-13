@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-08-13",
+    "date_display": "August 13, 2026",
+    "date_iso": "2026-08-13",
+    "id": "find-a-circle-leader-phone",
+    "type": "improvement",
+    "category": "Find a Circle",
+    "description": "Find a Circle now shows each leader's phone number in the results table, so you can call or text a leader straight from the list instead of opening their profile first. Numbers are formatted for readability and tap-to-call on mobile. The column is only visible when you're signed in -- public visitors browsing for a circle still don't see leader phone numbers.",
+    "page": "/search"
+  },
+  {
     "date": "2026-08-12",
     "date_display": "August 12, 2026",
     "date_iso": "2026-08-12",
