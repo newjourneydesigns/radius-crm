@@ -44,6 +44,9 @@ export interface CampaignPerson {
   email: string | null;
   phone: string | null;
   mobile_phone: string | null;
+  // As CCB reports it (usually YYYY-MM-DD, sometimes month/day only). Drives the
+  // under-18 send block; null = unknown, which does not block.
+  birthdate: string | null;
   in_group: boolean;
   // True when they were invited but have since been removed from the CCB group.
   // They stay on the invite list (in_group stays true) so counts don't shrink.

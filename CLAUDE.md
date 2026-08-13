@@ -197,6 +197,8 @@ To keep deploy credits down:
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side admin key | Yes |
 | `CCB_SUBDOMAIN` | CCB organization subdomain | Yes |
 | `CCB_API_USERNAME` / `CCB_API_PASSWORD` | CCB credentials | Yes |
+| `CCB_V2_CLIENT_ID` / `CCB_V2_CLIENT_SECRET` / `CCB_V2_REDIRECT_URI` | CCB API v2 (Pushpay) OAuth app. A Master Administrator authorizes once via `/api/ccb/oauth/start`; tokens are stored server-side. Required for every v2 read — including the birthdays campaigns use to keep anyone under 18 out of a bulk text. `CCB_V2_SUBDOMAIN` falls back to `CCB_SUBDOMAIN`. | Secret: Yes |
+| `CCB_API_VERSION` | Routes **only** `/api/ccb/group-roster` (Bulk Message roster import, circle roster page) through v2, which returns phones + birthdays inline in one call instead of v1's per-person N+1 enrichment. Everything already on v2 — notably campaign reconcile — ignores this flag. Unset or anything but `"v2"` = v1. A v2 failure falls back to v1 and flags `apiFallback: "v1"` on the response, so it's safe to set before authorizing. | No |
 | `GEMINI_API_KEY` | Google AI | Yes |
 | `OPENAI_API_KEY` | Fallback AI (`gpt-4o-mini`) | Yes |
 | `RESEND_API_KEY` | Email service | Yes |

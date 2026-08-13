@@ -161,10 +161,14 @@ export class CCBv2Client {
     return mapIndividual(ind, individualId);
   }
 
-  /** GET /groups/{id}/members → same shape as v1 CCBClient.getGroupParticipants. */
+  /**
+   * GET /groups/{id}/members → same shape as v1 CCBClient.getGroupParticipants,
+   * plus the birthday v2 returns inline (v1's XML omits it). Campaigns read it
+   * to keep anyone under 18 out of a bulk text.
+   */
   async getGroupParticipants(groupId: string): Promise<Array<{
     id: string; firstName: string; lastName: string; fullName: string;
-    email: string; phone: string; mobilePhone: string;
+    email: string; phone: string; mobilePhone: string; birthday: string;
     status: string; statusId: string; isActive: boolean;
   }>> {
     if (!groupId) throw new Error('Group ID is required');
