@@ -733,8 +733,33 @@ function BulkMessageContent() {
     const r = ccbPersonToRecipient(person);
     if (!r) return;
     setCcbRecipients(prev => {
-      if (prev.some(p => p.phone === r.phone)) return prev;
-      return [...prev, r];
+      // With `withFullProfile`, CCBPersonLookup fires onSelect twice: once with
+      // the search result, then again with the profile that carries the birthday
+      // (and CCB's authoritative phone). Merge the second call into the first
+      // rather than dropping it as a duplicate — otherwise a minor added by hand
+      // would stay age-unknown and sendable, which is the whole thing this gate
+      // exists to stop. Match on CCB id first: it's identical across both calls,
+      // while the phone can differ between the two.
+      const idx = prev.findIndex(p => p.id === r.id || (!!r.phone && p.phone === r.phone));
+      if (idx === -1) return [...prev, r];
+
+      const existing = prev[idx];
+      const merged: Recipient = {
+        ...existing,
+        phone: r.phone || existing.phone,
+        birthdate: r.birthdate || existing.birthdate,
+        age: r.age ?? existing.age,
+      };
+      if (
+        merged.phone === existing.phone &&
+        merged.birthdate === existing.birthdate &&
+        merged.age === existing.age
+      ) {
+        return prev;
+      }
+      const next = [...prev];
+      next[idx] = merged;
+      return next;
     });
     setCcbLookupKey(k => k + 1);
   }, []);

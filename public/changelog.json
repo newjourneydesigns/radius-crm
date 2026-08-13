@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-08-13",
+    "date_display": "August 13, 2026",
+    "date_iso": "2026-08-13",
+    "version": "2.50.2",
+    "id": "ccb-lookup-age-fix",
+    "type": "fix",
+    "category": "Messaging",
+    "description": "Adding someone to a bulk message by searching CCB now picks up their birthday, so the under-18 check actually applies to them. Their details arrive from CCB in two steps — the search result first, then the full profile a moment later — and the second step was being discarded as a duplicate, which left everyone added this way looking like their age was unknown. A minor added by hand could still be texted. The same fix keeps CCB's better phone number when the profile has one, instead of adding the person to the list a second time.",
+    "page": "/bulk-message"
+  },
+  {
     "date": "2026-08-12",
     "date_display": "August 12, 2026",
     "date_iso": "2026-08-12",
