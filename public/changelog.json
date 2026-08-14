@@ -3,6 +3,17 @@
     "date": "2026-08-14",
     "date_display": "August 14, 2026",
     "date_iso": "2026-08-14",
+    "version": "2.53.1",
+    "id": "roster-removals-and-reminder-freshness",
+    "type": "fix",
+    "category": "Integrations",
+    "description": "Three more accuracy holes closed. People removed from a circle in CCB now actually leave the RADIUS roster: every roster refresh compares the fresh CCB member list against what's cached and deactivates anyone who's gone, so departed members stop appearing on roster pages, in member counts, and in coaching automations. (They're deactivated rather than deleted — if a bad CCB response ever drops someone by mistake, the next good refresh brings them right back, and an empty response never wipes a roster.) Meeting reminders now refuse to run on old calendar data: if a circle's cached CCB calendar hasn't been refreshed in three days, its reminders pause instead of nudging leaders about times the church may have changed, and the gap is logged so it's findable. And the dashboard's Needs Attention sync endpoint now requires a signed-in session — it could previously be triggered by anyone, spending CCB API quota and rewriting attendance records without authentication.",
+    "page": "/circle-dashboard"
+  },
+  {
+    "date": "2026-08-14",
+    "date_display": "August 14, 2026",
+    "date_iso": "2026-08-14",
     "version": "2.53.0",
     "id": "ccb-sync-current-event-fix",
     "type": "fix",

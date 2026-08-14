@@ -879,7 +879,7 @@ function CircleDashboardContent() {
                   setSyncResult(null);
                   try {
                     const leaderIds = Array.from(new Set(data.alerts.map((a) => a.id)));
-                    const res = await fetch('/api/ccb/sync-attention', {
+                    const res = await apiFetch('/api/ccb/sync-attention', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ leaderIds }),

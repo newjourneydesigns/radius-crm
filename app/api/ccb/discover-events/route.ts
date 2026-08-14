@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { syncRosterCacheForLeader } from '../../../../lib/ccb/roster-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -158,39 +159,18 @@ export async function POST(request: NextRequest) {
         `  ${i + 1}/${activeLeaders.length} ${leader.name} (group ${groupId}): ${eventIds.length} events`
       );
 
-      // Also refresh roster cache for this leader's group (additive only — never remove members)
+      // Also refresh roster cache for this leader's group. Members absent
+      // from the fresh CCB roster are deactivated (see roster-cache.ts).
       try {
         const participants = await ccbClient.getGroupParticipants(String(groupId));
-        if (participants.length > 0) {
-          const now = new Date().toISOString();
-          const { error: rosterError } = await supabase
-            .from('circle_roster_cache')
-            .upsert(
-              participants.map((p) => ({
-                circle_leader_id: leader.id,
-                ccb_group_id: String(groupId),
-                ccb_individual_id: p.id,
-                first_name: p.firstName,
-                last_name: p.lastName,
-                full_name: p.fullName,
-                email: p.email,
-                phone: p.phone,
-                mobile_phone: p.mobilePhone,
-                status: p.status || '',
-                status_id: p.statusId || '',
-                is_active: p.isActive !== false,
-                fetched_at: now,
-              })),
-              { onConflict: 'circle_leader_id,ccb_individual_id' }
-            );
+        const roster = await syncRosterCacheForLeader(supabase, leader.id, String(groupId), participants);
 
-          if (rosterError) {
-            console.error(`Roster cache error for ${leader.name}:`, rosterError);
-            results.rosterErrors++;
-          } else {
-            console.log(`  ✅ Roster refreshed for ${leader.name}: ${participants.length} members`);
-            results.rosterRefreshed++;
-          }
+        if (roster.error) {
+          console.error(`Roster cache error for ${leader.name}:`, roster.error);
+          results.rosterErrors++;
+        } else if (roster.upserted > 0) {
+          console.log(`  ✅ Roster refreshed for ${leader.name}: ${roster.upserted} members, ${roster.deactivated} departed`);
+          results.rosterRefreshed++;
         }
       } catch (rosterErr) {
         console.error(`Roster fetch failed for ${leader.name}:`, rosterErr);

@@ -18,6 +18,15 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/**
+ * Cache rows older than this are treated as missing. The prewarm refreshes
+ * every meeting group daily, so anything past this window means the warm job
+ * has been broken for days — and a reminder fired from a calendar that old is
+ * guesswork about a schedule CCB may have changed. 72h tolerates a weekend of
+ * failed warms without silently nagging leaders off stale times forever.
+ */
+const MAX_CALENDAR_AGE_MS = 72 * 60 * 60 * 1000;
+
 /** Same shape as `CCBClient.getGroupCalendarEvents` returns. */
 export type ReminderCalendarEvent = {
   eventId: string;
@@ -57,9 +66,11 @@ function coerceEvents(value: unknown): ReminderCalendarEvent[] {
 /**
  * Load cached calendar events for a set of CCB group IDs in ONE query.
  * Returns a map keyed by `String(group_id)` → events from that group's most
- * recently synced cache row. Groups with no cache row are simply absent from
- * the map (the caller skips them); the prewarm warms every meeting group daily,
- * so a missing row means there is nothing recent to remind about anyway.
+ * recently synced cache row. Groups with no cache row — or none fresher than
+ * MAX_CALENDAR_AGE_MS — are simply absent from the map (the caller skips
+ * them). The prewarm warms every meeting group daily, so a fresh row is the
+ * normal case; treating stale rows as missing keeps the reminder crons from
+ * firing on schedules the church may have changed weeks ago.
  */
 export async function loadCachedCalendarByGroup(
   supabase: SupabaseClient,
@@ -73,6 +84,7 @@ export async function loadCachedCalendarByGroup(
     .from('ccb_group_events_cache')
     .select('group_id, calendar_events, synced_at')
     .in('group_id', uniqueIds)
+    .gte('synced_at', new Date(Date.now() - MAX_CALENDAR_AGE_MS).toISOString())
     .order('synced_at', { ascending: false });
 
   if (error) {
@@ -85,6 +97,13 @@ export async function loadCachedCalendarByGroup(
     const key = String(row.group_id);
     if (byGroup.has(key)) continue;
     byGroup.set(key, coerceEvents(row.calendar_events));
+  }
+
+  const staleGroups = uniqueIds.length - byGroup.size;
+  if (staleGroups > 0) {
+    console.warn(
+      `[reminder-calendar] ${staleGroups} of ${uniqueIds.length} groups have no calendar fresher than ${MAX_CALENDAR_AGE_MS / 3_600_000}h — reminders for them are skipped. Check the daily prewarm if this persists.`
+    );
   }
 
   return byGroup;

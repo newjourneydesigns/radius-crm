@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -55,6 +56,14 @@ function findLeaderForEvent(
 // ════════════════════════════════════════════════════════════════════
 
 export async function POST(request: NextRequest) {
+  // Requires a signed-in staff session — this endpoint spends CCB API quota
+  // and rewrites attendance for up to 200 leaders via the service-role client,
+  // so it must never be callable anonymously.
+  const user = await getUserFromAuthHeader(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+  }
+
   const supabase = getServiceClient();
 
   let body: { leaderIds?: number[] };
