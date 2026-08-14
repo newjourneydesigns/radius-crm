@@ -167,19 +167,22 @@ export async function POST(req: Request) {
     try {
       const calEvents = await ccb.getGroupCalendarEvents(groupId, startStr, endStr);
 
+      // When the bulk attendance pull failed, leave attendance_xml OUT of the
+      // payload: an upsert only touches the columns it carries, so the row
+      // keeps yesterday's good XML instead of having it overwritten with null
+      // that then reads as "synced fresh, no attendance anywhere".
+      const cacheRow: Record<string, any> = {
+        group_id: groupId,
+        start_date: startStr,
+        end_date: endStr,
+        calendar_events: calEvents ?? [],
+        synced_at: new Date().toISOString(),
+      };
+      if (bulkAttendanceXml) cacheRow.attendance_xml = bulkAttendanceXml;
+
       const { error: upsertErr } = await supabase
         .from('ccb_group_events_cache')
-        .upsert(
-          {
-            group_id: groupId,
-            start_date: startStr,
-            end_date: endStr,
-            calendar_events: calEvents ?? [],
-            attendance_xml: bulkAttendanceXml ?? null,
-            synced_at: new Date().toISOString(),
-          },
-          { onConflict: 'group_id,start_date,end_date' }
-        );
+        .upsert(cacheRow, { onConflict: 'group_id,start_date,end_date' });
 
       if (upsertErr) {
         errors.push({ groupId, error: upsertErr.message || 'upsert failed' });

@@ -1,5 +1,38 @@
 [
   {
+    "date": "2026-08-14",
+    "date_display": "August 14, 2026",
+    "date_iso": "2026-08-14",
+    "version": "2.53.0",
+    "id": "ccb-sync-current-event-fix",
+    "type": "fix",
+    "category": "Integrations",
+    "description": "Syncing a circle from CCB now reads the circle's current calendar event instead of whichever event CCB happened to list first. A circle's CCB calendar keeps its whole history — when a circle changed its meeting day or time, the old event stayed in the list, and both \"Re-sync from CCB\" and the importer kept reading the retired schedule as if it were current. The sync now ranks the group's events and takes the one actually in effect today: an active repeating series wins over one-off gatherings and over events whose run has ended, and a brand-new schedule beats the one it replaced. On top of that, every CCB read now goes out with caching explicitly disabled, so a sync can never be answered from a saved copy of an old CCB response — what you see in a sync preview is what CCB has right now.",
+    "page": "/import-circles"
+  },
+  {
+    "date": "2026-08-14",
+    "date_display": "August 14, 2026",
+    "date_iso": "2026-08-14",
+    "version": "2.53.0",
+    "id": "attendance-accuracy-hardening",
+    "type": "fix",
+    "category": "Integrations",
+    "description": "A sweep of the attendance and event-summary pipeline closed several ways old or empty CCB records could replace real ones. The nightly attendance sync compared CCB's records against expected meeting dates using mismatched date formats, so it filled \"no record\" stubs over meetings that actually had attendance — a summary a leader submitted could vanish overnight. That comparison is fixed, and CCB deep links that rendered as \"Invalid DateTime\" now point at the right occurrence. When CCB holds both a pre-created empty attendance record and the one a leader actually filled in for the same week, the filled-in one now wins instead of whichever CCB listed first, so circles stop reading as \"nothing received\" when a summary exists. A circle's saved CCB event list can no longer be wiped by one failed lookup, attendance found on a profile page only files under a leader when the event title actually names them (a similarly-named circle's meetings no longer land on the wrong leader or overwrite their match key), roster contact info now prefers what CCB just returned over an older saved copy, and a failed overnight cache refresh keeps yesterday's good attendance data instead of erasing it.",
+    "page": "/dashboard"
+  },
+  {
+    "date": "2026-08-14",
+    "date_display": "August 14, 2026",
+    "date_iso": "2026-08-14",
+    "version": "2.53.0",
+    "id": "mass-update-sync-from-ccb",
+    "type": "feature",
+    "category": "Integrations",
+    "description": "Mass Update now has Sync from CCB: select any set of circles and refresh their data straight from CCB in one run. It works in two steps so nothing is written blind — Check pulls each selected circle fresh from CCB in small paced batches (gentle on CCB's API limits, with live progress and a Stop button) and lays out exactly which fields would change, from and to; Apply then writes only the changes you keep ticked. Circles that are already accurate say so, and problem circles are flagged instead of silently skipped — no CCB Group ID on file, group not found in CCB, or group marked inactive in CCB. Leader names stay untouched unless you opt in, so couple-led circles keep their combined RADIUS name. It updates the same fields as the per-circle \"Re-sync from CCB\": meeting day, time, frequency, location, campus, circle type, leader contact info and birthday, CCB group name, and linked event IDs.",
+    "page": "/import-circles"
+  },
+  {
     "date": "2026-08-13",
     "date_display": "August 13, 2026",
     "date_iso": "2026-08-13",

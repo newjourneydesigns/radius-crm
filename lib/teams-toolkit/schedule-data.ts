@@ -7,10 +7,14 @@
  * Mirrors lib/teams-toolkit/roster-data.ts (same managed-position filter).
  */
 
+import { DateTime } from 'luxon';
 import type { TeamSessionLeader } from './session';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { createCCBv2Client } from '../ccb/ccb-v2-client';
 import type { ScheduleResponseStatus } from '../ccb/ccb-v2-client';
+
+// Church-local clock, matching lib/teams-toolkit/person-data.ts.
+const CT_ZONE = 'America/Chicago';
 
 export interface TeamScheduledPerson {
   id: number | string;
@@ -41,10 +45,11 @@ export type LoadTeamScheduleResult = {
 };
 
 function defaultRange(): { startDate: string; endDate: string } {
-  const start = new Date();
-  const end = new Date();
-  end.setDate(end.getDate() + 42); // next ~6 weeks
-  return { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) };
+  // Church-local "today" — the UTC date rolls over at 6-7 PM CT, which used to
+  // drop tonight's occurrence from a leader's evening schedule.
+  const start = DateTime.now().setZone(CT_ZONE);
+  const end = start.plus({ days: 42 }); // next ~6 weeks
+  return { startDate: start.toISODate()!, endDate: end.toISODate()! };
 }
 
 export async function loadTeamSchedule(

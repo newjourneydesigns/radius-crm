@@ -80,6 +80,8 @@ async function postToken(body: Record<string, string>): Promise<CCBv2TokenRespon
       Accept: CCB_V2_ACCEPT_HEADER,
     },
     body: new URLSearchParams(body).toString(),
+    // Token responses must never come from Next's Data Cache.
+    cache: 'no-store',
   });
   const text = await res.text();
   let json: CCBv2TokenResponse;

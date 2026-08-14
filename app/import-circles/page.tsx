@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Link from 'next/link';
 import { useToast } from '../../components/ui/ToastProvider';
+import BulkCcbSyncPanel from '../../components/import/BulkCcbSyncPanel';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -655,7 +656,7 @@ export default function ImportCirclesPage() {
                     Mass Update Circles
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                    Select circle leaders and update their Campus, ACPD, Frequency, Circle Type, or Circle Summary email reminders in bulk — or mark their circles active or inactive in CCB.
+                    Select circle leaders and update their Campus, ACPD, Frequency, Circle Type, or Circle Summary email reminders in bulk — mark their circles active or inactive in CCB — or refresh their data straight from CCB with Sync from CCB below.
                   </p>
 
                   {/* Filter controls */}
@@ -1230,6 +1231,17 @@ export default function ImportCirclesPage() {
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* Refresh selected circles' data straight from CCB */}
+              {massUpdateLeaders.length > 0 && (
+                <BulkCcbSyncPanel
+                  selectedLeaders={massUpdateLeaders
+                    .filter((l) => massUpdateSelected.has(l.id))
+                    .map((l) => ({ id: l.id, name: l.name, ccb_group_id: l.ccb_group_id }))}
+                  accessToken={accessToken}
+                  onApplied={searchLeadersForMassUpdate}
+                />
               )}
 
               {/* Empty state after search */}

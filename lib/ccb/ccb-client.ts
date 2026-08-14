@@ -116,6 +116,23 @@ function ccbStatusFields(record: Record<string, unknown>): {
 }
 
 /**
+ * A CCB occurrence string ("2026-08-12 19:00:00", ISO, or a bare date) reduced
+ * to its date parts. `date` is the bare YYYY-MM-DD every occurrence consumer
+ * keys on — occurrence rows upsert on (leader_id, meeting_date) and diff
+ * against expected YYYY-MM-DD dates, so handing them a datetime made every
+ * real CCB record look "missing" and let a generated no_record stub overwrite
+ * it. `occurParam` is the YYYYMMDD form CCB's event_detail.php links expect
+ * (fromISO alone rejected the space-separated form and produced links
+ * containing the literal text "Invalid DateTime").
+ */
+function ccbOccurrenceDateParts(occurrence: string): { date: string; occurParam: string } {
+  const iso = DateTime.fromISO(occurrence);
+  const dt = iso.isValid ? iso : DateTime.fromSQL(occurrence);
+  const date = dt.isValid ? dt.toISODate()! : occurrence.slice(0, 10);
+  return { date, occurParam: date.replace(/-/g, '') };
+}
+
+/**
  * CCB timestamps come back as SQL-style strings ("2026-07-15 10:23:45") or
  * occasionally bare dates. Normalize to an ISO string, or '' when unparseable.
  */
@@ -974,17 +991,10 @@ ${attendeesBlock}
       const title = String(ev?.name ?? ev?.title ?? "").trim();
       const groupId = String(ev?.group?.["@_id"] ?? ev?.group?.id ?? ev?.group_id ?? "").trim();
 
-      // Enhanced debugging for group 2406 events
-      if (groupId === "2406") {
-        console.log(`🔍 CCB: Debugging event ${id} "${title}" - full structure:`);
-        console.log(`🔍 CCB: Event keys:`, Object.keys(ev));
-        console.log(`🔍 CCB: Event data:`, JSON.stringify(ev, null, 2));
-      }
-
       // Try multiple occurrence field patterns
       const occRoot = ev?.occurrences ?? ev?.occurrence ?? ev?.dates ?? ev?.recurrence ?? ev?.recurrence_patterns ?? null;
       let occList: any[] = [];
-      
+
       if (Array.isArray(occRoot?.occurrence)) {
         occList = occRoot.occurrence;
       } else if (occRoot?.occurrence) {
@@ -995,58 +1005,26 @@ ${attendeesBlock}
         occList = [occRoot];
       }
 
-      // If no occurrences in standard places, check if event itself has date info
-      if (occList.length === 0 && groupId === "2406") {
-        console.log(`🔍 CCB: No occurrences found in standard places for event ${id}, checking event-level dates`);
-        
-        // Check if the event itself has date fields
-        const eventDate = ev?.start_date ?? ev?.date ?? ev?.event_date ?? ev?.next_occurrence ?? null;
-        const eventTime = ev?.start_time ?? ev?.time ?? ev?.event_time ?? "00:00:00";
-        
-        if (eventDate) {
-          console.log(`🔍 CCB: Found event-level date: ${eventDate} ${eventTime}`);
-          occList = [{ date: eventDate, start_time: eventTime, start_date: eventDate }];
-        }
-        
-        // Check if there's recurrence pattern information
-        const recurrenceDescription = ev?.recurrence_description ?? ev?.recurrence ?? ev?.meeting_pattern ?? null;
-        if (recurrenceDescription) {
-          console.log(`🔍 CCB: Found recurrence description: ${recurrenceDescription}`);
-          // If it mentions weekly/Monday meetings, generate some occurrences
-          if (recurrenceDescription.toLowerCase().includes('weekly') || recurrenceDescription.toLowerCase().includes('monday')) {
-            console.log(`🔍 CCB: Generating weekly Monday occurrences for August 2025`);
-            // Generate Monday occurrences for August 2025
-            const mondays = ['2025-08-04', '2025-08-11', '2025-08-18', '2025-08-25'];
-            occList = mondays.map(date => ({ date, start_time: "19:00:00", start_date: date }));
-          }
-        }
-      }
-
+      // Only occurrences CCB actually returned are used. An earlier debugging
+      // branch fabricated hardcoded August-2025 occurrences for one group —
+      // never invent occurrence data, it reads as real attendance downstream.
       const occurrences: EventOccurrence[] = occList
         .map((o) => {
           const start = o?.start_datetime ?? o?.start_dt ?? o?.start ?? o?.date ?? o?.start_date ?? null;
           const startTime = o?.start_time ?? o?.time ?? "00:00:00";
           const end = o?.end_datetime ?? o?.end_dt ?? o?.end ?? o?.end_date ?? null;
-          
+
           if (!start) return null;
-          
+
           // Combine date and time if they're separate
           const fullStartDateTime = start.includes('T') ? start : `${start}T${startTime}`;
-          
+
           const startIso = DateTime.fromISO(String(fullStartDateTime)).toISO();
           const endIso = end ? DateTime.fromISO(String(end)).toISO() : undefined;
-          
-          // Enhanced debugging for group 2406
-          if (groupId === "2406") {
-            console.log(`🔍 CCB: Event ${id} "${title}" occurrence:`);
-            console.log(`🔍 CCB: - Raw: ${start} + ${startTime}`);
-            console.log(`🔍 CCB: - Combined: ${fullStartDateTime}`);
-            console.log(`🔍 CCB: - ISO: ${startIso}`);
-          }
-          
-          return startIso ? { 
-            start: startIso, 
-            end: endIso 
+
+          return startIso ? {
+            start: startIso,
+            end: endIso
           } : null;
         })
         .filter(Boolean) as EventOccurrence[];
@@ -1614,11 +1592,8 @@ ${attendeesBlock}
         
         if (!attendance) continue;
 
-        // Create occurrence date from the occurrence field (YYYY-MM-DD format)
-        const occurDate = occurrence;
-        const occurFormatted = DateTime.fromISO(occurrence).toFormat('yyyyLLdd');
-        
-        const link = `https://${this.config.subdomain}.ccbchurch.com/event_detail.php?event_id=${encodeURIComponent(eventId)}&occur=${occurFormatted}`;
+        const { date: occurDate, occurParam } = ccbOccurrenceDateParts(occurrence);
+        const link = `https://${this.config.subdomain}.ccbchurch.com/event_detail.php?event_id=${encodeURIComponent(eventId)}&occur=${occurParam}`;
 
         results.push({
           eventId,
@@ -1692,7 +1667,7 @@ ${attendeesBlock}
       results.push({
         eventId,
         title,
-        occurDate: occurrence,
+        occurDate: ccbOccurrenceDateParts(occurrence).date,
         notes: attendance.notes ?? null,
         prayerRequests: attendance.prayerRequests ?? null,
         topic: attendance.topic ?? null,
@@ -1843,13 +1818,31 @@ ${attendeesBlock}
       debug.eventSample = filteredEventData.slice(0, 50).map(e => ({ eventId: e.eventId, groupId: e.groupId, title: e.title, occurrenceDate: e.occurrenceDate }));
     }
 
+    // A submitted report (notes or a head count) outranks an empty record.
+    // CCB pre-creates attendance records ahead of meetings, and a group can
+    // have several rows inside one window — first-in-XML-order used to win,
+    // so an empty pre-created row could shadow the summary the leader
+    // actually filled in and read as "nothing received" for the week.
+    const hasEvidence = (e: EventEntry) => e.hasNotes || (e.headcount ?? 0) > 0;
+
     // Index by CCB group ID and event ID for O(1) exact lookup
     const byGroupId = new Map<string, EventEntry>();
     const byEventId = new Map<string, EventEntry>();
+    const keepBetter = (map: Map<string, EventEntry>, key: string, ev: EventEntry) => {
+      const current = map.get(key);
+      if (!current || (!hasEvidence(current) && hasEvidence(ev))) map.set(key, ev);
+    };
     for (const ev of filteredEventData) {
-      if (ev.groupId && !byGroupId.has(ev.groupId)) byGroupId.set(ev.groupId, ev);
-      if (ev.eventId && !byEventId.has(ev.eventId)) byEventId.set(ev.eventId, ev);
+      if (ev.groupId) keepBetter(byGroupId, ev.groupId, ev);
+      if (ev.eventId) keepBetter(byEventId, ev.eventId, ev);
     }
+
+    // Same preference for the substring fallbacks below: stable sort, real
+    // reports first, so `.find` can't land on an empty row when a filled one
+    // for the same circle is also in the window.
+    const matchPool = [...filteredEventData].sort(
+      (a, b) => Number(hasEvidence(b)) - Number(hasEvidence(a))
+    );
 
     const result = new Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number; topic: string | null; notes: string | null; prayerRequests: string | null }>();
     for (const leader of leaders) {
@@ -1876,7 +1869,7 @@ ${attendeesBlock}
       if (!match && leader.ccb_group_name) {
         const key = leader.ccb_group_name.trim().toLowerCase();
         if (key) {
-          match = filteredEventData.find(e => e.title.includes(key) || (e.title && key.includes(e.title.trim())));
+          match = matchPool.find(e => e.title.includes(key) || (e.title && key.includes(e.title.trim())));
           if (match) matchedBy = 'group_name_substring';
         }
       }
@@ -1885,7 +1878,7 @@ ${attendeesBlock}
       if (!match) {
         const key = leader.name.trim().toLowerCase();
         if (key) {
-          match = filteredEventData.find(e => e.title.includes(key));
+          match = matchPool.find(e => e.title.includes(key));
           if (match) matchedBy = 'leader_name_substring';
         }
       }
@@ -1897,7 +1890,7 @@ ${attendeesBlock}
           const first = tokens[0];
           const last = tokens[tokens.length - 1];
           if (first !== last) {
-            match = filteredEventData.find(e => e.title.includes(first) && e.title.includes(last));
+            match = matchPool.find(e => e.title.includes(first) && e.title.includes(last));
             if (match) matchedBy = 'name_tokens';
           }
         }
@@ -2507,13 +2500,13 @@ ${attendeesBlock}
       );
       if (!attendance) continue;
 
-      const occurFormatted = DateTime.fromISO(occurrence).toFormat('yyyyLLdd');
-      const link = `https://${this.config.subdomain}.ccbchurch.com/event_detail.php?event_id=${encodeURIComponent(eventId)}&occur=${occurFormatted}`;
+      const { date: occurDate, occurParam } = ccbOccurrenceDateParts(occurrence);
+      const link = `https://${this.config.subdomain}.ccbchurch.com/event_detail.php?event_id=${encodeURIComponent(eventId)}&occur=${occurParam}`;
 
       const row: LinkRow = {
         eventId,
         title: eventName,
-        occurDate: occurrence,
+        occurDate,
         link,
         attendance,
       };
@@ -2534,9 +2527,14 @@ ${attendeesBlock}
   /**
    * Get the list of event IDs that belong to a specific CCB group.
    * Uses `event_profiles?group_id=X` — one fast call per group.
+   *
+   * Returns null when the CCB call fails, so callers can tell "this group has
+   * no events" from "the lookup broke". Persisting a failure as [] used to
+   * permanently blank a leader's event IDs — [] isn't NULL, so the discovery
+   * job's `is('ccb_event_ids', null)` filter never picked them up again.
    */
-  async getGroupEventIds(groupId: string): Promise<string[]> {
-    if (!groupId || !/^\d+$/.test(groupId)) return [];
+  async getGroupEventIds(groupId: string): Promise<string[] | null> {
+    if (!groupId || !/^\d+$/.test(groupId)) return null;
 
     try {
       const xml = await this.getXml({ srv: 'event_profiles', group_id: groupId });
@@ -2546,7 +2544,7 @@ ${attendeesBlock}
       if (IS_DEV) {
         console.warn(`📦 getGroupEventIds failed for group ${groupId}:`, error);
       }
-      return [];
+      return null;
     }
   }
 

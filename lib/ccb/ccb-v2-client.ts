@@ -8,6 +8,7 @@
  * header, telemetry, the daily-budget tripwire, and 429/retry-after handling.
  */
 
+import { DateTime } from 'luxon';
 import { forceRefreshAccessToken, getValidAccessToken } from './ccb-v2-auth';
 import { CCB_V2_API_BASE_URL, CCB_V2_ACCEPT_HEADER } from './ccb-v2-config';
 import {
@@ -15,6 +16,15 @@ import {
   reserveCCBDailyBudget,
   type CCBApiRequestContext,
 } from './ccb-api-gateway';
+
+// "Today" for deciding whether an event series has started/ended runs on the
+// church's clock, matching the daily-budget reset in ccb-api-gateway.
+const CCB_LOCAL_TZ = 'America/Chicago';
+
+// How many per-event detail calls getGroupMeetingDetails will spend finding the
+// current event. Most circles have 1–2 events, so this is usually 1 call; the
+// cap keeps a group with a long event history from burning API budget.
+const MAX_EVENT_DETAIL_FETCHES = 4;
 
 export class CCBv2RateLimitError extends Error {
   constructor(message: string, public readonly retryAfterSeconds: number | null) {
@@ -93,6 +103,11 @@ export class CCBv2Client {
         ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       },
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      // Next.js 14 caches server-side GET fetches in its Data Cache by default,
+      // and Netlify persists that cache across requests AND deploys — so without
+      // this, any route not marked force-dynamic re-serves the first CCB
+      // response it ever saw, forever. CCB reads must always be live.
+      cache: 'no-store',
     });
 
     const durationMs = Date.now() - startedAt;
@@ -246,19 +261,61 @@ export class CCBv2Client {
 
     const listRaw = await this.get(`/groups/${encodeURIComponent(groupId)}/events`);
     const list = asArray(listRaw);
-    const eventIds = Array.from(new Set(
-      list.map((e: any) => firstString(e?.event_id, e?.event?.id, e?.id)).filter(Boolean)
-    ));
-    if (eventIds.length === 0) return empty;
 
-    // Fetch the full detail of the first event for its recurrence + address.
-    let detail: any = null;
-    try {
-      detail = await this.get(`/events/${encodeURIComponent(eventIds[0])}`);
-    } catch { /* fall back to list row below */ }
-    const ev = detail ?? list[0] ?? {};
+    // One candidate per distinct event, keeping each id's first list row.
+    const rowById = new Map<string, any>();
+    for (const row of list) {
+      const id = firstString(row?.event_id, row?.event?.id, row?.id);
+      if (id && !rowById.has(id)) rowById.set(id, row);
+    }
+    const allIds = Array.from(rowById.keys());
+    if (allIds.length === 0) return empty;
 
-    const start = firstString(ev?.start, ev?.event?.start, list[0]?.start);
+    // A circle's event list is its whole history: when a group changes its
+    // meeting day, staff usually create a NEW calendar event and the old one
+    // stays behind. CCB returns them in arbitrary (roughly creation) order, so
+    // reading the first row means reading the OLD schedule forever. Rank the
+    // events and read the one that is actually in effect today instead.
+    const today = DateTime.now().setZone(CCB_LOCAL_TZ).toISODate()!;
+    const candidates: CcbGroupEventCandidate[] = allIds.map((id) => {
+      const row = rowById.get(id);
+      return {
+        id,
+        start: firstString(row?.start, row?.event?.start, row?.starts_at, row?.start_datetime),
+        isRecurring: null,
+        seriesEndDate: null,
+      };
+    });
+
+    // Pull recurrence details newest-series-first, so the (capped) detail calls
+    // are spent on the events most likely to be current.
+    const byStartDesc = [...candidates].sort((a, b) => (b.start || '').localeCompare(a.start || ''));
+    const details = new Map<string, any>();
+    for (const cand of byStartDesc.slice(0, MAX_EVENT_DETAIL_FETCHES)) {
+      try {
+        const detail = await this.get(`/events/${encodeURIComponent(cand.id)}`);
+        if (detail) {
+          details.set(cand.id, detail);
+          const detailStart = firstString(detail?.start, detail?.event?.start);
+          if (detailStart) cand.start = detailStart;
+          const rec = detail?.recurrence ?? null;
+          cand.isRecurring = !!firstString(rec?.frequency, rec?.pattern);
+          cand.seriesEndDate = ccbSeriesEndDate(rec);
+        }
+      } catch { /* candidate stays rankable on its list-row data */ }
+    }
+
+    const picked = pickCurrentCcbEvent(candidates, today) ?? candidates[0];
+
+    let detail: any = details.get(picked.id) ?? null;
+    if (!detail) {
+      try {
+        detail = await this.get(`/events/${encodeURIComponent(picked.id)}`);
+      } catch { /* fall back to list row below */ }
+    }
+    const ev = detail ?? rowById.get(picked.id) ?? {};
+
+    const start = firstString(ev?.start, ev?.event?.start, picked.start);
     let time: string | null = null;
     let day: string | null = null;
     if (start) {
@@ -283,6 +340,10 @@ export class CCBv2Client {
     else if (freqCode === 'Q') frequency = 'Quarterly';
 
     const eventLocation = formatCcbAddress(ev?.address) || null;
+
+    // Current event first, so anything reading ccb_event_ids[0] sees the
+    // schedule the circle actually runs on today.
+    const eventIds = [picked.id, ...allIds.filter((id) => id !== picked.id)];
 
     return { eventIds, time, day, frequency, eventLocation };
   }
@@ -634,6 +695,69 @@ function firstString(...vals: any[]): string {
     if (s) return s;
   }
   return '';
+}
+
+// ---- current-event selection (getGroupMeetingDetails) ----
+
+export interface CcbGroupEventCandidate {
+  id: string;
+  /** Raw start datetime string from CCB ('' when it gave none). */
+  start: string;
+  /** From the event detail's recurrence; null when the detail wasn't fetched. */
+  isRecurring: boolean | null;
+  /** Series end (YYYY-MM-DD) when the recurrence exposes one; null = open-ended/unknown. */
+  seriesEndDate: string | null;
+}
+
+/**
+ * The series-end date of a recurrence block, if CCB exposes one. Only
+ * recurrence-level fields count: an event-level `end` is the first
+ * occurrence's end TIME, and reading it as a series end would mark every
+ * brand-new event "already over".
+ */
+function ccbSeriesEndDate(rec: any): string | null {
+  if (!rec || typeof rec !== 'object') return null;
+  const raw = firstString(rec.end_date, rec.until, rec.ends_at, rec.end_datetime, rec.end);
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Which of a group's calendar events is the one in effect today?
+ *
+ * Ranked best-first: an active recurring series, then an active one-off, then
+ * an upcoming series (a new semester's event beats the one it replaced), then
+ * an ended series (a paused weekly is still the group's real schedule), and
+ * one-off gatherings last — a Christmas party must never become the group's
+ * meeting day. Ties break to the newest start: a group that changed schedules
+ * created its current event last. Events whose recurrence we didn't fetch
+ * rank as recurring; events with no date at all carry no evidence they're
+ * current, so they rank with the merely-upcoming and lose ties to anything
+ * dated.
+ */
+export function pickCurrentCcbEvent(
+  candidates: CcbGroupEventCandidate[],
+  todayISO: string
+): CcbGroupEventCandidate | null {
+  if (candidates.length === 0) return null;
+
+  const rank = (c: CcbGroupEventCandidate): number => {
+    const startDate = (c.start.match(/^(\d{4}-\d{2}-\d{2})/) || [])[1] ?? null;
+    const oneOff = c.isRecurring === false;
+    const endedBySeries = !!c.seriesEndDate && c.seriesEndDate < todayISO;
+    const endedAsOneOff = oneOff && !!startDate && startDate < todayISO;
+    if (endedBySeries || endedAsOneOff) return oneOff ? 5 : 3;
+    if (!startDate) return 2;
+    if (startDate > todayISO) return oneOff ? 4 : 2;
+    return oneOff ? 1 : 0;
+  };
+
+  return [...candidates].sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    return (b.start || '').localeCompare(a.start || '');
+  })[0];
 }
 
 /** CCB's street field is a free-text textarea — flatten it onto one line. */

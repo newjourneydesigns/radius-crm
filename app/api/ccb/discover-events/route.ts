@@ -120,10 +120,20 @@ export async function POST(request: NextRequest) {
     try {
       const eventIds = await ccbClient.getGroupEventIds(groupId);
 
-      // Save to DB
+      // A failed lookup must not touch the stored value — writing [] here used
+      // to permanently blank a leader's event IDs on one transient CCB error,
+      // and [] (unlike NULL) is invisible to the re-discovery filter above.
+      if (eventIds === null) {
+        console.error(`Event lookup failed for ${leader.name} (group ${groupId}); keeping existing event IDs`);
+        results.errors++;
+        continue;
+      }
+
+      // Store NULL (not []) when the group has no events, so the leader stays
+      // eligible for future discovery runs.
       const { error: updateError } = await supabase
         .from('circle_leaders')
-        .update({ ccb_event_ids: eventIds.length > 0 ? eventIds : [] })
+        .update({ ccb_event_ids: eventIds.length > 0 ? eventIds : null })
         .eq('id', leader.id);
 
       if (updateError) {

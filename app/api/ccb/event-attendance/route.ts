@@ -139,7 +139,7 @@ export async function POST(request: Request) {
 
     // ── Write-through: upsert attendance into circle_meeting_occurrences ──
     if (formattedEvents.length > 0) {
-      recordAttendance(groupName, formattedEvents).catch((err) => {
+      recordAttendance(formattedEvents).catch((err) => {
         console.warn('⚠️ Attendance write-through failed (non-blocking):', err);
       });
     }
@@ -311,7 +311,6 @@ interface FormattedEvent {
 }
 
 async function recordAttendance(
-  groupName: string,
   events: FormattedEvent[]
 ): Promise<void> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -330,7 +329,7 @@ async function recordAttendance(
   for (const event of events) {
     // Match leader from the CCB event title, e.g. "LVT | S1 | Trip Ochenski".
     // Circle leaders in the DB are stored as just "Trip Ochenski".
-    const leaderId = findLeaderForEvent(event.title, groupName, allLeaders);
+    const leaderId = findLeaderForEvent(event.title, allLeaders);
 
     if (!leaderId) {
       console.log(`ℹ️ No circle leader matched for event "${event.title}" — skipping`);
@@ -413,10 +412,16 @@ async function recordAttendance(
  * Extract leader name from CCB event title and match to a circle leader.
  * CCB titles: "LVT | S1 | Trip Ochenski"
  * DB leaders:  "Trip Ochenski"
+ *
+ * Only the EVENT TITLE may establish the match. Earlier fallbacks matched on
+ * the caller's search string instead — which ties the leader to the search,
+ * not to the event — so a search that also surfaced a similarly-named circle's
+ * events filed that circle's attendance (and stamped its event title onto
+ * circle_name, a CCB match key used by the weekly summary syncs) under the
+ * wrong leader. An event whose title names no known leader is skipped.
  */
 function findLeaderForEvent(
   eventTitle: string,
-  searchGroupName: string,
   leaders: { id: number; name: string }[]
 ): number | null {
   // Strategy 1: Extract name after the last pipe in the event title
@@ -436,15 +441,6 @@ function findLeaderForEvent(
   const titleLower = eventTitle.toLowerCase();
   const titleMatch = leaders.find((l) => titleLower.includes(l.name.toLowerCase()));
   if (titleMatch) return titleMatch.id;
-
-  // Strategy 3: Search group name contains a leader name
-  const searchLower = searchGroupName.toLowerCase();
-  const searchMatch = leaders.find((l) => searchLower.includes(l.name.toLowerCase()));
-  if (searchMatch) return searchMatch.id;
-
-  // Strategy 4: Leader name contains the search group name
-  const groupMatch = leaders.find((l) => l.name.toLowerCase().includes(searchLower));
-  if (groupMatch) return groupMatch.id;
 
   return null;
 }

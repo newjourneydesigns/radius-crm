@@ -184,8 +184,11 @@ function mergeProfileCache(participants: CcbParticipant[], cacheByID: Map<string
     let detailsLoaded = false;
 
     if (cached) {
-      phone = cached.phone || rosterPhone;
-      email = cached.email || rosterEmail;
+      // The roster payload is the fresher source — a member who changes their
+      // number in CCB shows up here first. The profile snapshot only fills
+      // gaps (v1 roster XML often omits phones), never overrides.
+      phone = rosterPhone || cached.phone;
+      email = rosterEmail || cached.email;
       birthday = cached.birthday || '';
       const ageMs = now - new Date(cached.syncedAt).getTime();
       detailsLoaded = true;
