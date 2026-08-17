@@ -1,8 +1,24 @@
 "use client";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 const MEETING_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const TIME_OPTIONS = ["AM", "PM"];
+
+/** Fixed-position geometry for the portalled day menu. */
+interface DayMenuPosition {
+  left: number;
+  width: number;
+  maxHeight: number;
+  top?: number;
+  bottom?: number;
+}
+
+const MENU_MARGIN = 8;
+const MENU_GAP = 4;
+const MENU_MIN_WIDTH = 208;
+/** Tall enough for the reset row plus all seven days without an inner scrollbar. */
+const MENU_MAX_HEIGHT = 360;
 
 interface SearchFilters {
   campus: string;
@@ -33,22 +49,97 @@ export default function SearchFilterPanel({
   allLeaders = []
 }: SearchFilterPanelProps) {
   const [showDayDropdown, setShowDayDropdown] = useState(false);
-  const dayDropdownRef = useRef<HTMLDivElement>(null);
+  const [dayMenuPosition, setDayMenuPosition] = useState<DayMenuPosition | null>(null);
+  const dayFieldRef = useRef<HTMLDivElement>(null);
+  const dayTriggerRef = useRef<HTMLDivElement>(null);
+  const dayMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dayDropdownRef.current && !dayDropdownRef.current.contains(event.target as Node)) {
-        setShowDayDropdown(false);
-      }
-    };
+  const selectedDayCount = filters.meetingDay?.length ?? 0;
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+  // The menu is portalled to <body> so no ancestor stacking context or overflow
+  // can clip it, which means its position has to be measured off the trigger.
+  const positionDayMenu = useCallback(() => {
+    const trigger = dayTriggerRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const width = Math.min(
+      Math.max(rect.width, MENU_MIN_WIDTH),
+      viewportWidth - MENU_MARGIN * 2
+    );
+    const left = Math.min(
+      Math.max(MENU_MARGIN, rect.left),
+      Math.max(MENU_MARGIN, viewportWidth - width - MENU_MARGIN)
+    );
+
+    const spaceBelow = viewportHeight - rect.bottom - MENU_GAP - MENU_MARGIN;
+    const spaceAbove = rect.top - MENU_GAP - MENU_MARGIN;
+    const flipUp = spaceBelow < 240 && spaceAbove > spaceBelow;
+    const available = flipUp ? spaceAbove : spaceBelow;
+
+    setDayMenuPosition({
+      left,
+      width,
+      maxHeight: Math.max(160, Math.min(MENU_MAX_HEIGHT, available)),
+      ...(flipUp
+        ? { bottom: viewportHeight - rect.top + MENU_GAP }
+        : { top: rect.bottom + MENU_GAP }),
+    });
   }, []);
-  
+
+  // Measure before opening so the menu never renders at a stale anchor, and never
+  // ends up open-but-unpositioned. Both updates batch into one render.
+  const toggleDayDropdown = useCallback(() => {
+    if (showDayDropdown) {
+      setShowDayDropdown(false);
+      return;
+    }
+    positionDayMenu();
+    setShowDayDropdown(true);
+  }, [showDayDropdown, positionDayMenu]);
+
+  // Keep the menu glued to the field while it's open.
+  useEffect(() => {
+    if (!showDayDropdown) return;
+
+    positionDayMenu();
+    window.addEventListener('resize', positionDayMenu);
+    window.addEventListener('scroll', positionDayMenu, true);
+    return () => {
+      window.removeEventListener('resize', positionDayMenu);
+      window.removeEventListener('scroll', positionDayMenu, true);
+    };
+    // selectedDayCount changes the field height as chips wrap, so re-anchor.
+  }, [showDayDropdown, selectedDayCount, positionDayMenu]);
+
+  // Dismiss on outside press or Escape. The menu lives outside the field in the
+  // DOM, so both subtrees have to count as "inside".
+  useEffect(() => {
+    if (!showDayDropdown) return;
+
+    const handleOutsidePress = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (dayFieldRef.current?.contains(target)) return;
+      if (dayMenuRef.current?.contains(target)) return;
+      setShowDayDropdown(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowDayDropdown(false);
+    };
+
+    document.addEventListener('mousedown', handleOutsidePress);
+    document.addEventListener('touchstart', handleOutsidePress);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsidePress);
+      document.removeEventListener('touchstart', handleOutsidePress);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showDayDropdown]);
+
   // Generate unique options from actual data
   const uniqueCampuses = useMemo(() => {
     const campuses = Array.from(new Set(allLeaders.map(leader => leader.campus).filter(Boolean))) as string[];
@@ -128,13 +219,25 @@ export default function SearchFilterPanel({
         </div>
 
         {/* Meeting Day Filter - Multiselect */}
-        <div ref={dayDropdownRef}>
+        <div ref={dayFieldRef}>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Day
           </label>
           <div className="relative">
-            <div className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500 min-h-[38px] cursor-pointer"
-                 onClick={() => setShowDayDropdown(!showDayDropdown)}>
+            <div ref={dayTriggerRef}
+                 role="button"
+                 tabIndex={0}
+                 aria-haspopup="listbox"
+                 aria-expanded={showDayDropdown}
+                 aria-label="Filter by day"
+                 onClick={toggleDayDropdown}
+                 onKeyDown={(e) => {
+                   if (e.key === 'Enter' || e.key === ' ') {
+                     e.preventDefault();
+                     toggleDayDropdown();
+                   }
+                 }}
+                 className="block w-full pl-3 pr-9 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-vc-500/40 min-h-[38px] cursor-pointer">
               {filters.meetingDay.length === 0 ? (
                 <span className="text-gray-500 dark:text-gray-400">All Days</span>
               ) : (
@@ -163,44 +266,67 @@ export default function SearchFilterPanel({
               )}
             </div>
             <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className={`h-5 w-5 text-gray-400 transition-transform duration-150 ${showDayDropdown ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
               </svg>
             </div>
-            {showDayDropdown && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg z-50">
+          </div>
+          {showDayDropdown && dayMenuPosition && typeof document !== 'undefined' &&
+            // Opaque hex background, not bg-white: globals.css forces every
+            // .bg-white element to translucent glass, which lets whatever sits
+            // under the menu bleed through. Matches the Status/ACPD menus.
+            createPortal(
+              <div
+                ref={dayMenuRef}
+                role="listbox"
+                aria-multiselectable
+                aria-label="Meeting days"
+                style={{
+                  position: 'fixed',
+                  left: dayMenuPosition.left,
+                  top: dayMenuPosition.top,
+                  bottom: dayMenuPosition.bottom,
+                  width: dayMenuPosition.width,
+                  maxHeight: dayMenuPosition.maxHeight,
+                }}
+                className="z-[10050] overflow-y-auto overscroll-contain rounded-xl border border-white/[0.08] bg-[#1a1c22] shadow-2xl shadow-black/50 ring-1 ring-black/20"
+              >
                 <div className="py-1">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onFiltersChange({
-                        ...filters,
-                        meetingDay: []
-                      });
-                    }}
-                    className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+                    type="button"
+                    onClick={() => onFiltersChange({ ...filters, meetingDay: [] })}
+                    className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                      filters.meetingDay.length === 0
+                        ? 'bg-vc-500/10 text-vc-300'
+                        : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+                    }`}
                   >
                     Clear all days
                   </button>
-                  <hr className="border-gray-200 dark:border-gray-600 my-1" />
+                  <div className="my-1 border-t border-white/[0.06]" />
                   {MEETING_DAYS.map(day => (
                     <label
                       key={day}
-                      className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
+                      className="flex cursor-pointer items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white"
                     >
                       <input
                         type="checkbox"
                         checked={filters.meetingDay.includes(day)}
                         onChange={() => handleDayFilterChange(day)}
-                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-vc-500 border-gray-300 dark:border-gray-600 rounded"
+                        className="h-4 w-4 shrink-0 rounded border-white/20 accent-vc-500"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{day}</span>
+                      {day}
                     </label>
                   ))}
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
-          </div>
         </div>
 
         {/* Time of Day Filter */}

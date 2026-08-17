@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-08-17",
+    "date_display": "August 17, 2026",
+    "date_iso": "2026-08-17",
+    "id": "find-a-circle-day-filter-layering",
+    "type": "fix",
+    "category": "Find a Circle",
+    "description": "The Day filter on Find a Circle now opens on top of everything else instead of sliding behind the Status and ACPD filters below it. On phones the list was effectively unusable — days at the bottom were covered up and couldn't be tapped. The menu now stays anchored to the field as you scroll, flips above the field when there isn't room below, keeps itself inside the screen edges, and scrolls internally when space is tight. You can also close it with Escape or by tapping away.",
+    "page": "/search"
+  },
+  {
     "date": "2026-08-14",
     "date_display": "August 14, 2026",
     "date_iso": "2026-08-14",
