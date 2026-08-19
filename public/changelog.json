@@ -3,6 +3,16 @@
     "date": "2026-08-19",
     "date_display": "August 19, 2026",
     "date_iso": "2026-08-19",
+    "id": "event-summary-tracker-database-errors",
+    "type": "fix",
+    "category": "Event Summary Tracker",
+    "description": "Cleaned up the ~1,600 database errors RADIUS was generating every day. Two pieces of the Event Summary Tracker's database schema (the CCB orphan-summaries table and the scheduled-event flag) had never been applied to production, so the tracker's orphan banner silently never loaded and every page load and Sync Now logged errors behind the scenes. Those are now restored — the banner that flags CCB summaries with no matching circle works again. The circle summary push-reminder job was also quietly erroring every 5 minutes re-checking reminders it had already sent; it now checks first instead of relying on the database to reject duplicates.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-08-19",
+    "date_display": "August 19, 2026",
+    "date_iso": "2026-08-19",
     "id": "circles-toolkit-rescheduled-meeting-dates",
     "type": "fix",
     "category": "Circles Toolkit",
