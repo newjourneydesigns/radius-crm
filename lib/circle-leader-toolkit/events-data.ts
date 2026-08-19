@@ -67,6 +67,14 @@ type CalendarEvent = {
   startDateTime: string;
   startDate: string;
   startTime?: string;
+  /**
+   * Cadence of the CCB series this occurrence was expanded from, in days
+   * between occurrences — see `GroupCalendarOccurrence` in the CCB client.
+   * `null` = one-off or individually moved date. `undefined` = row written
+   * before this field existed; `isLegacyCalendarShape` refetches those, so
+   * this is defensive only.
+   */
+  seriesGapDays?: number | null;
 };
 type SubmittedSummaryRow = {
   ccb_event_id: string;
@@ -171,6 +179,38 @@ function buildAttendanceMap(
   }
 
   return attendanceMap;
+}
+
+/**
+ * Whether the RADIUS-side meeting-frequency filter is allowed to hide this
+ * occurrence. That filter exists for ONE case: CCB lists the circle on a
+ * dense (weekly-or-tighter) recurring event but the circle actually meets
+ * less often, so the off-week dates are noise. When the CCB calendar itself
+ * is already bi-weekly-or-sparser — or the date is a one-off / individually
+ * moved occurrence — the calendar reflects deliberate scheduling and must
+ * win over RADIUS's `frequency`/`meeting_start_date`, which can carry a
+ * stale anchor (e.g. a bi-weekly circle whose real schedule shifted a week:
+ * the stale anchor would hide every REAL meeting and pass every off week).
+ *
+ * `undefined` means a pre-field cache row (≤24h old): keep filtering, as the
+ * legacy behavior did, until the row is rewritten.
+ */
+function isCadenceFilterable(event: Pick<CalendarEvent, 'seriesGapDays'>): boolean {
+  if (event.seriesGapDays === null) return false;
+  if (event.seriesGapDays === undefined) return true;
+  return event.seriesGapDays < 14;
+}
+
+/**
+ * Cache rows written before the parser learned about rescheduled occurrences
+ * (marked by the absence of `seriesGapDays`) can carry ghost dates of moved or
+ * replaced series, so a non-empty pre-field row is treated as a calendar miss
+ * and refetched live once — the write-back upgrades the row for everyone.
+ * Empty rows carry nothing wrong and are trusted as-is (refetching them every
+ * request would burn a CCB call per view on event-less groups forever).
+ */
+function isLegacyCalendarShape(events: CalendarEvent[]): boolean {
+  return events.length > 0 && events.some((e) => !('seriesGapDays' in e));
 }
 
 function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | undefined {
@@ -313,9 +353,12 @@ export async function loadLeaderEvents(
         const ageMs = Date.now() - new Date(cacheRow.synced_at).getTime();
         sharedCache = {};
         if (ageMs < SHARED_CAL_CACHE_FRESH_MS) {
-          sharedCache.calendar_events = Array.isArray(cacheRow.calendar_events)
+          const cachedCalendar = Array.isArray(cacheRow.calendar_events)
             ? (cacheRow.calendar_events as CalendarEvent[])
             : [];
+          if (!isLegacyCalendarShape(cachedCalendar)) {
+            sharedCache.calendar_events = cachedCalendar;
+          }
         }
         if (
           (allowStaleAttendance || ageMs < SHARED_ATTENDANCE_CACHE_FRESH_MS) &&
@@ -490,11 +533,15 @@ export async function loadLeaderEvents(
       .filter((e) => !ignoredSet.has(`${e.eventId}|${e.startDate}`))
       .filter((e) => {
         // The frequency filter exists to hide blank non-meeting dates (e.g. the
-        // off weeks of a bi-weekly circle), not meetings that actually
-        // happened. If CCB has attendance for the occurrence — or a summary was
-        // submitted here — the circle demonstrably met, so always show it.
+        // off weeks of a bi-weekly circle listed weekly in CCB), not meetings
+        // that actually happened. If CCB has attendance for the occurrence —
+        // or a summary was submitted here — the circle demonstrably met, so
+        // always show it. And when the CCB calendar itself already carries the
+        // real cadence (sparse series, one-off, or moved occurrence), it is
+        // authoritative — never let a stale RADIUS anchor hide it.
         const key = `${e.eventId}|${e.startDate}`;
         if (attendanceMap.get(key)?.has || submittedKeys.has(key)) return true;
+        if (!isCadenceFilterable(e)) return true;
         return doesMeetingFrequencyIncludeDate({
           date: e.startDate,
           frequency: leader.frequency,
@@ -575,8 +622,10 @@ async function loadLeaderCalendar(leader: SessionLeader): Promise<CalendarEvent[
     Array.isArray(cacheRow.calendar_events)
   ) {
     const events = cacheRow.calendar_events as CalendarEvent[];
-    cacheSet(ccbCalCache, cacheKey, events, CCB_CAL_TTL_MS);
-    return events;
+    if (!isLegacyCalendarShape(events)) {
+      cacheSet(ccbCalCache, cacheKey, events, CCB_CAL_TTL_MS);
+      return events;
+    }
   }
 
   const ccb = createCCBClient({ module: 'circle-summary', action: 'list_events' });
@@ -625,10 +674,10 @@ export async function leaderOwnsEvent(
         .eq('ccb_event_id', String(eventId)),
     ]);
 
-    const onCalendar = calEvents.some(
+    const calendarEvent = calEvents.find(
       (e) => String(e.eventId) === String(eventId) && e.startDate === occurrenceDate
     );
-    if (!onCalendar) return false;
+    if (!calendarEvent) return false;
 
     if (!ignoredRes.error) {
       const isIgnored = (ignoredRes.data ?? []).some(
@@ -638,6 +687,10 @@ export async function leaderOwnsEvent(
     } else if (!isMissingIgnoredEventsTableError(ignoredRes.error)) {
       console.warn('[circle-summary/events] ownership ignored-events lookup failed:', ignoredRes.error.message);
     }
+
+    // Same cadence rule as the events list: a sparse/one-off/moved CCB date is
+    // shown unconditionally there, so it must be submittable here too.
+    if (!isCadenceFilterable(calendarEvent)) return true;
 
     if (
       doesMeetingFrequencyIncludeDate({
