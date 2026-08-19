@@ -583,15 +583,6 @@ export class CCBClient {
    * `status` controls behavior: 'add' (direct add), 'invite' (send invitation),
    * or 'request' (leader must approve).
    */
-  /**
-   * Fetch a group's calendar events via the iCal feed returned by
-   * `group_profile_from_id.calendar_feed`. Works on CCB instances where
-   * `event_profiles?group_id=X` is broken (returns the whole church and
-   * blows the XML parser).
-   *
-   * Returns one row per occurrence (RRULE weekly events are expanded to
-   * every occurrence inside [startDate, endDate]).
-   */
   async getGroupName(groupId: string | number): Promise<string> {
     const xml: any = await this.getXml({
       srv: 'group_profile_from_id',
@@ -602,11 +593,22 @@ export class CCBClient {
     return String(g?.name || g?.group_name || `Group ${groupId}`).trim();
   }
 
+  /**
+   * Fetch a group's calendar events via the iCal feed returned by
+   * `group_profile_from_id.calendar_feed`. Works on CCB instances where
+   * `event_profiles?group_id=X` is broken (returns the whole church and
+   * blows the XML parser).
+   *
+   * Returns one row per occurrence (recurring events are expanded to every
+   * occurrence inside [startDate, endDate]), honoring the feed's exception
+   * dates, series end markers, and moved/rescheduled occurrences — see
+   * `parseGroupICal`.
+   */
   async getGroupCalendarEvents(
     groupId: string | number,
     startDate: string,
     endDate: string
-  ): Promise<Array<{ eventId: string; title: string; startDateTime: string; startDate: string; startTime: string }>> {
+  ): Promise<GroupCalendarOccurrence[]> {
     const xml: any = await this.getXml({
       srv: 'group_profile_from_id',
       id: groupId,
@@ -3202,258 +3204,165 @@ ${attendeesBlock}
 
 // ---- iCal parser for group calendar feeds ----
 
+export type GroupCalendarOccurrence = {
+  eventId: string;
+  title: string;
+  startDateTime: string; // 'yyyy-LL-dd HH:mm:ss', America/Chicago wall time
+  startDate: string;     // 'yyyy-LL-dd'
+  startTime: string;     // 'HH:mm:ss'
+  /**
+   * Days between consecutive occurrences of the recurring series this row was
+   * expanded from (7 = weekly, 14 = bi-weekly, ~28 = monthly). `null` when the
+   * date is not an auto-expanded cadence slot: a one-off event, or an
+   * occurrence staff moved/rescheduled individually in CCB. Callers use this
+   * to decide whether a RADIUS-side cadence filter may thin the dates — only
+   * dense (weekly-or-tighter) series should ever be thinned, because sparser
+   * calendars and hand-placed dates are already deliberate.
+   */
+  seriesGapDays: number | null;
+};
+
+type IcalRRule = { between(after: Date, before: Date, inclusive?: boolean): Date[] };
+type IcalVEvent = {
+  type?: string;
+  uid?: unknown;
+  summary?: unknown;
+  status?: unknown;
+  start?: Date;
+  rrule?: IcalRRule | null;
+  exdate?: Record<string, unknown>;
+  recurrences?: Record<string, IcalVEvent>;
+};
+type NodeIcalLike = { sync: { parseICS(body: string): Record<string, unknown> } };
+
 /**
- * Minimal iCal VEVENT parser. CCB returns straightforward iCal with:
- *   UID:62928-16875@ccbchurch.com  → event_id is the segment after "-"
- *   SUMMARY:LVT | S1 | Radius Test
- *   DTSTART;TZID=America/Chicago:20260506T170000
- *   RRULE:FREQ=WEEKLY;BYDAY=TU  (for recurring events)
+ * Parse a CCB group calendar feed into one row per occurrence inside
+ * [startDate, endDate] (inclusive, America/Chicago days).
  *
- * We expand weekly RRULEs within [startDate, endDate]. Anything more exotic
- * is returned as a single occurrence.
+ * CCB group feeds are not one tidy VEVENT: a group's feed carries its whole
+ * event history (a schedule change usually leaves the old event behind), and
+ * editing a single occurrence in CCB's UI is expressed the standard iCal way —
+ * an override VEVENT with a RECURRENCE-ID pointing at the original slot and a
+ * DTSTART holding the occurrence's real new date/time. A previous hand-rolled
+ * parser here expanded every VEVENT's RRULE independently and ignored
+ * RECURRENCE-ID, so a rescheduled circle kept listing its ORIGINAL dates
+ * (which CCB's own calendar no longer shows) and never the moved ones.
+ *
+ * node-ical (already used by /api/calendar-events for personal calendars)
+ * folds overrides into their master event and handles EXDATE, UNTIL/COUNT,
+ * and BYDAY correctly, so parsing is delegated to it:
+ *   - master RRULEs expand within the window, skipping EXDATEs and slots that
+ *     have an override;
+ *   - overrides emit at their own (moved) DTSTART;
+ *   - VEVENTs or overrides with STATUS:CANCELLED emit nothing.
+ *
+ * Exported for verification scripts. Deliberately mirrors the matching rules
+ * of /api/calendar-events: EXDATE/override slots are keyed by the occurrence's
+ * UTC date string (how node-ical keys them), and expanded dates are treated as
+ * absolute instants. Events within an hour of midnight can land on the
+ * neighboring date across a DST boundary — acceptable for circle meetings.
  */
-function parseGroupICal(
-  ical: string,
+export async function parseGroupICal(
+  icalBody: string,
   startDate: string,
   endDate: string
-): Array<{ eventId: string; title: string; startDateTime: string; startDate: string; startTime: string }> {
-  const start = DateTime.fromFormat(startDate, 'yyyy-LL-dd', { zone: 'America/Chicago' }).startOf('day');
-  const end = DateTime.fromFormat(endDate, 'yyyy-LL-dd', { zone: 'America/Chicago' }).endOf('day');
+): Promise<GroupCalendarOccurrence[]> {
+  const windowStart = DateTime.fromFormat(startDate, 'yyyy-LL-dd', { zone: 'America/Chicago' }).startOf('day');
+  const windowEnd = DateTime.fromFormat(endDate, 'yyyy-LL-dd', { zone: 'America/Chicago' }).endOf('day');
+  if (!windowStart.isValid || !windowEnd.isValid) return [];
 
-  // Unfold lines: iCal continues a long line with a space at the start of next
-  const unfolded = ical.replace(/\r?\n[ \t]/g, '');
-  const lines = unfolded.split(/\r?\n/);
+  // Dynamic import keeps node-ical (and its timezone data) out of the many
+  // API routes that use this client but never touch group calendars.
+  const nodeIcalModule = (await import('node-ical')) as unknown as NodeIcalLike & { default?: NodeIcalLike };
+  const nodeIcal = nodeIcalModule.default ?? nodeIcalModule;
 
-  const events: Array<{ eventId: string; title: string; startDateTime: string; startDate: string; startTime: string }> = [];
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = nodeIcal.sync.parseICS(icalBody);
+  } catch (e: unknown) {
+    console.warn('[ccb] group iCal parse failed:', e instanceof Error ? e.message : e);
+    return [];
+  }
 
-  let inEvent = false;
-  let cur: Record<string, string> = {};
+  const isCancelled = (ev: Pick<IcalVEvent, 'status'>) =>
+    String(ev?.status ?? '').trim().toUpperCase() === 'CANCELLED';
+  const asText = (value: unknown): string =>
+    String((value && typeof value === 'object' ? (value as { val?: unknown }).val : value) ?? '').trim();
 
-  const flush = () => {
-    if (!cur.UID || !cur.DTSTART) return;
-    const uidMatch = cur.UID.match(/^(?:\d+-)?(\d+)/);
+  // Keyed by "eventId|startDate" so duplicate feed entries can't double-list a
+  // date. Overrides are emitted before their master's expansion, so the
+  // specific (moved) row wins the slot.
+  const out = new Map<string, GroupCalendarOccurrence>();
+
+  const emit = (eventId: string, title: string, start: Date, seriesGapDays: number | null) => {
+    const dt = DateTime.fromJSDate(start).setZone('America/Chicago');
+    if (!dt.isValid || dt < windowStart || dt > windowEnd) return;
+    const key = `${eventId}|${dt.toFormat('yyyy-LL-dd')}`;
+    if (out.has(key)) return;
+    out.set(key, {
+      eventId,
+      title,
+      startDateTime: dt.toFormat('yyyy-LL-dd HH:mm:ss'),
+      startDate: dt.toFormat('yyyy-LL-dd'),
+      startTime: dt.toFormat('HH:mm:ss'),
+      seriesGapDays,
+    });
+  };
+
+  for (const entry of Object.values(parsed)) {
+    const ev = entry as IcalVEvent | null;
+    if (!ev || ev.type !== 'VEVENT' || !ev.start) continue;
+
+    // UID:62928-16875@ccbchurch.com → the CCB event_id is the segment after "-"
+    const uidMatch = String(ev.uid ?? '').match(/^(?:\d+-)?(\d+)/);
     const eventId = uidMatch?.[1] || '';
-    if (!eventId) return;
+    if (!eventId) continue;
 
-    const title = (cur.SUMMARY || '').replace(/\\,/g, ',').replace(/\\n/g, ' ').trim();
-    const dtstartRaw = cur.DTSTART; // e.g. "20260506T170000" (TZID stripped from param earlier)
-    const baseDt = parseIcalDateTime(dtstartRaw);
-    if (!baseDt?.isValid) return;
+    const title = asText(ev.summary);
 
-    const exdates = parseIcalExdates(cur.EXDATE);
-    const shouldEmit = (dt: DateTime) =>
-      dt >= start && dt <= end && !exdates.has(dt.toFormat('yyyy-LL-dd HH:mm:ss'));
+    // Moved/edited occurrences (RECURRENCE-ID overrides), folded into the
+    // master by node-ical. Their DTSTART is the occurrence's real date.
+    const overrides: IcalVEvent[] = ev.recurrences ? Object.values(ev.recurrences) : [];
+    for (const override of overrides) {
+      if (!override?.start || isCancelled(override)) continue;
+      emit(eventId, asText(override.summary) || title, override.start, null);
+    }
 
-    const rrule = cur.RRULE;
-    if (!rrule) {
-      // Single occurrence
-      if (shouldEmit(baseDt)) {
-        events.push(emitOccurrence(eventId, title, baseDt));
+    if (ev.rrule) {
+      if (isCancelled(ev)) continue;
+
+      // Expand a little before the window too, so the series' cadence can be
+      // measured even when the request window only catches one occurrence.
+      const lattice: Date[] = ev.rrule.between(
+        windowStart.minus({ weeks: 8 }).toJSDate(),
+        windowEnd.toJSDate(),
+        true
+      );
+
+      let seriesGapDays: number | null = null;
+      for (let i = 1; i < lattice.length; i++) {
+        const gap = Math.round((lattice[i].getTime() - lattice[i - 1].getTime()) / 86_400_000);
+        if (gap > 0 && (seriesGapDays === null || gap < seriesGapDays)) seriesGapDays = gap;
       }
-      return;
-    }
 
-    // Parse RRULE bits we care about (FREQ + INTERVAL + UNTIL + COUNT)
-    const parts: Record<string, string> = {};
-    for (const seg of rrule.split(';')) {
-      const [k, v] = seg.split('=');
-      if (k) parts[k] = v || '';
-    }
-    const freq = parts.FREQ;
-    if (freq !== 'WEEKLY' && freq !== 'DAILY' && freq !== 'MONTHLY') {
-      // Unhandled — fall back to single occurrence
-      if (baseDt >= start && baseDt <= end) {
-        events.push(emitOccurrence(eventId, title, baseDt));
-      }
-      return;
-    }
-
-    const interval = Math.max(1, Number(parts.INTERVAL || 1));
-    const until = parts.UNTIL ? parseIcalDateTime(parts.UNTIL) : null;
-    const count = parts.COUNT ? Number(parts.COUNT) : Infinity;
-
-    if (freq === 'MONTHLY' && parts.BYDAY) {
-      let month = baseDt.startOf('month');
-      let generated = 0;
-
-      // Hard upper bound to avoid runaway loops on weird recurrences.
-      for (let i = 0; i < 500; i++) {
-        const candidates = expandMonthlyByDay(month, parts.BYDAY, baseDt)
-          .filter((dt) => dt >= baseDt)
-          .sort((a, b) => a.toMillis() - b.toMillis());
-
-        for (const occ of candidates) {
-          if (until && occ > until) return;
-          if (generated >= count) return;
-          generated++;
-          if (shouldEmit(occ)) {
-            events.push(emitOccurrence(eventId, title, occ));
-          }
-        }
-
-        month = month.plus({ months: interval });
-        if (month > end.endOf('month')) break;
-      }
-      return;
-    }
-
-    let occ = baseDt;
-    let generated = 0;
-    // Hard upper bound to avoid runaway loops on weird recurrences
-    for (let i = 0; i < 500; i++) {
-      if (until && occ > until) break;
-      if (generated >= count) break;
-      generated++;
-      if (occ > end) break;
-      if (shouldEmit(occ)) {
-        events.push(emitOccurrence(eventId, title, occ));
-      }
-      switch (freq) {
-        case 'DAILY':
-          occ = occ.plus({ days: interval });
-          break;
-        case 'WEEKLY':
-          occ = occ.plus({ weeks: interval });
-          break;
-        case 'MONTHLY':
-          occ = occ.plus({ months: interval });
-          break;
-      }
-    }
-  };
-
-  for (const raw of lines) {
-    const line = raw.trimEnd();
-    if (line === 'BEGIN:VEVENT') {
-      inEvent = true;
-      cur = {};
-      continue;
-    }
-    if (line === 'END:VEVENT') {
-      flush();
-      inEvent = false;
-      cur = {};
-      continue;
-    }
-    if (!inEvent) continue;
-
-    // Split on the first colon, with possible ;PARAM after the key
-    const colonIdx = line.indexOf(':');
-    if (colonIdx < 0) continue;
-    const keyAndParams = line.slice(0, colonIdx);
-    const value = line.slice(colonIdx + 1);
-    const key = keyAndParams.split(';')[0];
-    cur[key] = key === 'EXDATE' && cur[key] ? `${cur[key]},${value}` : value;
-  }
-
-  return events;
-}
-
-function parseIcalExdates(raw: string | undefined): Set<string> {
-  const out = new Set<string>();
-  if (!raw) return out;
-
-  for (const part of raw.split(',')) {
-    const dt = parseIcalDateTime(part.trim());
-    if (dt?.isValid) out.add(dt.toFormat('yyyy-LL-dd HH:mm:ss'));
-  }
-  return out;
-}
-
-function expandMonthlyByDay(month: DateTime, byday: string, baseDt: DateTime): DateTime[] {
-  const time = {
-    hour: baseDt.hour,
-    minute: baseDt.minute,
-    second: baseDt.second,
-    millisecond: baseDt.millisecond,
-  };
-
-  const candidates: DateTime[] = [];
-  for (const rule of byday.split(',').map((p) => p.trim()).filter(Boolean)) {
-    const match = rule.match(/^([+-]?\d+)?(MO|TU|WE|TH|FR|SA|SU)$/);
-    if (!match) continue;
-
-    const ordinal = match[1] ? Number(match[1]) : null;
-    const weekday = weekdayFromIcal(match[2]);
-    if (!weekday) continue;
-
-    if (ordinal == null) {
-      let dt = month.set({ day: 1, ...time });
-      while (dt.month === month.month) {
-        if (dt.weekday === weekday) candidates.push(dt);
-        dt = dt.plus({ days: 1 });
+      const exdateKeys = ev.exdate ? Object.keys(ev.exdate) : [];
+      const overrideKeys = ev.recurrences ? Object.keys(ev.recurrences) : [];
+      for (const occ of lattice) {
+        const utcKey = occ.toISOString().slice(0, 10);
+        if (exdateKeys.some((k) => k.startsWith(utcKey))) continue;
+        if (overrideKeys.some((k) => k.startsWith(utcKey))) continue;
+        emit(eventId, title, occ, seriesGapDays);
       }
       continue;
     }
 
-    const dt = nthWeekdayOfMonth(month, weekday, ordinal, time);
-    if (dt) candidates.push(dt);
+    // Single occurrence. Also covers an override whose master isn't in the
+    // feed — node-ical leaves those at the top level with their new DTSTART.
+    if (isCancelled(ev)) continue;
+    emit(eventId, title, ev.start, null);
   }
 
-  const seen = new Set<string>();
-  return candidates.filter((dt) => {
-    const key = dt.toISO();
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function weekdayFromIcal(day: string): number | null {
-  const map: Record<string, number> = {
-    MO: 1,
-    TU: 2,
-    WE: 3,
-    TH: 4,
-    FR: 5,
-    SA: 6,
-    SU: 7,
-  };
-  return map[day] ?? null;
-}
-
-function nthWeekdayOfMonth(
-  month: DateTime,
-  weekday: number,
-  ordinal: number,
-  time: { hour: number; minute: number; second: number; millisecond: number }
-): DateTime | null {
-  if (ordinal === 0) return null;
-
-  if (ordinal > 0) {
-    let dt = month.set({ day: 1, ...time });
-    const offset = (weekday - dt.weekday + 7) % 7;
-    dt = dt.plus({ days: offset + (ordinal - 1) * 7 });
-    return dt.month === month.month ? dt : null;
-  }
-
-  let dt = month.endOf('month').set(time);
-  const offset = (dt.weekday - weekday + 7) % 7;
-  dt = dt.minus({ days: offset + (Math.abs(ordinal) - 1) * 7 });
-  return dt.month === month.month ? dt : null;
-}
-
-function parseIcalDateTime(raw: string): DateTime | null {
-  if (!raw) return null;
-  // Forms: "20260506T170000", "20260506T170000Z", "20260506"
-  const m = raw.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z?))?$/);
-  if (!m) return null;
-  const [, y, mo, d, h = '0', mi = '0', s = '0', z] = m;
-  const opts = { zone: z === 'Z' ? 'utc' : 'America/Chicago' };
-  return DateTime.fromObject(
-    { year: +y, month: +mo, day: +d, hour: +h, minute: +mi, second: +s },
-    opts
-  ).setZone('America/Chicago');
-}
-
-function emitOccurrence(eventId: string, title: string, dt: DateTime) {
-  return {
-    eventId,
-    title,
-    startDateTime: dt.toFormat('yyyy-LL-dd HH:mm:ss'),
-    startDate: dt.toFormat('yyyy-LL-dd'),
-    startTime: dt.toFormat('HH:mm:ss'),
-  };
+  return Array.from(out.values()).sort((a, b) => a.startDateTime.localeCompare(b.startDateTime));
 }
 
 // ---- Factory function ----

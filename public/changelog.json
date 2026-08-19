@@ -13,6 +13,16 @@
     "date": "2026-08-19",
     "date_display": "August 19, 2026",
     "date_iso": "2026-08-19",
+    "id": "circles-toolkit-rescheduled-meeting-dates",
+    "type": "fix",
+    "category": "Circles Toolkit",
+    "description": "The Circles Toolkit events list now matches the group's actual CCB calendar. When a circle's meetings were rescheduled in CCB — individual dates moved, or the schedule replaced with a new one — the Toolkit kept asking for summaries on the old dates and never showed the new ones. It now reads moved and canceled occurrences the way CCB records them, and a date CCB itself schedules (a moved meeting, a one-off, or an already bi-weekly calendar) always shows even if the circle's RADIUS meeting-frequency settings point at an out-of-date week. Circles affected by previously cached wrong dates are corrected automatically the next time their events page loads.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-08-19",
+    "date_display": "August 19, 2026",
+    "date_iso": "2026-08-19",
     "id": "find-a-circle-phone-contact-modal",
     "type": "improvement",
     "category": "Find a Circle",
