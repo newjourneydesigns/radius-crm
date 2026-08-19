@@ -16,7 +16,6 @@ import {
   type QuestionResponseKey,
 } from '../../../../../../lib/circle-leader-toolkit/dynamic-question-response-keys';
 import {
-  AutoGrowTextarea,
   DynamicQuestionField,
   dynamicValueToString,
   getQuestionOptions,

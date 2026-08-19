@@ -3,6 +3,16 @@
     "date": "2026-08-19",
     "date_display": "August 19, 2026",
     "date_iso": "2026-08-19",
+    "id": "circle-summary-scroll-lock",
+    "type": "fix",
+    "category": "Circles Toolkit",
+    "description": "Fixed the Circle Summary form getting stuck partway down the page. As a leader typed into \"Tell us about your Circle gathering,\" the field grew by remeasuring itself, which briefly shrank the whole page and then scrolled it back into place on every keystroke. On iPhones that round trip left the page thinking it was shorter than it really was: it would stop scrolling before the end, the last cards and the Submit button could only be glimpsed by dragging against the bounce, and nothing down there could be tapped until the page was reloaded. The field now grows through layout instead of measuring, so the page height and your scroll position never move while you type.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-08-19",
+    "date_display": "August 19, 2026",
+    "date_iso": "2026-08-19",
     "id": "circle-location-filter",
     "type": "feature",
     "category": "Find a Circle",
