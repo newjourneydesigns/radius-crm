@@ -97,6 +97,67 @@ Fetches event notes for a specific group and date range.
 
 For development and testing, the API also supports GET requests with query parameters. This returns mock data when CCB credentials are not configured.
 
+### POST /api/ccb/group-search
+
+Searches all CCB groups by name. Consumed by the Valley Creek Toolkit (vcpulse), which forwards its signed-in user's Supabase bearer token unchanged — the same auth gate as `/api/ccb/person-search` (401 when not signed in).
+
+Unlike the other `/api/ccb/*` endpoints, **this never calls CCB**. It reads the `ccb_group_cache` table, which a scheduled sweep rebuilds nightly (see below), so it is fast, costs zero CCB budget, and keeps answering when CCB is down. `syncedAt` tells the caller how fresh the cache is.
+
+**Request Body:**
+```json
+{ "query": "stm leader", "includeInactive": false }
+```
+
+- `query` — required, trimmed, minimum 2 characters. Under the floor the endpoint answers `success: true, data: []` (not an error).
+- `includeInactive` — optional, default `false`. When false, groups marked inactive in CCB are excluded.
+
+Matching is case-insensitive and every whitespace-separated word must appear somewhere in the group name (AND of substrings): `stm leader` finds "STM Leaders – Denton" and "Leaders of STM Teams" but not "STM Kids".
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "1234",
+      "name": "Anthem STM Leaders",
+      "campus": "Lewisville",
+      "groupType": "Serve Team",
+      "mainLeader": "Jane Doe",
+      "memberCount": null,
+      "inactive": false
+    }
+  ],
+  "total": 37,
+  "syncedAt": "2026-08-19T08:00:12Z"
+}
+```
+
+- `data` — best 25 matches: exact name match first, then name-starts-with, then alphabetical. `campus`, `groupType`, `mainLeader`, `memberCount` are nullable. `memberCount` is null in practice: `group_profiles` with `include_participants=false` carries no membership count.
+- `total` — the uncapped match count.
+- `syncedAt` — when the cache last finished a COMPLETE sweep; `null` if it never has.
+
+Failures: missing/invalid auth → 401; anything else → `success: false` with `error`/`details`, same shapes as the sibling endpoints.
+
+### POST /api/ccb/sync-group-cache (cron / manual)
+
+Rebuilds the `ccb_group_cache` table by paging through CCB v1 `group_profiles` with `include_participants=false` (100 groups per page ⇒ ceil(N/100) CCB calls, through the shared daily budget guard). Called nightly at 8:00 UTC by the Netlify scheduled function `netlify/functions/sync-group-cache.ts`.
+
+Auth is `Authorization: Bearer ${CRON_SECRET}` (fail-closed), so a manual run — e.g. the first cache fill — is:
+
+```bash
+curl -X POST "$APP_URL/api/ccb/sync-group-cache" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Sweep guarantees:
+
+- Rows are upserted with the sweep's start timestamp; rows CCB no longer returns are deleted **only after a complete sweep**. A partial sweep (budget guard tripped, CCB error) never deletes anything — yesterday's cache keeps serving.
+- If the daily CCB budget is already spent, the sweep skips (`complete: false`) and the search endpoint's `syncedAt` truthfully reports the cache's age.
+- `group_profiles` **does** return inactive groups; they are cached with `inactive: true` so `includeInactive` works.
+
+Verification: `npm run verify:group-search` asserts the matching/ranking contract and the `group_profiles` page parser (pure logic, no network/DB).
+
 ## CCB API Integration Details
 
 The integration uses the following CCB API endpoints:
