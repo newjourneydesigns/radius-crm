@@ -46,7 +46,7 @@ export async function POST(
     const sb = getServiceSupabase();
     const { data: leader } = await sb
       .from('circle_leaders')
-      .select('id, name, ccb_group_id, leader_ccb_profile_link, campus, circle_type, day, time, frequency, location, email, phone, birthday, ccb_group_name, ccb_event_ids')
+      .select('id, name, ccb_group_id, leader_ccb_profile_link, campus, circle_type, circle_location, day, time, frequency, location, email, phone, birthday, ccb_group_name, ccb_event_ids')
       .eq('id', id)
       .maybeSingle();
 
@@ -67,7 +67,7 @@ export async function POST(
         .from('circle_leaders')
         .update(updates)
         .eq('id', id)
-        .select('id, name, day, time, frequency, location, campus, circle_type, email, phone, birthday, ccb_group_name, ccb_event_ids, leader_ccb_profile_link')
+        .select('id, name, day, time, frequency, location, campus, circle_type, circle_location, email, phone, birthday, ccb_group_name, ccb_event_ids, leader_ccb_profile_link')
         .single();
       if (applyErr) {
         console.error('❌ resync-ccb apply error:', applyErr);
@@ -94,7 +94,7 @@ export async function POST(
       request,
       ccbv2,
       groupId,
-      telemetry: { module: 'Circle Page', circleTypeAction: 'Re-sync Circle Type' },
+      telemetry: { module: 'Circle Page', classificationsAction: 'Re-sync Classifications' },
     });
 
     if (!snapshot) {

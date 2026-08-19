@@ -134,6 +134,9 @@ export async function POST(request: NextRequest) {
       const circleType = normalizeString(circleLeader.circle_type);
       if (circleType) cleanData.circle_type = circleType;
 
+      const circleLocation = normalizeString(circleLeader.circle_location);
+      if (circleLocation) cleanData.circle_location = circleLocation;
+
       const ccbProfileLink = normalizeString(circleLeader.ccb_profile_link);
       if (ccbProfileLink) cleanData.ccb_profile_link = ccbProfileLink;
 

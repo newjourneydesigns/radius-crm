@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { CCBv2Client, formatCcbAddress } from './ccb-v2-client';
-import { fetchCcbCircleType } from './circle-type';
+import { fetchCcbGroupClassifications } from './circle-type';
 import { isSameLeaderFieldValue, normalizeLeaderFieldValue } from '../leaderFieldValues';
 
 /**
@@ -11,15 +11,16 @@ import { isSameLeaderFieldValue, normalizeLeaderFieldValue } from '../leaderFiel
  */
 
 export const CCB_SYNCABLE_FIELDS = [
-  'name', 'campus', 'circle_type', 'day', 'time', 'frequency', 'location',
-  'email', 'phone', 'birthday', 'leader_ccb_profile_link', 'ccb_group_name',
-  'ccb_event_ids',
+  'name', 'campus', 'circle_type', 'circle_location', 'day', 'time', 'frequency',
+  'location', 'email', 'phone', 'birthday', 'leader_ccb_profile_link',
+  'ccb_group_name', 'ccb_event_ids',
 ] as const;
 
 export type CcbSyncableField = (typeof CCB_SYNCABLE_FIELDS)[number];
 
 export const CCB_SYNC_FIELD_LABELS: Record<string, string> = {
-  name: 'Leader Name', campus: 'Campus', circle_type: 'Circle Type', day: 'Meeting Day',
+  name: 'Leader Name', campus: 'Campus', circle_type: 'Circle Type',
+  circle_location: 'Circle Location', day: 'Meeting Day',
   time: 'Meeting Time', frequency: 'Frequency', location: 'Location', email: 'Email',
   phone: 'Phone', birthday: 'Birthday', leader_ccb_profile_link: 'Leader CCB Profile',
   ccb_group_name: 'CCB Group Name', ccb_event_ids: 'CCB Event IDs',
@@ -64,7 +65,7 @@ export async function fetchCcbCircleSnapshot(opts: {
   request: NextRequest;
   ccbv2: CCBv2Client;
   groupId: string;
-  telemetry: { module: string; circleTypeAction?: string };
+  telemetry: { module: string; classificationsAction?: string };
   campusNameCache?: Map<string, string | null>;
 }): Promise<CcbCircleSnapshot | null> {
   const { request, ccbv2, groupId } = opts;
@@ -121,12 +122,12 @@ export async function fetchCcbCircleSnapshot(opts: {
   // created, and goes stale the moment a circle changes venue.
   const meetingLocation = formatCcbAddress(group.address) || meeting.eventLocation;
 
-  // Circle Type is a custom field on the CCB group profile, reachable only
-  // through v1. `group.type.name` from v2 is CCB's group_type ("Small Group"),
-  // which is not what RADIUS stores here.
-  const circleType = await fetchCcbCircleType(request, groupId, {
+  // Circle Type and Circle Location are custom fields on the CCB group
+  // profile, reachable only through v1 — one call returns both. `group.type.name`
+  // from v2 is CCB's group_type ("Small Group"), which is not what RADIUS stores.
+  const classifications = await fetchCcbGroupClassifications(request, groupId, {
     module: opts.telemetry.module,
-    action: opts.telemetry.circleTypeAction || 'Lookup Group Circle Type',
+    action: opts.telemetry.classificationsAction || 'Lookup Group Classifications',
   });
 
   const linkBase = ccbLinkBase();
@@ -148,7 +149,8 @@ export async function fetchCcbCircleSnapshot(opts: {
 
   setIf('name', group.mainLeader?.fullName || null);
   setIf('campus', campusName);
-  setIf('circle_type', circleType);
+  setIf('circle_type', classifications.circleType);
+  setIf('circle_location', classifications.circleLocation);
   setIf('day', meeting.day || group.meetDay?.name || null);
   setIf('time', meeting.time);
   setIf('frequency', meeting.frequency);

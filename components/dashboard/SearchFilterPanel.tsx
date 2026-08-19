@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { CIRCLE_LOCATION_OPTIONS } from "../../lib/leaderFieldValues";
 
 const MEETING_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const TIME_OPTIONS = ["AM", "PM"];
@@ -22,7 +23,8 @@ const MENU_MAX_HEIGHT = 360;
 
 interface SearchFilters {
   campus: string;
-  circleType: string; 
+  circleType: string;
+  circleLocation: string;
   meetingDay: string[];  // Changed to array for multiselect
   timeOfDay: string;
   searchTerm: string;
@@ -180,7 +182,7 @@ export default function SearchFilterPanel({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-8 p-6 relative z-20">
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
         {/* Campus Filter */}
         <div>
           <label htmlFor="campus-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -214,6 +216,26 @@ export default function SearchFilterPanel({
             <option value="">All Types</option>
             {uniqueCircleTypes.map(type => (
               <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Circle Location Filter — where the circle meets (campus / city / online).
+            Fixed CCB-defined options rather than data-derived, so the choices are
+            visible even before every circle has the field populated. */}
+        <div>
+          <label htmlFor="circleLocation-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Circle Location
+          </label>
+          <select
+            id="circleLocation-filter"
+            value={filters.circleLocation}
+            onChange={e => handleFilterChange('circleLocation', e.target.value)}
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-vc-500 focus:border-vc-500"
+          >
+            <option value="">All Locations</option>
+            {CIRCLE_LOCATION_OPTIONS.map(option => (
+              <option key={option} value={option}>{option}</option>
             ))}
           </select>
         </div>

@@ -9,6 +9,13 @@ import { convertAMPMTo24Hour } from './timeUtils';
  * one has to reduce both first, or equivalent values read as differences.
  */
 
+/**
+ * The CCB "Circle Location" classification options — where a circle meets.
+ * These mirror the pulldown defined in CCB's admin UI; the sync stores whatever
+ * CCB sends, so a value outside this list still displays fine.
+ */
+export const CIRCLE_LOCATION_OPTIONS = ['Campus Circle', 'City Circle', 'Online Circle'] as const;
+
 /** Collapse "Young Adult | X" to the "YA | X" form RADIUS stores. */
 export const normalizeCircleTypeValue = (value: string | null | undefined): string => {
   const raw = (value || '').trim();

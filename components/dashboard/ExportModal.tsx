@@ -72,9 +72,10 @@ export default function ExportModal({ isOpen, onClose, leaders }: ExportModalPro
     
     if (options.meetingDay && leader.day) parts.push(leader.day);
     if (options.meetingTime && leader.time) parts.push(formatTime(leader.time));
-    // Keep frequency and circle type always included (not part of requested toggles)
+    // Keep frequency, circle type, and circle location always included (not part of requested toggles)
     if (leader.frequency) parts.push(leader.frequency);
     if (leader.circle_type) parts.push(leader.circle_type);
+    if (leader.circle_location) parts.push(leader.circle_location);
     
     if (parts.length === 0) return '';
     return `Meeting: ${parts.join(' • ')}`;
@@ -140,6 +141,7 @@ ${leaders.map((leader) => buildLeaderBlock(leader)).join('\n\n')}`;
     if (options.meetingDay) headers.push('Meeting Day');
     if (options.meetingTime) headers.push('Meeting Time');
     if (options.location) headers.push('Location');
+    headers.push('Circle Location');
     if (options.status) headers.push('Status');
 
     const csvData = leaders.map(leader => {
@@ -151,6 +153,7 @@ ${leaders.map((leader) => buildLeaderBlock(leader)).join('\n\n')}`;
       if (options.meetingDay) row.push(leader.day || '');
       if (options.meetingTime) row.push(formatTime(leader.time));
       if (options.location) row.push(leader.location || '');
+      row.push(leader.circle_location || '');
       if (options.status) row.push(leader.status || '');
       
       return row.map(field => `"${field.replace(/"/g, '""')}"`).join(',');
