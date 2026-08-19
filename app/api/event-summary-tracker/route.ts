@@ -20,7 +20,12 @@ function getDB() {
  * Composite read for the Event Summary Tracker page. Returns everything the
  * page can't get from existing endpoints in one shot:
  *
- *   - orphans:           grouped by category (matched / inactive / unknown_group)
+ *   - orphans:           inactive-circle orphans only. unknown_group rows (CCB
+ *                        groups with no Radius circle — serve teams, kids
+ *                        ministry, etc.) are still recorded by the sync for
+ *                        audit, but deliberately NOT surfaced on this page;
+ *                        those groups belong to the Toolkit's group search,
+ *                        not the Radius events view.
  *   - missed_two_plus:   leader_ids who were not_received or did_not_meet for
  *                        BOTH this week and the prior scheduled week
  *   - reviewers:         { leader_id -> { reviewed_at, reviewed_by_id,
@@ -62,7 +67,7 @@ export async function GET(request: NextRequest) {
       .from('ccb_orphan_summaries')
       .select('id, ccb_event_id, occurrence, ccb_event_name, ccb_group_id, did_not_meet, head_count, attendee_count, matched_leader_id, category, detected_at')
       .eq('week_start_date', weekStart)
-      .in('category', ['inactive', 'unknown_group']);
+      .eq('category', 'inactive');
 
     const snapshotsPromise = db
       .from('event_summary_snapshots')
@@ -191,17 +196,7 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Group orphans by category
-    type OrphanRow = NonNullable<typeof orphansRes.data>[number];
-    const orphansByCategory: Record<'inactive' | 'unknown_group', OrphanRow[]> = {
-      inactive: [],
-      unknown_group: [],
-    };
-    for (const o of orphansRes.data ?? []) {
-      if (o.category === 'inactive' || o.category === 'unknown_group') {
-        orphansByCategory[o.category].push(o);
-      }
-    }
+    const orphansByCategory = { inactive: orphansRes.data ?? [] };
 
     return NextResponse.json(
       {

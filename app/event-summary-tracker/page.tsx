@@ -60,14 +60,16 @@ type Orphan = {
   head_count: number;
   attendee_count: number;
   matched_leader_id: number | null;
-  category: 'inactive' | 'unknown_group';
+  category: 'inactive';
 };
 
 type TrackerData = {
   week_start_date: string;
   week_end_date: string;
   snapshots: SnapshotRow[];
-  orphans: { inactive: Orphan[]; unknown_group: Orphan[] };
+  // unknown_group orphans (CCB groups with no Radius circle) are deliberately
+  // not returned/shown — those groups live in the Toolkit's group search.
+  orphans: { inactive: Orphan[] };
   missed_two_plus_leader_ids: number[];
   reviewers: Record<number, {
     reviewed_at: string;
@@ -904,7 +906,7 @@ export default function EventSummaryTrackerPage() {
     return { received, dnm, review, notReport, inCcb, totalAttended, avgSize, missedCount };
   }, [rows, needsReview.length, awaiting.length]);
 
-  const orphanCount = (tracker?.orphans.inactive.length ?? 0) + (tracker?.orphans.unknown_group.length ?? 0);
+  const orphanCount = tracker?.orphans.inactive.length ?? 0;
   const issueCount = orphanCount + (stats.missedCount > 0 ? 1 : 0);
 
   // -- Actions ------------------------------------------------------------------
@@ -1273,12 +1275,6 @@ export default function EventSummaryTrackerPage() {
                   <div key={`i-${o.id}`} className="text-yellow-200/90 flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 text-yellow-300 flex-shrink-0 mt-0.5" />
                     <span><span className="font-medium">{o.ccb_event_name}</span> is marked inactive in Radius but submitted a summary.</span>
-                  </div>
-                ))}
-                {tracker?.orphans.unknown_group.map(o => (
-                  <div key={`u-${o.id}`} className="text-red-200/90 flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-red-300 flex-shrink-0 mt-0.5" />
-                    <span><span className="font-medium">{o.ccb_event_name}</span> submitted a summary but isn&apos;t in Radius.</span>
                   </div>
                 ))}
               </div>
