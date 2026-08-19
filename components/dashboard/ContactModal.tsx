@@ -11,16 +11,20 @@ interface ContactModalProps {
 }
 
 export default function ContactModal({ isOpen, name, email, phone, onClose }: ContactModalProps) {
+  // Callers may pass a display-formatted number like "(817) 966-1211";
+  // tel:/sms: URLs only want digits and a leading +.
+  const dialablePhone = phone ? phone.replace(/[^\d+]/g, '') : '';
+
   const handleCall = () => {
-    if (phone) {
-      window.open(`tel:${phone}`, '_self');
+    if (dialablePhone) {
+      window.open(`tel:${dialablePhone}`, '_self');
       onClose();
     }
   };
 
   const handleText = () => {
-    if (phone) {
-      window.open(`sms:${phone}`, '_self');
+    if (dialablePhone) {
+      window.open(`sms:${dialablePhone}`, '_self');
       onClose();
     }
   };

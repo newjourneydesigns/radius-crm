@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-08-19",
+    "date_display": "August 19, 2026",
+    "date_iso": "2026-08-19",
+    "id": "find-a-circle-phone-contact-modal",
+    "type": "improvement",
+    "category": "Find a Circle",
+    "description": "Tapping a phone number on Find a Circle now opens the contact sheet instead of immediately dialing. Pick Call or Send Text and the right app opens with the leader's number already filled in — and if the leader has an email on file, Send Email is right there too. No more accidental calls from a stray tap on the results list.",
+    "page": "/search"
+  },
+  {
     "date": "2026-08-17",
     "date_display": "August 17, 2026",
     "date_iso": "2026-08-17",
