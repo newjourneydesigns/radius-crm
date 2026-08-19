@@ -13,6 +13,16 @@
     "date": "2026-08-19",
     "date_display": "August 19, 2026",
     "date_iso": "2026-08-19",
+    "id": "event-tracker-hide-non-radius-groups",
+    "type": "improvement",
+    "category": "Event Summary Tracker",
+    "description": "The issues banner on the Event Summary Tracker no longer lists every CCB group that submitted a summary but isn't a circle in Radius — serve teams, kids ministry classes, and other church groups were burying the warnings that matter. The banner now sticks to Radius circles: circles that haven't met for 2+ scheduled weeks and inactive circles that still submitted a summary. Groups outside Radius are searchable from the Valley Creek Toolkit instead.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-08-19",
+    "date_display": "August 19, 2026",
+    "date_iso": "2026-08-19",
     "id": "circles-toolkit-rescheduled-meeting-dates",
     "type": "fix",
     "category": "Circles Toolkit",
