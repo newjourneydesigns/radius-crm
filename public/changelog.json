@@ -13,6 +13,26 @@
     "date": "2026-08-19",
     "date_display": "August 19, 2026",
     "date_iso": "2026-08-19",
+    "id": "circle-location-filter",
+    "type": "feature",
+    "category": "Find a Circle",
+    "description": "You can now find every circle that meets online — or on campus, or out in the city. Circles have a new Circle Location field (Campus Circle / City Circle / Online Circle), pulled straight from the same classification staff already maintain in CCB. Find a Circle gets a Circle Location filter and column, so pulling up all online circles with their day, type, time, and campus is one click — and the export includes it for reports. The value also shows on each circle's profile, where it can be edited by hand, and it comes in automatically with CCB imports and re-syncs.",
+    "page": "/search"
+  },
+  {
+    "date": "2026-08-19",
+    "date_display": "August 19, 2026",
+    "date_iso": "2026-08-19",
+    "id": "event-tracker-hide-non-radius-groups",
+    "type": "improvement",
+    "category": "Event Summary Tracker",
+    "description": "The issues banner on the Event Summary Tracker no longer lists every CCB group that submitted a summary but isn't a circle in Radius — serve teams, kids ministry classes, and other church groups were burying the warnings that matter. The banner now sticks to Radius circles: circles that haven't met for 2+ scheduled weeks and inactive circles that still submitted a summary. Groups outside Radius are searchable from the Valley Creek Toolkit instead.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-08-19",
+    "date_display": "August 19, 2026",
+    "date_iso": "2026-08-19",
     "id": "circles-toolkit-rescheduled-meeting-dates",
     "type": "fix",
     "category": "Circles Toolkit",

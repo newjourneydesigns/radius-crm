@@ -8,6 +8,7 @@ interface DashboardFilters {
   status?: string[];
   meetingDay: string[];
   circleType: string[];
+  circleLocation?: string[];
   eventSummary?: string;
   connected?: string;
   timeOfDay: string;
@@ -17,14 +18,7 @@ interface DashboardFilters {
 interface SearchFilters {
   campus: string;
   circleType: string;
-  meetingDay: string[];
-  timeOfDay: string;
-  searchTerm: string;
-}
-
-interface SearchFilters {
-  campus: string;
-  circleType: string; 
+  circleLocation: string;
   meetingDay: string[];  // Changed to array for multiselect
   timeOfDay: string;
   searchTerm: string;
@@ -86,8 +80,10 @@ export default function DashboardFilterAdapter({
       campus = typeof filters.campus === 'string' ? filters.campus : '';
     }
     
-    const circleType = Array.isArray(filters.circleType) ? (filters.circleType[0] || '') : 
+    const circleType = Array.isArray(filters.circleType) ? (filters.circleType[0] || '') :
                       (typeof filters.circleType === 'string' ? filters.circleType : '');
+    const circleLocation = Array.isArray(filters.circleLocation) ? (filters.circleLocation[0] || '') :
+                      (typeof filters.circleLocation === 'string' ? filters.circleLocation : '');
     // For meetingDay, preserve the array structure for multiselect
     const meetingDay = Array.isArray(filters.meetingDay) ? filters.meetingDay : 
                       (typeof filters.meetingDay === 'string' && filters.meetingDay ? [filters.meetingDay] : []);
@@ -101,6 +97,7 @@ export default function DashboardFilterAdapter({
     const result = {
       campus,
       circleType,
+      circleLocation,
       meetingDay,
       timeOfDay,
       searchTerm: filters.searchTerm || ''
@@ -129,6 +126,7 @@ export default function DashboardFilterAdapter({
     const dashboardFilters: Partial<DashboardFilters> = {
       campus: campusValue,
       circleType: newSearchFilters.circleType ? [newSearchFilters.circleType] : [],
+      circleLocation: newSearchFilters.circleLocation ? [newSearchFilters.circleLocation] : [],
       meetingDay: newSearchFilters.meetingDay || [],
       // Convert UI uppercase (AM/PM) back to lowercase for dashboard filtering logic, or 'all' if empty
       timeOfDay: newSearchFilters.timeOfDay ? newSearchFilters.timeOfDay.toLowerCase() : 'all',

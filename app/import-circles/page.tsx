@@ -18,6 +18,7 @@ interface CCBGroupPreview {
   description?: string | null;
   groupType?: string | null;
   circleType?: string | null;
+  circleLocation?: string | null;
   campus?: string | null;
   campusId?: string | null;
   meetingDay?: string | null;
@@ -1356,6 +1357,7 @@ export default function ImportCirclesPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
                     <Detail label="Name" value={preview.name} />
                     <Detail label="Circle Type" value={preview.circleType} />
+                    <Detail label="Circle Location" value={preview.circleLocation} />
                     <Detail label="Campus" value={preview.campus} />
                     <Detail label="CCB Group Type" value={preview.groupType} />
                     <Detail label="CCB Group ID" value={preview.id} />

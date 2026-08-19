@@ -26,6 +26,7 @@ interface CircleSearchResult {
   leader_type?: string;
   frequency?: string;
   location?: string;
+  circle_location?: string;
   acpd?: string;
 }
 
@@ -64,6 +65,7 @@ interface DashboardFilters {
   status?: string[];
   meetingDay: string[];
   circleType: string[];
+  circleLocation: string[];
   eventSummary?: string;
   connected?: string;
   timeOfDay: string;
@@ -122,7 +124,7 @@ export default function SearchPage() {
   // State for filters - using dashboard filter structure
   // Initialise from localStorage when available
   const [filters, setFilters] = useState<DashboardFilters>(() => {
-    const defaults = { campus: [], acpd: [], status: ['Active'], meetingDay: [], circleType: [], timeOfDay: 'all', searchTerm: '', leaderType: 'all' };
+    const defaults = { campus: [], acpd: [], status: ['Active'], meetingDay: [], circleType: [], circleLocation: [], timeOfDay: 'all', searchTerm: '', leaderType: 'all' };
     if (typeof window === 'undefined') return defaults;
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -176,8 +178,8 @@ export default function SearchPage() {
 
       try {
         const selectFields = signedIn
-          ? 'id, name, email, phone, campus, day, time, circle_type, status, ccb_group_id, leader_type, frequency, location, acpd'
-          : 'id, name, campus, day, time, circle_type, status, ccb_group_id, leader_type, frequency, location, acpd';
+          ? 'id, name, email, phone, campus, day, time, circle_type, circle_location, status, ccb_group_id, leader_type, frequency, location, acpd'
+          : 'id, name, campus, day, time, circle_type, circle_location, status, ccb_group_id, leader_type, frequency, location, acpd';
 
         const leadersQuery = supabase.from('circle_leaders') as unknown as CircleLeadersSearchQuery;
 
@@ -228,7 +230,8 @@ export default function SearchPage() {
       filtered = filtered.filter(circle =>
         circle.name.toLowerCase().includes(filters.searchTerm!.toLowerCase()) ||
         circle.campus.toLowerCase().includes(filters.searchTerm!.toLowerCase()) ||
-        circle.circle_type.toLowerCase().includes(filters.searchTerm!.toLowerCase())
+        circle.circle_type.toLowerCase().includes(filters.searchTerm!.toLowerCase()) ||
+        (circle.circle_location || '').toLowerCase().includes(filters.searchTerm!.toLowerCase())
       );
     }
 
@@ -246,6 +249,11 @@ export default function SearchPage() {
     // Apply circle type filter
     if (filters.circleType && filters.circleType.length > 0) {
       filtered = filtered.filter(circle => filters.circleType.includes(circle.circle_type));
+    }
+
+    // Apply circle location filter (where the circle meets: campus / city / online)
+    if (filters.circleLocation && filters.circleLocation.length > 0) {
+      filtered = filtered.filter(circle => filters.circleLocation.includes(circle.circle_location || ''));
     }
 
     // Apply meeting day filter
@@ -327,6 +335,7 @@ export default function SearchPage() {
       status: ['Active'],
       meetingDay: [],
       circleType: [],
+      circleLocation: [],
       timeOfDay: 'all',
       searchTerm: '',
       leaderType: 'all'
@@ -565,6 +574,20 @@ export default function SearchPage() {
                     <th
                       scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      onClick={() => handleSort('circle_location')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Circle Location</span>
+                        {sortConfig.key === 'circle_location' && (
+                          <span className="text-blue-500">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       onClick={() => handleSort('day')}
                     >
                       <div className="flex items-center space-x-1">
@@ -677,6 +700,11 @@ export default function SearchPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
                           {circle.circle_type || '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {circle.circle_location || '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

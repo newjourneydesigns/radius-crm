@@ -123,6 +123,9 @@ export interface CircleLeader {
   director?: string;
   ccb_category_id?: string;
   location?: string;
+  // Where the circle meets, from CCB's "Circle Location" classification:
+  // 'Campus Circle' | 'City Circle' | 'Online Circle'. Not the street address.
+  circle_location?: string;
   uuid?: string;
   created_at?: string;
   updated_at?: string;

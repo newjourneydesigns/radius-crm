@@ -33,6 +33,7 @@ import type { LeadershipSnapshot } from '../../../lib/supabase';
 import { useRealtimeSubscription, RealtimeSubscriptionConfig } from '../../../hooks/useRealtimeSubscription';
 import { calculateSuggestedScore, getFinalScore } from '../../../lib/evaluationQuestions';
 import { extractCcbGroupId, extractCcbIndividualId } from '../../../lib/ccbGroupId';
+import { CIRCLE_LOCATION_OPTIONS } from '../../../lib/leaderFieldValues';
 
 const CCB_BASE_URL = 'https://valleycreekchurch.ccbchurch.com';
 import { buildTimeOptions15Min } from '../../../lib/timeUtils';
@@ -1619,6 +1620,7 @@ export default function CircleLeaderProfilePage() {
       frequency: leader.frequency,
       meeting_start_date: leader.meeting_start_date,
       circle_type: leader.circle_type as CircleLeader['circle_type'],
+      circle_location: leader.circle_location || '',
       follow_up_required: leader.follow_up_required,
       follow_up_date: leader.follow_up_date,
       circle_name: leader.circle_name || leader.name || '',
@@ -1703,6 +1705,7 @@ export default function CircleLeaderProfilePage() {
           frequency: editedLeader.frequency || null,
           meeting_start_date: editedLeader.meeting_start_date || null,
           circle_type: editedLeader.circle_type || null,
+          circle_location: editedLeader.circle_location || null,
           follow_up_required: editedLeader.follow_up_required || false,
           follow_up_date: editedLeader.follow_up_date || null,
           ccb_profile_link: groupProfileLink,
@@ -1827,6 +1830,7 @@ export default function CircleLeaderProfilePage() {
         location: u.location ?? prev.location,
         campus: u.campus ?? prev.campus,
         circle_type: (u.circle_type ?? prev.circle_type) as CircleLeader['circle_type'],
+        circle_location: u.circle_location ?? prev.circle_location,
         email: u.email ?? prev.email,
         phone: u.phone ?? prev.phone,
         birthday: u.birthday ?? prev.birthday,
@@ -2640,6 +2644,29 @@ export default function CircleLeaderProfilePage() {
                         </select>
                       ) : (
                         <span className="text-sm text-slate-200">{normalizeCircleTypeValue(leader.circle_type) || 'Not specified'}</span>
+                      )}
+                    </dd>
+                  </div>}
+                  {/* CCB's "Circle Location" classification — where the circle
+                      meets (campus / city / online), not the street address. */}
+                  {!isHostTeam && <div>
+                    <dt className="text-sm font-medium text-slate-400">Circle Location</dt>
+                    <dd className="mt-1">
+                      {isEditing ? (
+                        <select
+                          value={editedLeader.circle_location || ''}
+                          onChange={(e) => handleLeaderFieldChange('circle_location', e.target.value)}
+                          className="w-full px-3 py-1 text-sm border border-zinc-600 rounded-md bg-zinc-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-vc-500 focus:border-transparent"
+                        >
+                          <option value="">Select Circle Location</option>
+                          {CIRCLE_LOCATION_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-slate-200">{leader.circle_location || 'Not specified'}</span>
                       )}
                     </dd>
                   </div>}

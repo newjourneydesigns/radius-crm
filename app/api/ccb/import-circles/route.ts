@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { fetchCcbCircleType } from '../../../../lib/ccb/circle-type';
+import { fetchCcbGroupClassifications } from '../../../../lib/ccb/circle-type';
 import { createCCBv2Client, formatCcbAddress } from '../../../../lib/ccb/ccb-v2-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
     // wins. An event's address is only a snapshot taken when that event was
     // created, and goes stale the moment a circle changes venue.
     const meetingLocation = formatCcbAddress(group.address) || meeting.eventLocation;
-    const circleType = await fetchCcbCircleType(request, groupId, { module: 'Import Circles (v1)' });
+    const { circleType, circleLocation } = await fetchCcbGroupClassifications(request, groupId, { module: 'Import Circles (v1)' });
 
     return NextResponse.json({
       success: true,
@@ -146,6 +146,7 @@ export async function GET(request: NextRequest) {
         description: group.description || null,
         groupType: group.type?.name || null,
         circleType,
+        circleLocation,
         campus: campusName,
         campusId: group.campus?.id || null,
         meetingDay: meeting.day || group.meetDay?.name || null,
@@ -286,7 +287,7 @@ export async function POST(request: NextRequest) {
     // wins. An event's address is only a snapshot taken when that event was
     // created, and goes stale the moment a circle changes venue.
     const meetingLocation = formatCcbAddress(group.address) || meeting.eventLocation;
-    const circleType = await fetchCcbCircleType(request, groupId, { module: 'Import Circles (v1)' });
+    const { circleType, circleLocation } = await fetchCcbGroupClassifications(request, groupId, { module: 'Import Circles (v1)' });
 
     const subdomain = process.env.CCB_SUBDOMAIN || process.env.CCB_BASE_URL || '';
     const base = subdomain
@@ -308,6 +309,7 @@ export async function POST(request: NextRequest) {
       campus: campusName,
       acpd,
       circle_type: circleType,
+      circle_location: circleLocation,
       day: meetingDay,
       time: meetingTime,
       frequency: meeting.frequency,

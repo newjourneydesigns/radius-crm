@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { formatFrequencyLabel } from '../../lib/frequencyUtils';
+import { CIRCLE_LOCATION_OPTIONS } from '../../lib/leaderFieldValues';
 import CCBPersonLookup, { type CCBPerson } from '../ui/CCBPersonLookup';
 
 type LeaderType = 'circle' | 'host_team';
@@ -43,6 +44,7 @@ interface FormValues {
   status: string;
   circle_name: string;
   circle_type: string;
+  circle_location: string;
   day: string;
   time: string;
   frequency: string;
@@ -63,6 +65,7 @@ const EMPTY_FORM: FormValues = {
   status: 'invited',
   circle_name: '',
   circle_type: '',
+  circle_location: '',
   day: '',
   time: '',
   frequency: '',
@@ -276,6 +279,7 @@ export default function AddLeaderForm({
             circle_name: values.circle_name.trim(),
             acpd: values.director,
             circle_type: values.circle_type,
+            circle_location: values.circle_location,
             day: values.day,
             time: values.time,
             frequency: values.frequency,
@@ -596,6 +600,26 @@ export default function AddLeaderForm({
                 {referenceData.circleTypes.map((ct) => (
                   <option key={ct.id} value={ct.value}>
                     {ct.value}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field
+              label="Circle Location"
+              htmlFor="circle-location"
+              hint="Where the circle meets — matches CCB's Circle Location classification."
+            >
+              <select
+                id="circle-location"
+                value={values.circle_location}
+                onChange={(e) => setField('circle_location', e.target.value)}
+                className={inputClass}
+              >
+                <option value="">— Select a Circle Location —</option>
+                {CIRCLE_LOCATION_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
                   </option>
                 ))}
               </select>

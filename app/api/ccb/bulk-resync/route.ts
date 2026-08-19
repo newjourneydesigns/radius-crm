@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
 
     const { data: leaders, error: fetchError } = await sb
       .from('circle_leaders')
-      .select('id, name, ccb_group_id, leader_ccb_profile_link, campus, circle_type, day, time, frequency, location, email, phone, birthday, ccb_group_name, ccb_event_ids')
+      .select('id, name, ccb_group_id, leader_ccb_profile_link, campus, circle_type, circle_location, day, time, frequency, location, email, phone, birthday, ccb_group_name, ccb_event_ids')
       .in('id', ids);
     if (fetchError) {
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
           request,
           ccbv2,
           groupId: String(leader.ccb_group_id),
-          telemetry: { module: 'Mass Update', circleTypeAction: 'Bulk Sync Circle Type' },
+          telemetry: { module: 'Mass Update', classificationsAction: 'Bulk Sync Classifications' },
           campusNameCache,
         });
 
