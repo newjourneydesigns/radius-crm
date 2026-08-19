@@ -8,6 +8,7 @@ import { formatTimeToAMPM } from '../../lib/timeUtils';
 import DashboardFilterAdapter from '../../components/dashboard/DashboardFilterAdapter';
 import MultiSelectFilter from '../../components/dashboard/MultiSelectFilter';
 import ExportModal from '../../components/dashboard/ExportModal';
+import ContactModal from '../../components/dashboard/ContactModal';
 import InviteToCircleModal from '../../components/modals/InviteToCircleModal';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -133,6 +134,9 @@ export default function SearchPage() {
   // State for export modal
   const [exportModal, setExportModal] = useState(false);
   const [inviteCircle, setInviteCircle] = useState<CircleSearchResult | null>(null);
+
+  // Call/text contact sheet opened from a phone number in the results table
+  const [contactCircle, setContactCircle] = useState<CircleSearchResult | null>(null);
 
   // State for sorting
   const [sortConfig, setSortConfig] = useState<{
@@ -657,12 +661,14 @@ export default function SearchPage() {
                       {signedIn && (
                         <td className="px-6 py-4 whitespace-nowrap">
                           {circle.phone ? (
-                            <a
-                              href={`tel:${circle.phone.replace(/[^\d+]/g, '')}`}
+                            <button
+                              type="button"
+                              onClick={() => setContactCircle(circle)}
                               className="text-sm text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+                              title={`Call or text ${circle.name || 'this leader'}`}
                             >
                               {formatPhoneForDisplay(circle.phone)}
-                            </a>
+                            </button>
                           ) : (
                             <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
                           )}
@@ -739,6 +745,17 @@ export default function SearchPage() {
         onClose={() => setExportModal(false)}
         leaders={filteredCircles as unknown as CircleLeader[]}
       />
+
+      {/* Call / Text Contact Modal */}
+      {contactCircle && (
+        <ContactModal
+          isOpen={!!contactCircle}
+          onClose={() => setContactCircle(null)}
+          name={contactCircle.name || 'Circle Leader'}
+          email={contactCircle.email || ''}
+          phone={contactCircle.phone ? formatPhoneForDisplay(contactCircle.phone) : ''}
+        />
+      )}
 
       {/* Invite to Circle Modal */}
       {inviteCircle && (
