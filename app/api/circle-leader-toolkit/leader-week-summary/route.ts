@@ -5,6 +5,8 @@ import { createCCBClient, CCBCircuitBreakerError } from '../../../../lib/ccb/ccb
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
 import { composeSubmittedNotes } from '../../../../lib/circleNotes';
+import { diffInfoUpdate, manualAttendeeKey } from '../../../../lib/circle-leader-toolkit/notes-formatter';
+import type { InfoUpdate, InfoUpdateRequest, ManualAttendee } from '../../../../lib/circle-leader-toolkit/notes-formatter';
 import type { EventSummaryState } from '../../../../lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +39,16 @@ function ctWeekEndExclusiveUtc(weekEnd: string): string {
   return DateTime.fromISO(weekEnd, { zone: 'America/Chicago' }).plus({ days: 1 }).startOf('day').toUTC().toISO()!;
 }
 
+type RosterAddRequest = {
+  id: string | null;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  email: string | null;
+  added_to_ccb_at: string | null;
+  added_to_ccb_by_name: string | null;
+};
+
 type Resolved =
   | {
       status: 'submitted';
@@ -52,6 +64,8 @@ type Resolved =
       submitted_at: string;
       reviewed_at: string | null;
       reviewed_by: string | null;
+      roster_add_requests: RosterAddRequest[];
+      info_update_requests: InfoUpdate[];
     }
   | {
       status: 'ccb_only';
@@ -72,6 +86,102 @@ type Resolved =
   | { status: 'did_not_meet'; source: 'ccb'; meeting_date: string; reviewed_at: string | null; reviewed_by: string | null }
   | { status: 'not_submitted'; expected_meeting_date: string | null };
 
+/**
+ * Roster-add + info-update details for a submitted summary.
+ *
+ * manual_roster_additions child rows are authoritative — they carry the row id
+ * and the added-to-CCB tracking fields. Any JSONB manual_attendees entry with
+ * no matching child row (legacy submission, or a child insert that failed) is
+ * appended as a display-only row with id: null. If the child-row select errors
+ * (e.g. the tracking migration isn't applied yet), degrade to JSON-only rows
+ * instead of failing the whole read.
+ */
+async function loadSubmissionExtras(
+  supabase: ReturnType<typeof getServiceClient>,
+  sub: { id: string; manual_attendees?: unknown; info_update_requested?: unknown }
+): Promise<{ roster_add_requests: RosterAddRequest[]; info_update_requests: InfoUpdate[] }> {
+  type ChildRow = {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+    email: string | null;
+    added_to_ccb_at: string | null;
+    added_to_ccb_by: string | null;
+  };
+
+  let childRows: ChildRow[] = [];
+  const { data: children, error: childError } = await supabase
+    .from('manual_roster_additions')
+    .select('id, first_name, last_name, phone, email, added_to_ccb_at, added_to_ccb_by')
+    .eq('summary_id', sub.id)
+    .order('created_at', { ascending: true });
+  if (childError) {
+    console.error('[leader-week-summary] manual_roster_additions read failed:', childError);
+  } else {
+    childRows = (children ?? []) as ChildRow[];
+  }
+
+  // Resolve added_to_ccb_by UUIDs to display names in one query, only when set.
+  const stamperIds = Array.from(
+    new Set(childRows.map((r) => r.added_to_ccb_by).filter((v): v is string => !!v))
+  );
+  const nameById = new Map<string, string>();
+  if (stamperIds.length) {
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, name, email')
+      .in('id', stamperIds);
+    for (const u of (users ?? []) as Array<{ id: string; name: string | null; email: string | null }>) {
+      const display = u.name || u.email;
+      if (display) nameById.set(u.id, display);
+    }
+  }
+
+  const roster_add_requests: RosterAddRequest[] = childRows.map((row) => ({
+    id: row.id,
+    first_name: String(row.first_name ?? '').trim(),
+    last_name: String(row.last_name ?? '').trim(),
+    phone: String(row.phone ?? '').trim() || null,
+    email: String(row.email ?? '').trim() || null,
+    added_to_ccb_at: row.added_to_ccb_at ?? null,
+    added_to_ccb_by_name: row.added_to_ccb_by ? nameById.get(row.added_to_ccb_by) ?? null : null,
+  }));
+
+  const seenKeys = new Set(
+    childRows.map((r) =>
+      manualAttendeeKey({ firstName: r.first_name, lastName: r.last_name, phone: r.phone, email: r.email })
+    )
+  );
+  const jsonAttendees = Array.isArray(sub.manual_attendees)
+    ? (sub.manual_attendees as ManualAttendee[])
+    : [];
+  for (const person of jsonAttendees) {
+    const first_name = String(person?.firstName ?? '').trim();
+    const last_name = String(person?.lastName ?? '').trim();
+    const phone = String(person?.phone ?? '').trim();
+    const email = String(person?.email ?? '').trim();
+    if (!first_name && !last_name && !phone && !email) continue;
+    const key = manualAttendeeKey({ firstName: first_name, lastName: last_name, phone, email });
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    roster_add_requests.push({
+      id: null,
+      first_name,
+      last_name,
+      phone: phone || null,
+      email: email || null,
+      added_to_ccb_at: null,
+      added_to_ccb_by_name: null,
+    });
+  }
+
+  return {
+    roster_add_requests,
+    info_update_requests: diffInfoUpdate(sub.info_update_requested as InfoUpdateRequest | null | undefined),
+  };
+}
+
 async function resolveLeaderWeek(
   supabase: ReturnType<typeof getServiceClient>,
   leaderId: number,
@@ -82,7 +192,7 @@ async function resolveLeaderWeek(
   const { data: sub } = await supabase
     .from('circle_event_summaries')
     .select(
-      'id, occurrence, did_not_meet, topic, notes, prayer_requests, info, dynamic_responses, did_not_meet_reason, ccb_submitted_at, created_at, reviewed_at, reviewed_by'
+      'id, occurrence, did_not_meet, topic, notes, prayer_requests, info, dynamic_responses, did_not_meet_reason, ccb_submitted_at, created_at, reviewed_at, reviewed_by, manual_attendees, info_update_requested'
     )
     .eq('leader_id', leaderId)
     // `occurrence` is a TIMESTAMPTZ parsed in Central time on submit, so match
@@ -97,6 +207,12 @@ async function resolveLeaderWeek(
     .maybeSingle();
 
   if (sub) {
+    const { roster_add_requests, info_update_requests } = await loadSubmissionExtras(supabase, {
+      id: sub.id,
+      manual_attendees: (sub as any).manual_attendees,
+      info_update_requested: (sub as any).info_update_requested,
+    });
+
     return {
       status: 'submitted',
       source: 'app',
@@ -119,6 +235,8 @@ async function resolveLeaderWeek(
       submitted_at: sub.ccb_submitted_at ?? sub.created_at,
       reviewed_at: sub.reviewed_at ?? null,
       reviewed_by: sub.reviewed_by ?? null,
+      roster_add_requests,
+      info_update_requests,
     };
   }
 
@@ -336,6 +454,9 @@ export async function GET(request: NextRequest) {
  * POST /api/circle-leader-toolkit/leader-week-summary
  *
  * Mutations on a leader's week-summary record. Action is dispatched on `action`:
+ *   - "set_roster_add_status": stamp/clear added_to_ccb_at / added_to_ccb_by on
+ *                         one manual_roster_additions row (the per-person
+ *                         "Added to CCB" checkbox in the ACPD summary view)
  *   - "mark_reviewed":     stamp reviewed_at / reviewed_by on the underlying row
  *   - "unmark_reviewed":   clear reviewed_at / reviewed_by
  *   - "override_with_ccb": admin chose to apply CCB state over current; writes
@@ -354,7 +475,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { action, leader_id, week_start_date } = body as {
-      action: 'mark_reviewed' | 'unmark_reviewed' | 'override_with_ccb' | 'dismiss_conflict';
+      action: 'set_roster_add_status' | 'mark_reviewed' | 'unmark_reviewed' | 'override_with_ccb' | 'dismiss_conflict';
       leader_id: number;
       week_start_date: string;
     };
@@ -371,6 +492,61 @@ export async function POST(request: NextRequest) {
     const supabase = getServiceClient();
     const userId = adminUser?.id ?? null;
     const weekEnd = weekEndOf(week_start_date);
+
+    if (action === 'set_roster_add_status') {
+      const { addition_id, added } = body as { addition_id?: unknown; added?: unknown };
+      if (typeof addition_id !== 'string' || !addition_id.trim() || typeof added !== 'boolean') {
+        return NextResponse.json(
+          { error: 'addition_id (string) and added (boolean) required' },
+          { status: 400 }
+        );
+      }
+
+      const added_to_ccb_at = added ? new Date().toISOString() : null;
+      const added_to_ccb_by = added ? userId : null;
+
+      // The leader_id guard keeps an admin from stamping another circle's row
+      // with an id copied from elsewhere.
+      const { data: updated, error: updateError } = await supabase
+        .from('manual_roster_additions')
+        .update({ added_to_ccb_at, added_to_ccb_by })
+        .eq('id', addition_id)
+        .eq('leader_id', leader_id)
+        .select('added_to_ccb_at, added_to_ccb_by')
+        .maybeSingle();
+
+      if (updateError) {
+        // 22P02 = malformed UUID text: Postgres errors instead of matching zero
+        // rows, but for the caller it's the same "no such row".
+        if (updateError.code === '22P02') {
+          return NextResponse.json({ error: 'Roster addition not found' }, { status: 404 });
+        }
+        console.error('[leader-week-summary] set_roster_add_status failed:', updateError);
+        return NextResponse.json(
+          { error: `Failed to update roster addition: ${updateError.message}` },
+          { status: 500 }
+        );
+      }
+      if (!updated) {
+        return NextResponse.json({ error: 'Roster addition not found' }, { status: 404 });
+      }
+
+      let added_to_ccb_by_name: string | null = null;
+      if (added && userId) {
+        const { data: adminRow } = await supabase
+          .from('users')
+          .select('id, name, email')
+          .eq('id', userId)
+          .maybeSingle();
+        added_to_ccb_by_name = adminRow?.name || adminRow?.email || null;
+      }
+
+      return NextResponse.json({
+        ok: true,
+        added_to_ccb_at: updated.added_to_ccb_at ?? null,
+        added_to_ccb_by_name,
+      });
+    }
 
     if (action === 'mark_reviewed' || action === 'unmark_reviewed') {
       const reviewed_at = action === 'mark_reviewed' ? new Date().toISOString() : null;

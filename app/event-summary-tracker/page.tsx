@@ -50,6 +50,39 @@ type SubmissionRow = {
   reviewed_by: string | null;
 };
 
+// A first-timer the leader reported on their summary who couldn't be found in
+// CCB — the ACPD must create them in CCB by hand, then tick them off here.
+type RosterAddRequest = {
+  id: string | null;               // null = legacy row; no per-person tracking possible
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  email: string | null;
+  added_to_ccb_at: string | null;  // ISO; non-null = already entered into CCB
+  added_to_ccb_by_name: string | null;
+};
+
+type InfoUpdateRequest = {
+  field: 'Meeting day' | 'Meeting time' | 'Meeting location';
+  current: string;
+  requested: string;
+};
+
+// Live snapshot of the selected leader's week, pulled from
+// /api/circle-leader-toolkit/leader-week-summary for the review modal.
+type ReviewLive = {
+  topic: string | null;
+  notes: string | null;
+  prayer_requests: string | null;
+  headcount: number | null;
+  guest_count: number | null;
+  roster_size: number | null;
+  did_not_meet: boolean;
+  roster_add_requests: RosterAddRequest[];
+  info_update_requests: InfoUpdateRequest[];
+  loading: boolean;
+};
+
 type Orphan = {
   id: string;
   ccb_event_id: string;
@@ -457,16 +490,7 @@ export default function EventSummaryTrackerPage() {
     setJustReviewed(new Set());
     setJustUnreviewed(new Set());
   }, [weekStart]);
-  const [reviewLive, setReviewLive] = useState<{
-    topic: string | null;
-    notes: string | null;
-    prayer_requests: string | null;
-    headcount: number | null;
-    guest_count: number | null;
-    roster_size: number | null;
-    did_not_meet: boolean;
-    loading: boolean;
-  } | null>(null);
+  const [reviewLive, setReviewLive] = useState<ReviewLive | null>(null);
 
   // Alphabetized list of people who attended the selected leader's meeting this
   // week. Pulled live from CCB via /api/ccb/event-attendance (same endpoint the
@@ -630,6 +654,8 @@ export default function EventSummaryTrackerPage() {
       guest_count: reviewRow.guestCount,
       roster_size: null,
       did_not_meet: reviewRow.occurrence?.status === 'did_not_meet' || (reviewRow.submission?.did_not_meet ?? false),
+      roster_add_requests: [],
+      info_update_requests: [],
       loading: true,
     });
     (async () => {
@@ -652,6 +678,9 @@ export default function EventSummaryTrackerPage() {
           guest_count: json.guest_count ?? reviewRow.guestCount ?? null,
           roster_size: json.roster_size ?? null,
           did_not_meet: json.did_not_meet === true || json.status === 'did_not_meet',
+          // Only present when status === 'submitted'; absent otherwise.
+          roster_add_requests: json.roster_add_requests ?? [],
+          info_update_requests: json.info_update_requests ?? [],
           loading: false,
         };
         setReviewLive(next);
@@ -966,6 +995,42 @@ export default function EventSummaryTrackerPage() {
     }
     await loadAll({ preferCache: false });
   }, [weekStart, loadAll, authHeader]);
+
+  // Per-person "Added to CCB" checkbox in the review modal. Deliberately only
+  // touches reviewLive (never reviewRow or loadAll), so the live-fetch effect
+  // above doesn't re-run and clobber the update. Throws on failure — the modal
+  // section catches and shows the message inline.
+  const toggleRosterAdd = useCallback(async (additionId: string, added: boolean) => {
+    if (!reviewRow) return;
+    const headers = { 'Content-Type': 'application/json', ...(await authHeader()) };
+    const res = await fetch('/api/circle-leader-toolkit/leader-week-summary', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        action: 'set_roster_add_status',
+        leader_id: reviewRow.leader.id,
+        week_start_date: weekStart,
+        addition_id: additionId,
+        added,
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error || 'Could not update — try again');
+    setReviewLive(prev => prev
+      ? {
+          ...prev,
+          roster_add_requests: prev.roster_add_requests.map(r =>
+            r.id === additionId
+              ? {
+                  ...r,
+                  added_to_ccb_at: json.added_to_ccb_at ?? null,
+                  added_to_ccb_by_name: json.added_to_ccb_by_name ?? null,
+                }
+              : r
+          ),
+        }
+      : prev);
+  }, [reviewRow, weekStart, authHeader]);
 
   const bulkReview = useCallback(async () => {
     if (bulkBusy || needsReview.length === 0) return;
@@ -1414,6 +1479,7 @@ export default function EventSummaryTrackerPage() {
         attendees={reviewAttendees}
         busy={reviewBusy}
         isReviewed={!!reviewRow?.reviewer}
+        onToggleRosterAdd={toggleRosterAdd}
         onClose={() => reviewRow && !reviewBusy && setReviewRow(null)}
         onConfirm={async () => {
           if (!reviewRow) return;
@@ -1447,23 +1513,16 @@ function ReviewModal({
   attendees,
   busy,
   isReviewed,
+  onToggleRosterAdd,
   onClose,
   onConfirm,
 }: {
   row: Row | null;
-  live: {
-    topic: string | null;
-    notes: string | null;
-    prayer_requests: string | null;
-    headcount: number | null;
-    guest_count: number | null;
-    roster_size: number | null;
-    did_not_meet: boolean;
-    loading: boolean;
-  } | null;
+  live: ReviewLive | null;
   attendees: { names: string[]; loading: boolean } | null;
   busy: boolean;
   isReviewed: boolean;
+  onToggleRosterAdd: (additionId: string, added: boolean) => Promise<void>;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -1483,6 +1542,8 @@ function ReviewModal({
   const liveLoading = live?.loading === true;
   const notesHtml = notes ? sanitizeNotesHtml(notes) : '';
   const prayerRequestsHtml = prayerRequests ? sanitizeNotesHtml(prayerRequests) : '';
+  const rosterAdds = dnm ? [] : (live?.roster_add_requests ?? []);
+  const infoUpdates = dnm ? [] : (live?.info_update_requests ?? []);
 
   const ccbEventId = row.leader.ccb_event_ids?.[0] ?? null;
   const ccbUrl = ccbEventId && row.meetingDate
@@ -1544,6 +1605,10 @@ function ReviewModal({
           </div>
         )}
 
+        {rosterAdds.length > 0 && (
+          <RosterAddSection key={row.leader.id} requests={rosterAdds} onToggle={onToggleRosterAdd} />
+        )}
+
         {topic && (
           <div>
             <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Topic</div>
@@ -1594,13 +1659,31 @@ function ReviewModal({
           </div>
         )}
 
+        {infoUpdates.length > 0 && (
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">Requested Circle Info Changes</div>
+            <ul className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3 space-y-2">
+              {infoUpdates.map((u, i) => (
+                <li key={`${u.field}-${i}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm min-w-0">
+                  <span className="w-full text-[10px] uppercase tracking-wide text-slate-500 sm:w-28 sm:shrink-0 sm:text-xs sm:normal-case sm:tracking-normal sm:text-slate-400">
+                    {u.field}
+                  </span>
+                  <span className="text-slate-400">{u.current || '(unset)'}</span>
+                  <span className="text-slate-500" aria-hidden="true">→</span>
+                  <span className="font-medium text-slate-100">{u.requested}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {liveLoading && (
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <Spinner /> Fetching latest from CCB…
           </div>
         )}
 
-        {!liveLoading && !topic && !notes && !prayerRequests && !dnm && (
+        {!liveLoading && !topic && !notes && !prayerRequests && !dnm && rosterAdds.length === 0 && infoUpdates.length === 0 && (
           <div className="text-sm text-slate-400 italic">
             No notes recorded — the leader submitted attendance only.
           </div>
@@ -1651,6 +1734,104 @@ function ModalStat({ label, value }: { label: string; value: number | string }) 
     <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg px-3 py-2">
       <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
       <div className="text-xl font-semibold text-slate-100 mt-0.5">{value}</div>
+    </div>
+  );
+}
+
+// Amber action box in the review modal: first-timers the leader reported who
+// couldn't be found in CCB. The ACPD creates each person in CCB by hand, then
+// ticks them off. Rows with id === null predate per-person tracking and render
+// without a checkbox. Keyed by leader at the call site so busy/error state
+// never leaks between leaders.
+function RosterAddSection({
+  requests,
+  onToggle,
+}: {
+  requests: RosterAddRequest[];
+  onToggle: (additionId: string, added: boolean) => Promise<void>;
+}) {
+  const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
+  const [error, setError] = useState<string | null>(null);
+
+  const handleToggle = async (additionId: string, added: boolean) => {
+    if (busyIds.has(additionId)) return;
+    setBusyIds(prev => { const n = new Set(prev); n.add(additionId); return n; });
+    setError(null);
+    try {
+      await onToggle(additionId, added);
+    } catch (err) {
+      setError((err as Error).message || 'Could not update — try again');
+    } finally {
+      setBusyIds(prev => { const n = new Set(prev); n.delete(additionId); return n; });
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3">
+      <div className="flex items-start gap-3">
+        <svg className="w-5 h-5 text-amber-300 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.375 21c-2.331 0-4.512-.645-6.375-1.766Z" />
+        </svg>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-amber-200">
+            New people to add to CCB{requests.length > 1 ? ` · ${requests.length}` : ''}
+          </div>
+          <div className="text-xs text-amber-200/80 mt-0.5">
+            The leader couldn&apos;t find these people in CCB — add them to CCB, then check them off.
+          </div>
+        </div>
+      </div>
+      <ul className="mt-3 space-y-2">
+        {requests.map((p, i) => {
+          const additionId = p.id;
+          const added = !!p.added_to_ccb_at;
+          const inFlight = additionId !== null && busyIds.has(additionId);
+          const name = `${p.first_name} ${p.last_name}`.trim() || 'Unnamed person';
+          const addedDate = p.added_to_ccb_at ? DateTime.fromISO(p.added_to_ccb_at).toFormat('LLL d') : null;
+          return (
+            <li
+              key={additionId ?? `legacy-${i}`}
+              className="rounded-lg bg-zinc-900/40 border border-zinc-700 px-3 py-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5"
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-slate-100">{name}</div>
+                {(p.phone || p.email) && (
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+                    {p.phone && (
+                      <a href={`tel:${p.phone.replace(/\D/g, '')}`} className="text-vc-300 hover:text-vc-200 hover:underline">
+                        {p.phone}
+                      </a>
+                    )}
+                    {p.email && (
+                      <a href={`mailto:${p.email}`} className="text-vc-300 hover:text-vc-200 hover:underline break-all">
+                        {p.email}
+                      </a>
+                    )}
+                  </div>
+                )}
+                {added && (
+                  <div className="mt-0.5 text-xs text-slate-400">
+                    Added{p.added_to_ccb_by_name ? ` by ${p.added_to_ccb_by_name}` : ''}{addedDate ? ` · ${addedDate}` : ''}
+                  </div>
+                )}
+              </div>
+              {additionId !== null && (
+                <label className={`flex items-center gap-2 text-xs whitespace-nowrap select-none ${inFlight ? 'cursor-wait opacity-60' : 'cursor-pointer'}`}>
+                  <input
+                    type="checkbox"
+                    checked={added}
+                    disabled={inFlight}
+                    onChange={() => handleToggle(additionId, !added)}
+                    className="h-4 w-4 rounded border-zinc-500 bg-zinc-700 text-vc-400 focus:ring-vc-400"
+                  />
+                  <span className={added ? 'text-green-300' : 'text-slate-300'}>Added to CCB</span>
+                </label>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {error && <div className="mt-2 text-xs text-red-300">{error}</div>}
     </div>
   );
 }

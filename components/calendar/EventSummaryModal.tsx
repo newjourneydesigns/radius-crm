@@ -31,6 +31,26 @@ type CCBEvent = {
   attendees: Array<{ id: string; name: string; status?: string }>;
 };
 
+/** A person the leader reported but couldn't find in CCB — the ACPD must create them there. */
+type RosterAddRequest = {
+  /** null = legacy row from before per-person tracking; display only, no checkbox. */
+  id: string | null;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  email: string | null;
+  /** Non-null = someone already entered this person into CCB. */
+  added_to_ccb_at: string | null;
+  added_to_ccb_by_name: string | null;
+};
+
+/** A change the leader requested to the circle's meeting details. */
+type InfoUpdateRequest = {
+  field: 'Meeting day' | 'Meeting time' | 'Meeting location';
+  current: string;
+  requested: string;
+};
+
 /** App-submitted summary from circle_event_summaries (if leader used the Radius form). */
 type AppSummary = {
   submission_id: string;
@@ -42,6 +62,8 @@ type AppSummary = {
   info: string | null;
   submitted_at: string;
   reviewed_at: string | null;
+  roster_add_requests: RosterAddRequest[];
+  info_update_requests: InfoUpdateRequest[];
 };
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -60,6 +82,10 @@ export default function EventSummaryModal({ open, onClose, leaderId, leaderName,
   const [ccbError, setCcbError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [marking, setMarking] = useState(false);
+  /** Roster-add rows with a set_roster_add_status POST in flight (by addition id). */
+  const [rosterSavingIds, setRosterSavingIds] = useState<Set<string>>(new Set());
+  /** Per-row save errors for the "Added to CCB" toggle (by addition id). */
+  const [rosterErrors, setRosterErrors] = useState<Record<string, string>>({});
 
   const weekEndDate = weekStartDate
     ? DateTime.fromISO(weekStartDate).plus({ days: 6 }).toISODate()!
@@ -112,6 +138,8 @@ export default function EventSummaryModal({ open, onClose, leaderId, leaderName,
           info: json.info,
           submitted_at: json.submitted_at,
           reviewed_at: json.reviewed_at,
+          roster_add_requests: Array.isArray(json.roster_add_requests) ? json.roster_add_requests : [],
+          info_update_requests: Array.isArray(json.info_update_requests) ? json.info_update_requests : [],
         });
         setReviewedAt(json.reviewed_at ?? null);
       } else if (json.status === 'ccb_only' || json.status === 'did_not_meet') {
@@ -131,11 +159,73 @@ export default function EventSummaryModal({ open, onClose, leaderId, leaderName,
       setReviewedAt(null);
       setError(null);
       setCcbError(null);
+      setRosterSavingIds(new Set());
+      setRosterErrors({});
       return;
     }
     void loadCcb();
     void loadDb();
   }, [open, loadCcb, loadDb]);
+
+  /** Toggle "Added to CCB" for one manual roster addition. Optimistic; reverts on failure. */
+  const handleToggleRosterAdd = useCallback(async (person: RosterAddRequest, added: boolean) => {
+    const additionId = person.id;
+    if (!additionId || !leaderId || !weekStartDate) return;
+
+    const previous = {
+      added_to_ccb_at: person.added_to_ccb_at,
+      added_to_ccb_by_name: person.added_to_ccb_by_name,
+    };
+    const applyPatch = (patch: Pick<RosterAddRequest, 'added_to_ccb_at' | 'added_to_ccb_by_name'>) => {
+      setAppSummary(cur => cur
+        ? {
+            ...cur,
+            roster_add_requests: cur.roster_add_requests.map(r => (r.id === additionId ? { ...r, ...patch } : r)),
+          }
+        : cur);
+    };
+
+    setRosterErrors(errs => {
+      const next = { ...errs };
+      delete next[additionId];
+      return next;
+    });
+    setRosterSavingIds(ids => new Set(ids).add(additionId));
+    // Optimistic: show the new state immediately; the response supplies the real name/date.
+    applyPatch(added
+      ? { added_to_ccb_at: new Date().toISOString(), added_to_ccb_by_name: 'you' }
+      : { added_to_ccb_at: null, added_to_ccb_by_name: null });
+
+    try {
+      const res = await fetch('/api/circle-leader-toolkit/leader-week-summary', {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({
+          action: 'set_roster_add_status',
+          leader_id: leaderId,
+          week_start_date: weekStartDate,
+          addition_id: additionId,
+          added,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to save');
+      applyPatch({
+        added_to_ccb_at: json.added_to_ccb_at ?? null,
+        added_to_ccb_by_name: json.added_to_ccb_by_name ?? null,
+      });
+    } catch (e) {
+      applyPatch(previous);
+      const message = e instanceof Error ? e.message : '';
+      setRosterErrors(errs => ({ ...errs, [additionId]: message || 'Couldn’t save — try again.' }));
+    } finally {
+      setRosterSavingIds(ids => {
+        const next = new Set(ids);
+        next.delete(additionId);
+        return next;
+      });
+    }
+  }, [leaderId, weekStartDate]);
 
   const handleMarkReviewed = useCallback(async () => {
     if (!leaderId || !weekStartDate) return;
@@ -258,6 +348,104 @@ export default function EventSummaryModal({ open, onClose, leaderId, leaderName,
                   {appSummary.notes && <FieldBlock label="Notes">{appSummary.notes}</FieldBlock>}
                   {appSummary.prayer_requests && <FieldBlock label="Prayer requests">{appSummary.prayer_requests}</FieldBlock>}
                   {appSummary.info && <FieldBlock label="Other info">{appSummary.info}</FieldBlock>}
+
+                  {/* People the leader added by hand — they don't exist in CCB until an ACPD creates them. */}
+                  {appSummary.roster_add_requests.length > 0 && (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                      <div className="text-xs font-semibold text-amber-200 flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                        New people to add to CCB
+                      </div>
+                      <p className="text-[11px] text-amber-200/70 mt-1 mb-2.5">
+                        The leader couldn&apos;t find these people in CCB — add them, then check them off.
+                      </p>
+                      <div className="space-y-2">
+                        {appSummary.roster_add_requests.map((person, i) => {
+                          const added = !!person.added_to_ccb_at;
+                          const saving = person.id != null && rosterSavingIds.has(person.id);
+                          const rowError = person.id != null ? rosterErrors[person.id] : undefined;
+                          const phone = (person.phone || '').trim();
+                          const phoneDigits = phone.replace(/\D/g, '');
+                          const email = (person.email || '').trim();
+                          return (
+                            <div
+                              key={person.id ?? `legacy-${i}`}
+                              className={`rounded-md border p-2.5 ${added ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-zinc-700/60 bg-zinc-900/40'}`}
+                            >
+                              <div className="flex items-start gap-2.5">
+                                {person.id != null && (
+                                  <input
+                                    type="checkbox"
+                                    checked={added}
+                                    disabled={saving}
+                                    onChange={e => { void handleToggleRosterAdd(person, e.target.checked); }}
+                                    aria-label={`${person.first_name} ${person.last_name} added to CCB`}
+                                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-600 bg-zinc-700 accent-emerald-500 cursor-pointer disabled:opacity-50"
+                                  />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-medium text-white">{person.first_name} {person.last_name}</div>
+                                  {phone || email ? (
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs">
+                                      {phone && (phoneDigits ? (
+                                        <a href={`tel:${phoneDigits}`} className="text-blue-400 hover:text-blue-300 hover:underline">{phone}</a>
+                                      ) : (
+                                        <span className="text-slate-300">{phone}</span>
+                                      ))}
+                                      {email && (
+                                        <a href={`mailto:${email}`} className="max-w-full break-all text-blue-400 hover:text-blue-300 hover:underline">{email}</a>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-slate-500 italic mt-0.5">No contact info provided</div>
+                                  )}
+                                  {added && (
+                                    <div className="text-[11px] text-emerald-400/90 mt-1">
+                                      Added{person.added_to_ccb_by_name ? ` by ${person.added_to_ccb_by_name}` : ''}
+                                      {person.added_to_ccb_at ? ` · ${DateTime.fromISO(person.added_to_ccb_at).toFormat('MMM d')}` : ''}
+                                    </div>
+                                  )}
+                                  {rowError && <div className="text-[11px] text-red-300 mt-1">{rowError}</div>}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Meeting day/time/location changes the leader asked for. */}
+                  {appSummary.info_update_requests.length > 0 && (
+                    <div className="rounded-lg border border-zinc-700 bg-zinc-800/40 p-3">
+                      <div className="text-xs font-semibold text-slate-200 flex items-center gap-1.5 mb-2">
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Requested Circle info changes
+                      </div>
+                      <div className="space-y-2">
+                        {appSummary.info_update_requests.map(req => (
+                          <div key={req.field}>
+                            <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium mb-0.5">{req.field}</div>
+                            <div className="text-sm flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                              {req.current ? (
+                                <span className="max-w-full break-words text-slate-400 line-through">{req.current}</span>
+                              ) : (
+                                <span className="text-slate-500 italic">(unset)</span>
+                              )}
+                              <svg className="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                              </svg>
+                              <span className="max-w-full break-words text-emerald-300 font-medium">{req.requested}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -10,7 +10,8 @@
  *      reconciling the occurrence's head count (see ccb-attendance-push.ts —
  *      CCB adds head counts rather than replacing them)
  *   5. Record the submission in circle_event_summaries
- *   6. Record any manual roster additions and info-update requests
+ *   6. Record any manual roster additions and info-update requests, and
+ *      flag an ACPD follow-up for manual people not yet added to CCB
  *   7. Mark the leader's weekly event summary state (best-effort)
  *   8. Clear the draft
  *
@@ -42,7 +43,9 @@ import { pushCircleSummaryToCCB } from '../../../../lib/circle-leader-toolkit/cc
 import {
   flattenForCCB,
   cleanManualAttendees,
+  diffInfoUpdate,
   formatNotesForCCB,
+  manualAttendeeKey,
   normalizeSummaryText,
   type DynamicResponse,
   type InfoUpdate,
@@ -99,6 +102,70 @@ function getManualAttendeeValidationError(attendees: ManualAttendee[]): string |
   }
 
   return null;
+}
+
+/**
+ * Manual attendees are first-timers the leader reports who don't exist in CCB
+ * yet, and the ACPD has to create each of them in CCB by hand. Until now that
+ * ask only lived inside the CCB notes blob, where it was easy to miss — so
+ * raise it in the leader's follow-up slot, where ACPDs already work.
+ *
+ * The note carries one "Add to CCB" line per occurrence date; a resubmission
+ * for the same date replaces its line instead of stacking duplicates. An
+ * existing follow-up keeps its date/time — we only set the required flag and
+ * date when the slot is free.
+ */
+async function upsertAddToCCBFollowUp(input: {
+  supabase: ReturnType<typeof createServiceSupabaseClient>;
+  leaderId: number | string;
+  occurrenceStart: DateTime;
+  now: DateTime;
+  newPeople: ManualAttendee[];
+}): Promise<void> {
+  const { supabase, leaderId, occurrenceStart, now, newPeople } = input;
+
+  const { data: leaderRow, error: leaderError } = await supabase
+    .from('circle_leaders')
+    .select('follow_up_required, follow_up_date, follow_up_note')
+    .eq('id', leaderId)
+    .single();
+  if (leaderError) throw leaderError;
+
+  const linePrefix = `Add to CCB (from ${occurrenceStart.toFormat('M/d')} Circle summary):`;
+  const people = newPeople.map((person) => {
+    const name = `${person.firstName} ${person.lastName}`.trim();
+    const contact = [person.phone ?? '', person.email ?? '']
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return contact.length ? `${name} (${contact.join(', ')})` : name;
+  });
+  // Collapse whitespace so the whole entry stays one line — the per-date
+  // replace below is a simple line swap.
+  const followUpLine = `${linePrefix} ${people.join('; ')}`.replace(/\s+/g, ' ').trim();
+
+  const existingNote = String(leaderRow?.follow_up_note ?? '');
+  const noteLines = existingNote.split(/\r?\n/);
+  const sameDateLineIndex = noteLines.findIndex((line) => line.trim().startsWith(linePrefix));
+
+  let nextNote: string;
+  if (sameDateLineIndex >= 0) {
+    noteLines[sameDateLineIndex] = followUpLine;
+    nextNote = noteLines.join('\n');
+  } else {
+    const trimmedExisting = existingNote.trimEnd();
+    nextNote = trimmedExisting ? `${trimmedExisting}\n${followUpLine}` : followUpLine;
+  }
+
+  const { error: updateError } = await supabase
+    .from('circle_leaders')
+    .update({
+      follow_up_note: nextNote,
+      ...(leaderRow?.follow_up_required
+        ? {}
+        : { follow_up_required: true, follow_up_date: now.toISODate() }),
+    })
+    .eq('id', leaderId);
+  if (updateError) throw updateError;
 }
 
 export async function POST(req: Request) {
@@ -190,27 +257,7 @@ export async function POST(req: Request) {
   }
 
   // Build the info-update list for the notes blob (only fields actually changed)
-  const infoUpdates: InfoUpdate[] = [];
-  if (infoUpdate) {
-    const cur = infoUpdate.current || {};
-    if (infoUpdate.day && infoUpdate.day !== cur.day) {
-      infoUpdates.push({ field: 'Meeting day', current: cur.day || '', requested: infoUpdate.day });
-    }
-    if (infoUpdate.time && infoUpdate.time !== cur.time) {
-      infoUpdates.push({
-        field: 'Meeting time',
-        current: cur.time || '',
-        requested: infoUpdate.time,
-      });
-    }
-    if (infoUpdate.location && infoUpdate.location !== cur.location) {
-      infoUpdates.push({
-        field: 'Meeting location',
-        current: cur.location || '',
-        requested: infoUpdate.location,
-      });
-    }
-  }
+  const infoUpdates: InfoUpdate[] = diffInfoUpdate(infoUpdate);
 
   const cleanNotes = normalizeSummaryText(notes);
   const cleanPrayerRequests = normalizeSummaryText(prayerRequests);
@@ -389,20 +436,61 @@ export async function POST(req: Request) {
 
   // Record manual roster + info update child rows. Because the summary row
   // is upserted by occurrence, clear old child rows before re-inserting.
+  // ACPDs stamp added_to_ccb_at/_by on manual_roster_additions once they've
+  // entered a person into CCB, so read those stamps first and carry them over
+  // by person identity — otherwise a leader editing and resubmitting this
+  // summary would silently reset people back to "not added yet".
+  const { data: priorAdditions, error: priorAdditionsError } = await supabase
+    .from('manual_roster_additions')
+    .select('id, first_name, last_name, phone, email, added_to_ccb_at, added_to_ccb_by')
+    .eq('summary_id', summaryRow.id);
+  if (priorAdditionsError) {
+    console.error('Could not read prior manual roster additions:', priorAdditionsError);
+  }
+  const addedToCCBByPerson = new Map<
+    string,
+    { added_to_ccb_at: string; added_to_ccb_by: string | null }
+  >();
+  for (const row of priorAdditions ?? []) {
+    if (!row.added_to_ccb_at) continue;
+    addedToCCBByPerson.set(
+      manualAttendeeKey({
+        firstName: row.first_name,
+        lastName: row.last_name,
+        phone: row.phone,
+        email: row.email,
+      }),
+      { added_to_ccb_at: row.added_to_ccb_at, added_to_ccb_by: row.added_to_ccb_by }
+    );
+  }
+
   await supabase.from('manual_roster_additions').delete().eq('summary_id', summaryRow.id);
   await supabase.from('circle_info_update_requests').delete().eq('summary_id', summaryRow.id);
 
   if (manualAttendeesForSubmit.length) {
     await supabase.from('manual_roster_additions').insert(
-      manualAttendeesForSubmit.map((m) => ({
-        summary_id: summaryRow.id,
-        leader_id: leader.id,
-        first_name: m.firstName,
-        last_name: m.lastName,
-        phone: m.phone ?? null,
-        email: m.email ?? null,
-        attended: true,
-      }))
+      manualAttendeesForSubmit.map((m) => {
+        const addedToCCB = addedToCCBByPerson.get(manualAttendeeKey(m));
+        return {
+          summary_id: summaryRow.id,
+          leader_id: leader.id,
+          first_name: m.firstName,
+          last_name: m.lastName,
+          phone: m.phone ?? null,
+          email: m.email ?? null,
+          attended: true,
+          // If the stamp read failed — e.g. the tracking migration hasn't been
+          // applied yet, so the columns don't exist — the map is empty and
+          // these would be null anyway. Omit them so the insert still succeeds
+          // on a pre-migration database.
+          ...(priorAdditionsError
+            ? {}
+            : {
+                added_to_ccb_at: addedToCCB?.added_to_ccb_at ?? null,
+                added_to_ccb_by: addedToCCB?.added_to_ccb_by ?? null,
+              }),
+        };
+      })
     );
   }
 
@@ -417,6 +505,27 @@ export async function POST(req: Request) {
       proposed_time: infoUpdate?.time ?? null,
       proposed_location: infoUpdate?.location ?? null,
     });
+  }
+
+  // Any manual attendee not yet stamped added-to-CCB needs the ACPD to create
+  // them in CCB by hand (see upsertAddToCCBFollowUp). This runs even when the
+  // CCB attendance push failed — the people need adding either way — and is
+  // best-effort: it must never fail the leader's submission.
+  const peopleNotYetInCCB = manualAttendeesForSubmit.filter(
+    (m) => !addedToCCBByPerson.has(manualAttendeeKey(m))
+  );
+  if (peopleNotYetInCCB.length) {
+    try {
+      await upsertAddToCCBFollowUp({
+        supabase,
+        leaderId: leader.id,
+        occurrenceStart,
+        now,
+        newPeople: peopleNotYetInCCB,
+      });
+    } catch (err) {
+      console.error('Add-to-CCB follow-up update failed:', err);
+    }
   }
 
   // Clear the draft only after CCB accepted the attendance write. A failed

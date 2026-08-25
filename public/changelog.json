@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-08-25",
+    "date_display": "August 25, 2026",
+    "date_iso": "2026-08-25",
+    "id": "event-summary-new-people-surfaced",
+    "type": "fix",
+    "category": "Event Summary Tracker",
+    "description": "New people a Circle Leader reports on their event summary no longer vanish into the head count. When a leader adds someone the Circles Toolkit can't find in CCB, the summary you review in RADIUS — on the Event Summary Tracker and the circle meetings calendar — now shows a \"New people to add to CCB\" section with each person's name, phone, and email, so the Attended-vs-Roster gap finally explains itself. Each person gets an \"Added to CCB\" checkbox that records who handled the CCB entry and when, and it survives the leader re-editing their summary. A follow-up is also created on that Circle Leader automatically so the CCB entry work lands in your existing follow-up list, and requested meeting day/time/location changes from leaders now show in the same summary views instead of only living in the CCB notes blob.",
+    "page": "/event-summary-tracker"
+  },
+  {
     "date": "2026-08-19",
     "date_display": "August 19, 2026",
     "date_iso": "2026-08-19",

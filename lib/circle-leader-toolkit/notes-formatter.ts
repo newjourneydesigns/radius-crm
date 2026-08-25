@@ -25,6 +25,35 @@ export type InfoUpdate = {
   requested: string;
 };
 
+/** Shape of circle_event_summaries.info_update_requested / the submit payload. */
+export type InfoUpdateRequest = {
+  day?: string | null;
+  time?: string | null;
+  location?: string | null;
+  current?: { day?: string | null; time?: string | null; location?: string | null } | null;
+};
+
+/**
+ * The fields the leader actually asked to change (requested differs from
+ * current). Shared by the submit route (CCB notes blob) and the ACPD-facing
+ * summary read so both sides agree on what counts as a change.
+ */
+export function diffInfoUpdate(infoUpdate: InfoUpdateRequest | null | undefined): InfoUpdate[] {
+  if (!infoUpdate || typeof infoUpdate !== 'object') return [];
+  const cur = infoUpdate.current || {};
+  const updates: InfoUpdate[] = [];
+  if (infoUpdate.day && infoUpdate.day !== cur.day) {
+    updates.push({ field: 'Meeting day', current: cur.day || '', requested: infoUpdate.day });
+  }
+  if (infoUpdate.time && infoUpdate.time !== cur.time) {
+    updates.push({ field: 'Meeting time', current: cur.time || '', requested: infoUpdate.time });
+  }
+  if (infoUpdate.location && infoUpdate.location !== cur.location) {
+    updates.push({ field: 'Meeting location', current: cur.location || '', requested: infoUpdate.location });
+  }
+  return updates;
+}
+
 const ROSTER_ADD_HEADER = 'Add New Person to Roster:';
 
 /**
@@ -98,6 +127,32 @@ export function splitLegacyRosterAdditions(notes: string | null | undefined): {
   };
 }
 
+/**
+ * Composite identity key for a manually-added person: lowercased "first last"
+ * name + phone digits + lowercased email. Shared by the merge dedupe below and
+ * the submit route's added-to-CCB carry-over, so both agree on when two
+ * entries are the same person.
+ */
+export function manualAttendeeKey(person: {
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}): string {
+  const firstName = normalizeSummaryText(person?.firstName).trim();
+  const lastName = normalizeSummaryText(person?.lastName).trim();
+  const phone = normalizeSummaryText(person?.phone).trim();
+  const email = normalizeSummaryText(person?.email).trim();
+
+  return [
+    `${firstName} ${lastName}`.trim().toLowerCase(),
+    phone.replace(/\D/g, ''),
+    email.toLowerCase(),
+  ]
+    .filter(Boolean)
+    .join('|');
+}
+
 export function mergeManualAttendees(
   existing: unknown,
   parsed: ManualAttendee[]
@@ -116,13 +171,7 @@ export function mergeManualAttendees(
     const email = normalizeSummaryText(person?.email).trim();
     if (!firstName && !lastName && !phone && !email) continue;
 
-    const key = [
-      `${firstName} ${lastName}`.trim().toLowerCase(),
-      phone.replace(/\D/g, ''),
-      email.toLowerCase(),
-    ]
-      .filter(Boolean)
-      .join('|');
+    const key = manualAttendeeKey(person);
 
     if (seen.has(key)) continue;
     seen.add(key);

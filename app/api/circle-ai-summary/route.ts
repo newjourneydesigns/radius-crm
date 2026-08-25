@@ -347,7 +347,7 @@ export async function POST(request: NextRequest) {
     const windowEndExclusiveUtc = DateTime.fromISO(timeframe.endDate, { zone: ZONE }).plus({ days: 1 }).startOf('day').toUTC().toISO()!;
     const { data: appSummaries, error: subError } = await supabase
       .from('circle_event_summaries')
-      .select('occurrence, did_not_meet, did_not_meet_reason, topic, notes, prayer_requests, dynamic_responses')
+      .select('occurrence, did_not_meet, did_not_meet_reason, topic, notes, prayer_requests, dynamic_responses, manual_attendees')
       .eq('leader_id', leaderId)
       .gte('occurrence', windowStartUtc)
       .lt('occurrence', windowEndExclusiveUtc)

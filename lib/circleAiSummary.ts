@@ -55,6 +55,9 @@ export interface AppSummaryRow {
   notes: string | null;
   prayer_requests: string | null;
   dynamic_responses: unknown;
+  // JSONB array of {firstName,lastName,...} — people the leader reported who
+  // aren't in CCB yet. Names only reach the AI corpus (no contact info).
+  manual_attendees?: unknown;
 }
 
 export interface CircleMetrics {
@@ -207,6 +210,17 @@ function clip(text: string | null | undefined): string | null {
   return t.length > NOTE_CHAR_CAP ? `${t.slice(0, NOTE_CHAR_CAP)}…` : t;
 }
 
+/** Names (only — no contact info) of people the leader added manually. */
+function manualAttendeeNames(manualAttendees: unknown): string[] {
+  if (!Array.isArray(manualAttendees)) return [];
+  return manualAttendees
+    .map((p) => {
+      const person = (p ?? {}) as { firstName?: unknown; lastName?: unknown };
+      return `${String(person.firstName ?? '').trim()} ${String(person.lastName ?? '').trim()}`.trim();
+    })
+    .filter(Boolean);
+}
+
 /**
  * Chronological plain-text corpus of the circle's meeting notes for the AI.
  * App-submitted summaries take precedence over the CCB-synced occurrence for
@@ -237,7 +251,13 @@ export function buildNotesCorpus(occurrences: OccurrenceRow[], appSummaries: App
   for (const sub of appSummaries) {
     const date = DateTime.fromISO(sub.occurrence, { zone: ZONE }).toISODate();
     if (!date) continue;
-    const composed = composeSubmittedNotes(sub.notes, sub.dynamic_responses);
+    let composed = composeSubmittedNotes(sub.notes, sub.dynamic_responses);
+    const newPeople = manualAttendeeNames(sub.manual_attendees);
+    if (newPeople.length) {
+      composed = [composed, `New people this meeting (not in CCB yet): ${newPeople.join(', ')}`]
+        .filter(Boolean)
+        .join('\n\n');
+    }
     byDate.set(date, {
       date,
       status: sub.did_not_meet
