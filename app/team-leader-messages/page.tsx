@@ -1,17 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase';
 import { DateTime } from 'luxon';
 import RichTextEditor from '../../components/notes/RichTextEditor';
 import ToolkitContentPreview from '../../components/circle-leader-toolkit/ToolkitContentPreview';
 import { csOpenSans } from '../../lib/circle-leader-toolkit/csFont';
 import { renderMessageHtml } from '../../lib/renderMessageHtml';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 const CHURCH_TZ = 'America/Chicago';
 

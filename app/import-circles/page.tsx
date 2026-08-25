@@ -1,16 +1,11 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Link from 'next/link';
 import { useToast } from '../../components/ui/ToastProvider';
 import BulkCcbSyncPanel from '../../components/import/BulkCcbSyncPanel';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface CCBGroupPreview {
   id: string;

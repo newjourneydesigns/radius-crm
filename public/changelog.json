@@ -3,6 +3,16 @@
     "date": "2026-08-25",
     "date_display": "August 25, 2026",
     "date_iso": "2026-08-25",
+    "id": "sign-in-viewer-downgrade-fix",
+    "type": "fix",
+    "category": "Sign In",
+    "description": "Signing in no longer briefly downgrades you to a read-only Viewer. A stalled profile lookup during the sign-in handshake (the 'Profile fetch timed out' console error) could hide admin menus and ACPD tools for a few seconds — or until a reload. The profile now loads immediately after sign-in instead of racing the handshake, a failed lookup keeps your last-known role and quietly retries in the background rather than downgrading you, and several admin pages now share one database connection instead of opening duplicates (the 'Multiple GoTrueClient instances' warning), which could also cause surprise sign-outs.",
+    "page": "/dashboard"
+  },
+  {
+    "date": "2026-08-25",
+    "date_display": "August 25, 2026",
+    "date_iso": "2026-08-25",
     "id": "event-summary-new-people-surfaced",
     "type": "fix",
     "category": "Event Summary Tracker",
