@@ -1,6 +1,5 @@
 'use client';
 
-import { useLayoutEffect, useRef } from 'react';
 import type { QuestionResponseKey } from '../../lib/circle-leader-toolkit/dynamic-question-response-keys';
 
 // Shared renderer + option helpers for the admin-configured dynamic questions.
@@ -78,35 +77,28 @@ export function AutoGrowTextarea({
   className?: string;
   id?: string;
 }) {
-  const ref = useRef<HTMLTextAreaElement | null>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    // Re-measuring requires collapsing to `auto`, which momentarily shortens
-    // the whole page; the browser then clamps the scroll position to the
-    // shorter page and the screen jumps on every keystroke (worst on mobile
-    // with the keyboard open). Measure before paint and put the scroll
-    // position back so typing never moves the page.
-    const { scrollX, scrollY } = window;
-    el.style.height = 'auto';
-    // scrollHeight excludes borders, but with border-box sizing the height
-    // must include them or the content stays clipped by the border width.
-    const borders = el.offsetHeight - el.clientHeight;
-    el.style.height = `${el.scrollHeight + borders}px`;
-    // 'instant' — the site sets scroll-behavior: smooth, which would turn
-    // this restore into an animated glide on every keystroke.
-    window.scrollTo({ left: scrollX, top: scrollY, behavior: 'instant' });
-  }, [value]);
+  // Grown by CSS, not JS. The wrapper mirrors the current value into an
+  // invisible ::after that shares the textarea's grid cell, so the cell — and
+  // the textarea stretched into it — is always exactly as tall as the text.
+  //
+  // The JS version measured scrollHeight, which meant collapsing the field to
+  // `height: auto` on every keystroke. That momentarily shortened the whole
+  // document, so the page had to be scrolled back into place afterwards. On iOS
+  // the round trip left the document with a stale scroll extent: the page
+  // rendered in full but stopped scrolling partway down, the rest of the form
+  // and the fixed submit bar could only be glimpsed by dragging against the
+  // rubber band, and nothing down there was tappable until a reload. Sizing in
+  // layout instead never touches the page height or the scroll position.
   return (
-    <textarea
-      id={id}
-      ref={ref}
-      rows={rows}
-      className={className}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={{ overflow: 'hidden', resize: 'none' }}
-    />
+    <div className="cs-autogrow" data-replicated-value={value}>
+      <textarea
+        id={id}
+        rows={rows}
+        className={className}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
   );
 }
 

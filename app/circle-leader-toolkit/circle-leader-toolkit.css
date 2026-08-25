@@ -953,6 +953,44 @@ a.cs-button:active {
   resize: vertical;
 }
 
+/* Auto-growing textarea (AutoGrowTextarea) — sized in layout, no JS measuring.
+   The wrapper's ::after mirrors the field's value and shares its grid cell, so
+   the cell tracks the text and the textarea stretches to fill it. Every box
+   metric below has to match on both, or the mirror measures the wrong height:
+   font-size is restated because globals.css pins textareas to 16px !important,
+   and the border width because .cs-textarea's border is !important too (the
+   mirror's stays transparent, it just has to be the same 1.5px). Font family,
+   weight and letter-spacing need no restating — both boxes inherit them from
+   the same wrapper. */
+.cs-autogrow {
+  display: grid;
+}
+.cs-autogrow > textarea {
+  /* The grid cell is already the exact height of the text, so the field never
+     scrolls internally and must not be draggable out of sync with it. */
+  resize: none;
+  overflow: hidden;
+}
+.cs-autogrow::after {
+  /* The trailing space keeps a final newline from collapsing, so the field
+     still grows when the leader ends on Return. */
+  content: attr(data-replicated-value) ' ';
+  visibility: hidden;
+}
+.cs-autogrow > textarea,
+.cs-autogrow::after {
+  grid-area: 1 / 1 / 2 / 2;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border: 1.5px solid transparent;
+  padding: 0.7rem 0.85rem;
+  font-size: 16px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
 .cs-input::placeholder,
 .cs-textarea::placeholder {
   color: #6b7280;
