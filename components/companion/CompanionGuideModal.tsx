@@ -5,6 +5,16 @@ import Modal from '../ui/Modal';
 
 const INSTALL_COMMAND = 'curl -fsSL https://vccradius.netlify.app/companion/install.sh | bash';
 
+// macOS only reads a program's Full Disk Access grant when that program starts,
+// so the already-running companion has to be restarted before a fresh grant
+// takes effect. Skipping this is why the switch can look on while RADIUS still
+// reports delivery tracking as off.
+const RESTART_COMMAND = 'launchctl kickstart -k gui/$(id -u)/co.radius.imessage-companion';
+
+// Fallback for when the companion isn't reachable and so can't report its own
+// interpreter — this prints the exact path to add to Full Disk Access.
+const PATH_LOOKUP_COMMAND = 'curl -s http://localhost:5123/verify-capable';
+
 interface CompanionGuideModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -19,6 +29,8 @@ interface CompanionGuideModalProps {
   pythonPath?: string;
   /** Whether delivery tracking (Full Disk Access) is already granted. */
   deliveryTrackingOn?: boolean;
+  /** Restart the companion so a fresh Full Disk Access grant takes effect. */
+  onRestart?: () => Promise<{ ok: boolean; unsupported?: boolean }>;
 }
 
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
@@ -40,6 +52,36 @@ function Key({ children }: { children: React.ReactNode }) {
     <kbd className="inline-block px-1.5 py-0.5 text-[11px] font-semibold font-mono rounded border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100">
       {children}
     </kbd>
+  );
+}
+
+type RestartState = 'idle' | 'running' | 'done' | 'failed' | 'unsupported';
+
+function CopyRow({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked — the text is visible for manual copy.
+    }
+  };
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <code className="flex-1 min-w-0 text-xs font-mono text-emerald-700 dark:text-emerald-400 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg overflow-x-auto whitespace-nowrap">
+        {value}
+      </code>
+      <button
+        onClick={copy}
+        className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+      >
+        {copied ? 'Copied!' : 'Copy'}
+      </button>
+    </div>
   );
 }
 
@@ -72,32 +114,20 @@ export default function CompanionGuideModal({
   checking = false,
   pythonPath,
   deliveryTrackingOn,
+  onRestart,
 }: CompanionGuideModalProps) {
-  const [copied, setCopied] = useState(false);
-  const [copiedPath, setCopiedPath] = useState(false);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(INSTALL_COMMAND);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard blocked — the command is visible for manual copy.
-    }
-  };
-
-  const copyPath = async () => {
-    if (!pythonPath) return;
-    try {
-      await navigator.clipboard.writeText(pythonPath);
-      setCopiedPath(true);
-      setTimeout(() => setCopiedPath(false), 2000);
-    } catch {
-      // Clipboard blocked — the path is visible for manual copy.
-    }
-  };
-
   const isUpdate = mode === 'update';
+  const [restartState, setRestartState] = useState<RestartState>('idle');
+
+  const handleRestart = async () => {
+    if (!onRestart) return;
+    setRestartState('running');
+    const result = await onRestart();
+    setRestartState(result.ok ? 'done' : result.unsupported ? 'unsupported' : 'failed');
+    // Re-read Full Disk Access so step 6 flips to its granted state without the
+    // user having to work out that they need to check again.
+    if (result.ok) onRecheck?.();
+  };
 
   return (
     <Modal
@@ -133,17 +163,7 @@ export default function CompanionGuideModal({
 
           <Step n={2} title="Copy the command">
             Click the <span className="font-semibold">Copy</span> button below.
-            <div className="mt-2 flex items-center gap-2">
-              <code className="flex-1 min-w-0 text-xs font-mono text-emerald-700 dark:text-emerald-400 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg overflow-x-auto whitespace-nowrap">
-                {INSTALL_COMMAND}
-              </code>
-              <button
-                onClick={copy}
-                className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
+            <CopyRow value={INSTALL_COMMAND} />
           </Step>
 
           <Step n={3} title="Paste it into Terminal and press Return">
@@ -194,33 +214,94 @@ export default function CompanionGuideModal({
                   .
                 </p>
 
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Python won’t already be in that list, and that’s normal — macOS only lists apps
+                  that ask for the permission, and Python never asks. You add it by hand:
+                </p>
+
                 <ol className="mt-3 space-y-2.5">
                   <SubStep letter="a">
-                    Click the <span className="font-semibold">+</span> button, then confirm with your
-                    Mac password or Touch ID if asked.
+                    Click the <span className="font-semibold">+</span> button under the list, then
+                    confirm with Touch ID or your Mac password if asked.
                   </SubStep>
                   <SubStep letter="b">
-                    Press <Key>⌘ Command</Key> + <Key>⇧ Shift</Key> + <Key>G</Key>, paste this path,
-                    and press <Key>Return</Key>:
-                    {pythonPath && (
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <code className="flex-1 min-w-0 text-xs font-mono text-emerald-700 dark:text-emerald-400 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg overflow-x-auto whitespace-nowrap">
-                          {pythonPath}
-                        </code>
-                        <button
-                          onClick={copyPath}
-                          className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-                        >
-                          {copiedPath ? 'Copied!' : 'Copy'}
-                        </button>
-                      </div>
+                    A file picker opens, but it hides the folder Python lives in — so jump straight
+                    to it. Press <Key>⌘ Command</Key> + <Key>⇧ Shift</Key> + <Key>G</Key>, paste{' '}
+                    {pythonPath ? 'the path below' : 'your Mac’s Python path'}, press{' '}
+                    <Key>Return</Key>, then click <span className="font-semibold">Open</span>.
+                    {pythonPath ? (
+                      <CopyRow value={pythonPath} />
+                    ) : (
+                      <>
+                        <p className="mt-1.5">
+                          RADIUS can’t read the path right now because the companion isn’t
+                          responding. Start it, then reopen this guide — or run this in Terminal and
+                          copy the <span className="font-mono text-xs">python_path</span> it prints:
+                        </p>
+                        <CopyRow value={PATH_LOOKUP_COMMAND} />
+                      </>
                     )}
                   </SubStep>
                   <SubStep letter="c">
-                    <span className="font-mono text-xs">python</span> now shows up in the list — flip
-                    its switch <span className="font-semibold">on</span>.
+                    It lands in the list as <span className="font-semibold">Python</span> — or a
+                    version number like <span className="font-mono text-xs">python3.13</span> — with
+                    a plain rocket icon. Flip its switch <span className="font-semibold">on</span>.
+                  </SubStep>
+                  <SubStep letter="d">
+                    <span className="font-semibold">Restart the companion.</span> macOS only checks
+                    this permission when a program starts, so the companion has to be restarted
+                    before it can use the access you just granted.
+                    {onRestart && restartState !== 'unsupported' ? (
+                      <>
+                        <div className="mt-2">
+                          <button
+                            onClick={handleRestart}
+                            disabled={restartState === 'running'}
+                            className="inline-flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50"
+                          >
+                            {restartState === 'running' ? 'Restarting…'
+                              : restartState === 'done' ? '✓ Restarted'
+                              : 'Restart companion'}
+                          </button>
+                        </div>
+                        {restartState === 'running' && (
+                          <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            Waiting for it to come back — usually a second or two.
+                          </p>
+                        )}
+                        {restartState === 'failed' && (
+                          <>
+                            <p className="mt-1.5">
+                              It didn’t come back on its own. Paste this into Terminal and press{' '}
+                              <Key>Return</Key>:
+                            </p>
+                            <CopyRow value={RESTART_COMMAND} />
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="mt-1.5">
+                          {restartState === 'unsupported'
+                            ? 'Your companion is too old to restart from here. Paste this into Terminal and press '
+                            : 'Paste this into Terminal and press '}
+                          <Key>Return</Key>:
+                        </p>
+                        <CopyRow value={RESTART_COMMAND} />
+                      </>
+                    )}
                   </SubStep>
                 </ol>
+
+                {restartState !== 'done' && (
+                  <div className="mt-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-500/30 px-3 py-2">
+                    <p className="text-xs text-amber-800 dark:text-amber-200">
+                      <span className="font-semibold">Don’t skip step d.</span> Without the restart
+                      the switch looks on in System Settings, but RADIUS still reads delivery
+                      tracking as off.
+                    </p>
+                  </div>
+                )}
 
                 <p className="mt-2.5 text-xs text-gray-500 dark:text-gray-400">
                   🔒 This only ever reads delivery receipts — never the contents of your messages.

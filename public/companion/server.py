@@ -6,11 +6,12 @@ import os
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 5123
-VERSION = '1.5.0'
+VERSION = '1.6.0'
 
 # Apple's Messages database. Reading it is the only way to learn whether a
 # message actually delivered (vs. merely being queued to iMessage) — the send
@@ -236,6 +237,14 @@ def verify_delivery(phones: list, since_ms: int) -> dict:
     return {'ok': True, 'results': results}
 
 
+def _exit_for_restart() -> None:
+    """Quit so the LaunchAgent (KeepAlive) starts us again. os._exit skips the
+    interpreter's cleanup, which is what we want — the point is to be a brand
+    new process. The delay lets the HTTP response reach the browser first."""
+    time.sleep(0.5)
+    os._exit(0)
+
+
 def fire_notification(sent: int, failed: int) -> None:
     label = f"{sent} message{'s' if sent != 1 else ''} sent"
     if failed:
@@ -286,6 +295,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get('Content-Length', 0))
         body = json.loads(self.rfile.read(length) or b'{}')
+
+        if self.path == '/restart':
+            # macOS only evaluates Full Disk Access when a process starts, so a
+            # grant made while we're running does nothing until we come back as
+            # a new process. Answer first, then quit and let launchd relaunch —
+            # RADIUS polls /ping to know when we're up again.
+            self._json(200, {'ok': True})
+            self.wfile.flush()
+            threading.Thread(target=_exit_for_restart, daemon=True).start()
+            return
 
         if self.path == '/notify':
             fire_notification(int(body.get('sent', 0)), int(body.get('failed', 0)))

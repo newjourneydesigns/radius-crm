@@ -356,6 +356,10 @@ export default function AutoSendManager() {
                       The companion can’t read delivery receipts yet, so RADIUS can’t confirm which
                       messages actually deliver. Takes about 30 seconds to fix.
                     </span>
+                    <span className="block mt-1">
+                      Already added Python to Full Disk Access? It only takes effect after the
+                      companion restarts — the guide has the command.
+                    </span>
                     <button
                       onClick={() => setShowGuide(true)}
                       className="mt-2 block text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
@@ -492,6 +496,7 @@ export default function AutoSendManager() {
         checking={checking || companion.available === null}
         pythonPath={fda?.pythonPath}
         deliveryTrackingOn={fda?.capable}
+        onRestart={companion.restart}
       />
     </div>
   );
