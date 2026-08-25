@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase';
 import {
   DndContext,
   closestCenter,
@@ -23,11 +23,6 @@ import RichTextEditor from '../notes/RichTextEditor';
 import ToolkitContentPreview from '../circle-leader-toolkit/ToolkitContentPreview';
 import { csOpenSans } from '../../lib/circle-leader-toolkit/csFont';
 import type { CircleLeaderResourcePage, ResourcePageAudience } from '../../lib/supabase';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type Props = {
   audience: ResourcePageAudience;
