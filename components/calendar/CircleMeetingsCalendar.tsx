@@ -483,14 +483,14 @@ export default function CircleMeetingsCalendar({
   const [showConflictPanel, setShowConflictPanel] = useState(false);
   const [resolvingConflictLeaderId, setResolvingConflictLeaderId] = useState<number | null>(null);
   // Event summary modal — opens when user clicks Review/View on a leader row.
-  const [summaryModalLeader, setSummaryModalLeader] = useState<{ id: number; name: string; ccbGroupName: string } | null>(null);
+  const [summaryModalLeader, setSummaryModalLeader] = useState<{ id: number; name: string; ccbGroupName: string; ccbGroupId: string | null } | null>(null);
   /** Open the event-summary modal for a leader, resolving the CCB group name
    *  the same way the Event Explorer does so we always look up the right group. */
   const openSummaryModalForLeader = useCallback((leaderId: number, fallbackName?: string) => {
     const leader = leaders.find(l => l.id === leaderId);
     const name = leader?.name ?? fallbackName ?? 'Leader';
     const ccbGroupName = leader?.ccb_group_name || leader?.circle_name || leader?.name || fallbackName || '';
-    setSummaryModalLeader({ id: leaderId, name, ccbGroupName });
+    setSummaryModalLeader({ id: leaderId, name, ccbGroupName, ccbGroupId: leader?.ccb_group_id ?? null });
   }, [leaders]);
   // Tracks leaders whose summary the admin has marked reviewed in this session.
   const [reviewedLeaderIds, setReviewedLeaderIds] = useState<Set<number>>(new Set());
@@ -2806,6 +2806,7 @@ export default function CircleMeetingsCalendar({
         leaderId={summaryModalLeader?.id ?? null}
         leaderName={summaryModalLeader?.name ?? null}
         ccbGroupName={summaryModalLeader?.ccbGroupName ?? null}
+        ccbGroupId={summaryModalLeader?.ccbGroupId ?? null}
         weekStartDate={visibleWeekSundayISO ?? null}
         onReviewed={(leaderId, newState) => {
           setReviewedLeaderIds(prev => {

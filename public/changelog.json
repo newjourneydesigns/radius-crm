@@ -3,6 +3,16 @@
     "date": "2026-08-25",
     "date_display": "August 25, 2026",
     "date_iso": "2026-08-25",
+    "id": "event-summary-new-people-copy-and-ccb-shortcut",
+    "type": "improvement",
+    "category": "Event Summary Tracker",
+    "description": "The New People to Add to CCB box is now built for the actual data-entry run. Clicking a person's name, phone number, or email copies it straight to your clipboard — phone numbers copy as just the digits, no dashes or parentheses — with a checkmark flash so you know it took. And a new Open CCB button on the box jumps straight to that circle's group page in CCB in a new tab, so adding the person is copy, paste, done. Works in both the Event Summary Tracker review and the calendar's event summary view.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-08-25",
+    "date_display": "August 25, 2026",
+    "date_iso": "2026-08-25",
     "id": "event-summary-new-people-surfaced",
     "type": "fix",
     "category": "Event Summary Tracker",

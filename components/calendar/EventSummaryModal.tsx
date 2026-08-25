@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { DateTime } from 'luxon';
 import { supabase } from '../../lib/supabase';
+import CopyTextButton from '../ui/CopyTextButton';
 
 interface Props {
   open: boolean;
@@ -12,6 +13,8 @@ interface Props {
   /** CCB group name to use for the live attendance lookup. Parent resolves
    *  `leader.ccb_group_name || leader.circle_name || leader.name`. */
   ccbGroupName: string | null;
+  /** Circle's CCB group id — powers the Open CCB shortcut in the roster-add box; optional. */
+  ccbGroupId?: string | null;
   weekStartDate: string | null; // YYYY-MM-DD (Sunday)
   /** Called after "mark as reviewed" succeeds. Includes the new state so the parent can update the UI. */
   onReviewed?: (leaderId: number, newState: 'received' | 'did_not_meet' | null) => void;
@@ -73,7 +76,7 @@ async function authHeaders(): Promise<Record<string, string>> {
   return headers;
 }
 
-export default function EventSummaryModal({ open, onClose, leaderId, leaderName, ccbGroupName, weekStartDate, onReviewed }: Props) {
+export default function EventSummaryModal({ open, onClose, leaderId, leaderName, ccbGroupName, ccbGroupId = null, weekStartDate, onReviewed }: Props) {
   const [ccbEvents, setCcbEvents] = useState<CCBEvent[] | null>(null);
   const [appSummary, setAppSummary] = useState<AppSummary | null>(null);
   const [reviewedAt, setReviewedAt] = useState<string | null>(null);
@@ -352,14 +355,30 @@ export default function EventSummaryModal({ open, onClose, leaderId, leaderName,
                   {/* People the leader added by hand — they don't exist in CCB until an ACPD creates them. */}
                   {appSummary.roster_add_requests.length > 0 && (
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
-                      <div className="text-xs font-semibold text-amber-200 flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                        </svg>
-                        New people to add to CCB
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                        <div className="text-xs font-semibold text-amber-200 flex items-center gap-1.5 min-w-0">
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                          </svg>
+                          New people to add to CCB
+                        </div>
+                        {ccbGroupId && (
+                          <a
+                            href={`https://valleycreekchurch.ccbchurch.com/goto/groups/${encodeURIComponent(ccbGroupId)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 shrink-0 rounded-md border border-amber-500/40 px-2 py-0.5 text-[11px] font-medium text-amber-200 hover:bg-amber-500/20 transition-colors"
+                          >
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                            </svg>
+                            Open CCB
+                          </a>
+                        )}
                       </div>
                       <p className="text-[11px] text-amber-200/70 mt-1 mb-2.5">
                         The leader couldn&apos;t find these people in CCB — add them, then check them off.
+                        Click a name, phone, or email to copy it.
                       </p>
                       <div className="space-y-2">
                         {appSummary.roster_add_requests.map((person, i) => {
@@ -386,16 +405,21 @@ export default function EventSummaryModal({ open, onClose, leaderId, leaderName,
                                   />
                                 )}
                                 <div className="min-w-0 flex-1">
-                                  <div className="text-sm font-medium text-white">{person.first_name} {person.last_name}</div>
+                                  <CopyTextButton
+                                    value={`${person.first_name} ${person.last_name}`.trim()}
+                                    className="text-sm font-medium text-white"
+                                  />
                                   {phone || email ? (
                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs">
-                                      {phone && (phoneDigits ? (
-                                        <a href={`tel:${phoneDigits}`} className="text-blue-400 hover:text-blue-300 hover:underline">{phone}</a>
-                                      ) : (
-                                        <span className="text-slate-300">{phone}</span>
-                                      ))}
+                                      {phone && (
+                                        <CopyTextButton
+                                          value={phone}
+                                          copyValue={phoneDigits || phone}
+                                          className="text-blue-400 hover:text-blue-300"
+                                        />
+                                      )}
                                       {email && (
-                                        <a href={`mailto:${email}`} className="max-w-full break-all text-blue-400 hover:text-blue-300 hover:underline">{email}</a>
+                                        <CopyTextButton value={email} className="text-blue-400 hover:text-blue-300" />
                                       )}
                                     </div>
                                   ) : (
