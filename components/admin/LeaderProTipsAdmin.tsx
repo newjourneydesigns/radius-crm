@@ -1,17 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase';
 import { DateTime } from 'luxon';
 import RichTextEditor from '../notes/RichTextEditor';
 import ToolkitContentPreview from '../circle-leader-toolkit/ToolkitContentPreview';
 import { csOpenSans } from '../../lib/circle-leader-toolkit/csFont';
 import type { LeaderProTip, ResourcePageAudience } from '../../lib/supabase';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type TipWithStatus = LeaderProTip & { inbox_status: string | null };
 

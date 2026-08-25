@@ -1,18 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../../lib/supabase';
 import {
   DID_NOT_MEET_NOTES_KEY,
   DID_NOT_MEET_REASON_KEY,
   DYNAMIC_RESPONSE_KEY,
   type QuestionResponseKey,
 } from '../../../lib/circle-leader-toolkit/dynamic-question-response-keys';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type FieldType = 'text' | 'textarea' | 'dropdown' | 'multiselect' | 'checkbox' | 'radio';
 
