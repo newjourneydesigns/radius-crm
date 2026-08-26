@@ -35,7 +35,10 @@ interface Recipient {
   isFromCCB?: boolean;
   isFromPaste?: boolean;
   isFromRoster?: boolean;
+  isFromGroupImport?: boolean;
   circleLeaderName?: string;
+  /** CCB group name when imported straight from a group number. */
+  groupName?: string;
   additionalLeaderName?: string;
   additionalLeaderPhone?: string;
   /** Whatever the source gave us — a birthdate string, an age, or neither. */
@@ -318,6 +321,12 @@ function BulkMessageContent() {
   const [rosterFeedback, setRosterFeedback] = useState<string | null>(null);
   const rosterContainerRef = useRef<HTMLDivElement>(null);
 
+  // CCB group number import state
+  const [groupIdInput, setGroupIdInput] = useState('');
+  const [groupImportLoading, setGroupImportLoading] = useState(false);
+  const [groupImportError, setGroupImportError] = useState<string | null>(null);
+  const [groupImportFeedback, setGroupImportFeedback] = useState<string | null>(null);
+
   // Paste import state
   const [showPastePanel, setShowPastePanel] = useState(false);
   const [pasteText, setPasteText] = useState('');
@@ -325,7 +334,7 @@ function BulkMessageContent() {
 
   // Wizard state
   const [wizardStep, setWizardStep] = useState<'build' | 'compose'>('build');
-  const [buildTab, setBuildTab] = useState<'filter' | 'person' | 'roster' | 'paste'>('filter');
+  const [buildTab, setBuildTab] = useState<'filter' | 'person' | 'roster' | 'paste' | 'group'>('filter');
 
   // Persist templates
   useEffect(() => { saveTemplates(templates); }, [templates]);
@@ -879,6 +888,87 @@ function BulkMessageContent() {
     }
   }, []);
 
+  // ─── CCB group number import ───────────────────────────────
+  // Same roster pull as the Circle Roster tab, but keyed by a typed-in CCB
+  // group number, so any group can be imported — not just circles Radius
+  // already links to.
+  const handleImportCcbGroup = useCallback(async () => {
+    const groupId = groupIdInput.trim();
+    if (!groupId || groupImportLoading) return;
+    setGroupImportError(null);
+    setGroupImportFeedback(null);
+    setGroupImportLoading(true);
+
+    try {
+      const res = await apiFetch('/api/ccb/group-roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // includeGroupName costs one extra CCB call, and buys the label the
+        // recipient list shows in place of a bare number.
+        body: JSON.stringify({ groupId, includeGroupName: true }),
+      });
+      const json: { success?: boolean; data?: RosterMember[]; groupName?: string | null; details?: string; error?: string } = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.details || json.error || 'Failed to load group');
+      }
+
+      const members = json.data || [];
+      if (members.length === 0) {
+        setGroupImportError(`CCB returned no members for group ${groupId} — double-check the group number.`);
+        return;
+      }
+      const groupLabel = json.groupName || `CCB Group ${groupId}`;
+
+      const mapped = members
+        .map((m): Recipient | null => {
+          const phone = normalizePhone(m.mobilePhone || m.phone || '');
+          if (phone.length < 7) return null;
+          const ccbId = parseInt(m.id || '', 10);
+          const fullName = (m.fullName || `${m.firstName || ''} ${m.lastName || ''}`).trim() || 'Friend';
+          return {
+            id: isNaN(ccbId) ? -(Date.now() + Math.floor(Math.random() * 100000)) : ccbId,
+            name: fullName,
+            firstName: m.firstName || fullName.split(' ')[0],
+            phone,
+            isFromCCB: true,
+            isFromGroupImport: true,
+            groupName: groupLabel,
+            birthdate: m.birthday,
+            age: ageFromBirthdate(m.birthday),
+          };
+        })
+        .filter((r): r is Recipient => r !== null);
+
+      // Dedupe against the list as of this render, not inside the state
+      // updater: React runs updaters lazily, so a count captured there reads
+      // as 0 when the feedback line below is built. The updater still
+      // re-checks against its own prev, so a race can't double-add — this
+      // pass only keeps the "Added N" count honest.
+      const seen = new Set(ccbRecipients.map(r => r.phone));
+      const fresh = mapped.filter(r => {
+        if (seen.has(r.phone)) return false;
+        seen.add(r.phone);
+        return true;
+      });
+      setCcbRecipients(prev => {
+        const have = new Set(prev.map(r => r.phone));
+        return [...prev, ...fresh.filter(r => !have.has(r.phone))];
+      });
+
+      const skipped = members.length - mapped.length;
+      const dupes = mapped.length - fresh.length;
+      const parts = [`Added ${fresh.length} from ${groupLabel}`];
+      if (dupes > 0) parts.push(`${dupes} already in list`);
+      if (skipped > 0) parts.push(`${skipped} without phone`);
+      setGroupImportFeedback(parts.join(' · '));
+      setGroupIdInput('');
+    } catch (err) {
+      setGroupImportError(err instanceof Error ? err.message : 'Failed to load group');
+    } finally {
+      setGroupImportLoading(false);
+    }
+  }, [groupIdInput, groupImportLoading, ccbRecipients]);
+
   const handleSaveList = () => {
     if (!listNameInput.trim() || recipients.length === 0) return;
     const newList: SavedRecipientList = {
@@ -1217,6 +1307,7 @@ function BulkMessageContent() {
                   { id: 'person', label: 'Add Person' },
                   { id: 'roster', label: 'Circle Roster' },
                   { id: 'paste',  label: 'Paste Import' },
+                  { id: 'group',  label: 'CCB Group' },
                 ] as const).map(tab => (
                   <button
                     key={tab.id}
@@ -1409,11 +1500,11 @@ function BulkMessageContent() {
                       size="sm"
                       withFullProfile
                     />
-                    {ccbRecipients.filter(r => !r.isFromPaste && !r.isFromRoster).length > 0 && (
+                    {ccbRecipients.filter(r => !r.isFromPaste && !r.isFromRoster && !r.isFromGroupImport).length > 0 && (
                       <div className="pt-3 border-t border-gray-800">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Added Individually</label>
                         <div className="flex flex-wrap gap-2">
-                          {ccbRecipients.filter(r => !r.isFromPaste && !r.isFromRoster).map(r => (
+                          {ccbRecipients.filter(r => !r.isFromPaste && !r.isFromRoster && !r.isFromGroupImport).map(r => (
                             <div key={r.phone} className="flex items-center gap-1.5 bg-teal-500/10 border border-teal-500/20 px-2.5 py-1 rounded-lg text-xs">
                               <span className="text-teal-300 font-medium">{r.name}</span>
                               <button type="button" onClick={() => handleRemoveCCBRecipient(r.phone)} className="text-teal-500/60 hover:text-rose-400 transition-colors font-bold leading-none">×</button>
@@ -1563,6 +1654,66 @@ function BulkMessageContent() {
                   </div>
                 )}
 
+                {/* CCB GROUP TAB */}
+                {buildTab === 'group' && (
+                  <div className="space-y-4">
+                    <p className="text-xs text-gray-500">Type a CCB group number to import that group&apos;s contact list.</p>
+                    <div>
+                      <label htmlFor="ccb-group-number" className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">CCB Group Number</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="ccb-group-number"
+                          type="text"
+                          inputMode="numeric"
+                          value={groupIdInput}
+                          onChange={(e) => { setGroupIdInput(e.target.value.replace(/\D/g, '')); setGroupImportError(null); setGroupImportFeedback(null); }}
+                          onKeyDown={(e) => e.key === 'Enter' && handleImportCcbGroup()}
+                          placeholder="e.g. 3365"
+                          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 transition-shadow placeholder:text-gray-600"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleImportCcbGroup}
+                          disabled={!groupIdInput.trim() || groupImportLoading}
+                          className="px-5 py-2 bg-sky-600 hover:bg-sky-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-xs uppercase tracking-widest rounded-lg transition-all flex items-center gap-2"
+                        >
+                          {groupImportLoading && <span className="w-3.5 h-3.5 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />}
+                          {groupImportLoading ? 'Importing…' : 'Import'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-600 mt-1.5">Find it in the group&apos;s CCB page URL — the number after group_id=.</p>
+                    </div>
+                    {groupImportLoading && (
+                      <div className="flex items-center gap-2 text-xs text-sky-400">
+                        <span className="w-3.5 h-3.5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                        Loading contact list from CCB...
+                      </div>
+                    )}
+                    {groupImportError && <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{groupImportError}</div>}
+                    {groupImportFeedback && !groupImportError && <div className="text-xs text-sky-300 bg-sky-500/10 border border-sky-500/20 rounded-lg px-3 py-2">{groupImportFeedback}</div>}
+                    {ccbRecipients.filter(r => r.isFromGroupImport).length > 0 && (
+                      <div className="pt-3 border-t border-gray-800 space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">
+                          {ccbRecipients.filter(r => r.isFromGroupImport).length} group members added
+                        </label>
+                        {Array.from(new Set(ccbRecipients.filter(r => r.isFromGroupImport).map(r => r.groupName))).map(gName => (
+                          <div key={gName} className="flex items-center justify-between py-1.5 border-b border-gray-800/50 last:border-0">
+                            <span className="text-xs text-gray-300">{gName}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-gray-500">{ccbRecipients.filter(r => r.isFromGroupImport && r.groupName === gName).length} members</span>
+                              <button
+                                type="button"
+                                onClick={() => setCcbRecipients(prev => prev.filter(r => !(r.isFromGroupImport && r.groupName === gName)))}
+                                className="text-gray-600 hover:text-rose-400 transition-colors font-bold text-sm"
+                              >×</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </div>
             </section>
 
@@ -1702,10 +1853,14 @@ function BulkMessageContent() {
                               {r.isAdditionalLeader && <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold uppercase">Additional</span>}
                               {r.isFromPaste && <span className="text-[9px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-bold uppercase">Paste</span>}
                               {r.isFromRoster && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase">Roster</span>}
-                              {r.isFromCCB && !r.isFromPaste && !r.isFromRoster && <span className="text-[9px] bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded font-bold uppercase">CCB</span>}
+                              {r.isFromGroupImport && <span className="text-[9px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded font-bold uppercase">Group</span>}
+                              {r.isFromCCB && !r.isFromPaste && !r.isFromRoster && !r.isFromGroupImport && <span className="text-[9px] bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded font-bold uppercase">CCB</span>}
                             </div>
                             {(r.isAdditionalLeader || r.isFromRoster) && r.circleLeaderName && (
                               <p className="text-[10px] text-gray-500 mt-0.5">{r.circleLeaderName}&apos;s Circle</p>
+                            )}
+                            {r.isFromGroupImport && r.groupName && (
+                              <p className="text-[10px] text-gray-500 mt-0.5">{r.groupName}</p>
                             )}
                           </td>
                           <td className="px-4 py-2 text-gray-400 font-mono text-xs">{r.phone}</td>
