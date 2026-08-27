@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-08-27",
+    "date_display": "August 27, 2026",
+    "date_iso": "2026-08-27",
+    "id": "auto-send-python-alias-note",
+    "type": "improvement",
+    "category": "Auto Send",
+    "description": "The Auto Send setup guide now tells you what the Python file actually looks like when you go to add it to Full Disk Access. After you paste the path, Finder selects python3 but shows it with a blank \"?\" icon and calls it an Alias of only a few dozen bytes — which looks like the wrong file and has stopped people mid-setup. Step 6b now says up front that this is exactly right: an alias is just a Mac shortcut to the real Python, and clicking Open follows it through.",
+    "page": "/settings?tab=auto_send"
+  },
+  {
     "date": "2026-08-26",
     "date_display": "August 26, 2026",
     "date_iso": "2026-08-26",

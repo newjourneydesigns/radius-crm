@@ -241,6 +241,13 @@ export default function CompanionGuideModal({
                         <CopyRow value={PATH_LOOKUP_COMMAND} />
                       </>
                     )}
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      Finder lands on <span className="font-mono">python3</span> and shows it with a
+                      blank “<span className="font-semibold">?</span>” icon, labeled{' '}
+                      <span className="font-semibold">Alias</span> and only a few dozen bytes. That’s
+                      the right file — an alias is a Mac shortcut pointing at the real Python. Click{' '}
+                      <span className="font-semibold">Open</span> and macOS follows it through.
+                    </p>
                   </SubStep>
                   <SubStep letter="c">
                     It lands in the list as <span className="font-semibold">Python</span> — or a
