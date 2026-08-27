@@ -1,20 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
-// Create admin client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 'demo-key',
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
+// Built on first use rather than at module load. Next evaluates every route
+// module while collecting page data during `next build`, and createClient throws
+// on an empty URL — so with Supabase env vars absent (a fresh clone with no
+// .env.local) this crashed the whole build. Deferring it keeps the build env-free
+// and turns a missing credential into a request-time error instead.
+let supabaseAdminClient: SupabaseClient | null = null;
+function supabaseAdmin(): SupabaseClient {
+  if (!supabaseAdminClient) {
+    supabaseAdminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || 'demo-key',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
   }
-);
+  return supabaseAdminClient;
+}
 
 /**
  * Create a Supabase client with the user's session from cookies
@@ -67,7 +77,7 @@ export async function GET(request: NextRequest) {
     console.log('User authenticated:', user.id);
 
     // Get user profile (may not exist yet)
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseAdmin()
       .from('users')
       .select('*')
       .eq('id', user.id)
@@ -91,7 +101,7 @@ export async function GET(request: NextRequest) {
     // Get email preferences from users table columns
     let emailPrefs: Record<string, unknown> | null = null;
     try {
-      const { data: userPrefs } = await supabaseAdmin
+      const { data: userPrefs } = await supabaseAdmin()
         .from('users')
         .select('daily_email_subscribed, daily_email_time, daily_email_frequency_hours, include_follow_ups, include_overdue_tasks, include_planned_encouragements, include_upcoming_meetings, include_birthdays, include_board_cards_owned, include_board_cards_assigned, include_checklist_items')
         .eq('id', user.id)
@@ -177,7 +187,7 @@ export async function PUT(request: NextRequest) {
       const emailToStore = newEmail || user.email;
 
       // Fetch existing profile to preserve role and other fields
-      const { data: existingProfile } = await supabaseAdmin
+      const { data: existingProfile } = await supabaseAdmin()
         .from('users')
         .select('role')
         .eq('id', user.id)
@@ -186,7 +196,7 @@ export async function PUT(request: NextRequest) {
       const currentRole = existingProfile?.role || 'Viewer';
 
       // Use upsert to either update existing row or insert new one
-      const { error: profileError } = await supabaseAdmin
+      const { error: profileError } = await supabaseAdmin()
         .from('users')
         .upsert({
           id: user.id,
@@ -206,7 +216,7 @@ export async function PUT(request: NextRequest) {
       if (newEmail && newEmail !== user.email) {
         const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY !== 'demo-key';
         if (hasServiceKey) {
-          const { error: authEmailError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+          const { error: authEmailError } = await supabaseAdmin().auth.admin.updateUserById(user.id, {
             email: newEmail,
             email_confirm: true
           });
@@ -274,7 +284,7 @@ export async function PUT(request: NextRequest) {
 
         // Only update if there's something to write
         if (Object.keys(updatePayload).length > 0) {
-          const { error: prefUpdateError } = await supabaseAdmin
+          const { error: prefUpdateError } = await supabaseAdmin()
             .from('users')
             .update(updatePayload)
             .eq('id', user.id);

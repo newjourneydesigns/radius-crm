@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
+
+export const dynamic = 'force-dynamic';
 
 // Simple in-memory rate limit: max 3 resends per email per 10 minutes
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -19,11 +21,22 @@ function checkRateLimit(email: string): boolean {
   return true;
 }
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 'demo-key',
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+// Built on first use rather than at module load. Next evaluates every route
+// module while collecting page data during `next build`, and createClient throws
+// on an empty URL — so with Supabase env vars absent (a fresh clone with no
+// .env.local) this crashed the whole build. Deferring it keeps the build env-free
+// and turns a missing credential into a request-time error instead.
+let supabaseAdminClient: SupabaseClient | null = null;
+function supabaseAdmin(): SupabaseClient {
+  if (!supabaseAdminClient) {
+    supabaseAdminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || 'demo-key',
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+  }
+  return supabaseAdminClient;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find the user in auth
-    const { data: authList } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: authList } = await supabaseAdmin().auth.admin.listUsers();
     const authUser = authList?.users?.find((u: any) => u.email === normalizedEmail);
 
     if (!authUser) {
@@ -60,11 +73,11 @@ export async function POST(request: NextRequest) {
 
     // Confirm email if not already confirmed
     if (!authUser.email_confirmed_at) {
-      await supabaseAdmin.auth.admin.updateUserById(authUser.id, { email_confirm: true });
+      await supabaseAdmin().auth.admin.updateUserById(authUser.id, { email_confirm: true });
     }
 
     // Generate a magic link
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    const { data: linkData, error: linkError } = await supabaseAdmin().auth.admin.generateLink({
       type: 'magiclink',
       email: normalizedEmail,
       options: {
