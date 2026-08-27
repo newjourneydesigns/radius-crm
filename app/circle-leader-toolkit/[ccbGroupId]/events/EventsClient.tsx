@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { renderMessageHtml } from '../../../../lib/renderMessageHtml';
 import { useMarkCircleAppEntered } from '../../../../lib/circle-leader-toolkit/appEntered';
 import type { CircleEventRow, CircleMessage } from '../../../../lib/circle-leader-toolkit/events-data';
+import type { CircleGuideLink } from '../../../../lib/circle-leader-toolkit/circle-guide';
+import CircleGuideCard from './CircleGuideCard';
 
 type EventRow = CircleEventRow;
 type CenterMessage = CircleMessage;
@@ -34,6 +36,7 @@ export default function EventsClient({
   initialMessages,
   initialError,
   initialCcbDegraded = null,
+  circleGuide,
 }: {
   groupId: string;
   leaderId: number | string;
@@ -41,6 +44,7 @@ export default function EventsClient({
   initialMessages: CenterMessage[];
   initialError: string | null;
   initialCcbDegraded?: 'stale' | 'unavailable' | null;
+  circleGuide: CircleGuideLink;
 }) {
   useMarkCircleAppEntered();
   const router = useRouter();
@@ -208,6 +212,10 @@ export default function EventsClient({
           </div>
         </section>
       )}
+
+      <section className={`max-w-2xl mx-auto px-4 mb-2 ${messages.length > 0 ? 'pt-3' : 'pt-5'}`}>
+        <CircleGuideCard guide={circleGuide} />
+      </section>
 
       <main className="max-w-2xl mx-auto px-4 py-6">
         {ccbDegraded === 'unavailable' && (

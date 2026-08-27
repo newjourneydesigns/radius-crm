@@ -3,6 +3,16 @@
     "date": "2026-08-27",
     "date_display": "August 27, 2026",
     "date_iso": "2026-08-27",
+    "id": "circle-leader-toolkit-latest-circle-guide",
+    "type": "feature",
+    "category": "Circle Leader Toolkit",
+    "description": "The Circle Leader Toolkit now shows this week's Circle Guide right on your events screen, with its title and date, and a button that opens it. It always points at the newest guide on valleycreek.plus, so there's nothing to look up and no stale link to chase each week. If a guide can't be reached, the card keeps showing the last one it found rather than going blank.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-08-27",
+    "date_display": "August 27, 2026",
+    "date_iso": "2026-08-27",
     "id": "auto-send-python-alias-note",
     "type": "improvement",
     "category": "Auto Send",

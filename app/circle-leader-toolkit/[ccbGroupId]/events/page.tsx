@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSessionLeader } from '../../../../lib/circle-leader-toolkit/session';
 import { loadLeaderEvents, loadLeaderMessages } from '../../../../lib/circle-leader-toolkit/events-data';
 import { createTimer } from '../../../../lib/circle-leader-toolkit/timing';
+import { readCircleGuideLink } from '../../../../lib/circle-leader-toolkit/circle-guide';
 import EventsClient from './EventsClient';
 
 export const dynamic = 'force-dynamic';
@@ -19,9 +20,12 @@ export default async function CircleSummaryEventsPage() {
 
   const groupId = leader.ccb_group_id != null ? String(leader.ccb_group_id) : '';
 
-  const [eventsResult, messages] = await Promise.all([
+  // readCircleGuideLink is a single cached-row read — the guide itself is
+  // resolved from valleycreek.plus by the sync-circle-guide cron, never here.
+  const [eventsResult, messages, circleGuide] = await Promise.all([
     loadLeaderEvents(leader),
     loadLeaderMessages(leader),
+    readCircleGuideLink(),
   ]);
   timer.mark('data');
   timer.end({
@@ -42,6 +46,7 @@ export default async function CircleSummaryEventsPage() {
       initialMessages={messages}
       initialError={initialError}
       initialCcbDegraded={eventsResult.ccbAttendanceDegraded ?? null}
+      circleGuide={circleGuide}
     />
   );
 }
