@@ -4,19 +4,24 @@ import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctions
 /**
  * Netlify Scheduled Function — Refresh the Latest Circle Guide
  *
- * Runs every 6 hours. Calls /api/circle-leader-toolkit/circle-guide, which
- * re-reads the newest guide from valleycreek.plus into circle_guide_cache so
- * the toolkit's Events page can serve it without an external round trip.
+ * Calls /api/circle-leader-toolkit/circle-guide, which re-reads the newest guide
+ * from valleycreek.plus into circle_guide_cache so the toolkit's Events page can
+ * serve it without an external round trip.
  *
- * Every 6 hours rather than weekly: guides publish Sunday around 13:00 UTC, but
- * the source is served through a CDN with an observed age of several hours, so
- * a single Sunday run could read a copy cached before the guide went up. Four
- * ranged 256KB requests a day is negligible and bounds staleness to ~6 hours.
+ * Timed to the promise we make leaders: the new guide is available by 1pm Central
+ * on Sunday. Netlify cron is fixed UTC while Central shifts with DST, so the three
+ * hours cover both offsets — 17:00 and 18:00 UTC each land at or before 1pm Central
+ * in summer and winter alike, and 19:00 is the retry for when the source CDN was
+ * still serving a pre-publish copy (its age has been observed at several hours).
+ *
+ * Monday repeats the set so a Sunday where every attempt failed recovers the next
+ * morning instead of leaving the card a week stale. Six ranged 256KB requests a
+ * week, down from the 28 an every-6-hours schedule was spending.
  *
  * A failed run leaves the previous guide in place, so a miss is never visible
  * to leaders.
  */
-const handler = schedule('0 */6 * * *', async () => {
+const handler = schedule('0 17,18,19 * * 0,1', async () => {
   if (scheduledFunctionsDisabled()) {
     return { statusCode: 200, body: 'scheduled functions disabled on this site' };
   }
