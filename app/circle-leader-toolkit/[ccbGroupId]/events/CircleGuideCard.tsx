@@ -7,9 +7,10 @@ import type { CircleGuideLink } from '../../../../lib/circle-leader-toolkit/circ
  * `cs-card` — the two are adjacent, and `cs-card` has a tighter radius and a
  * softer shadow, so mixing them reads as a mistake.
  *
- * Presentational only. The eyebrow and formatted date are resolved server-side
- * (see readCircleGuideLink) so the viewer's timezone can't cause a hydration
- * mismatch.
+ * Presentational only. Every string — eyebrow, headline, CTA, formatted date —
+ * is resolved server-side (see readCircleGuideLink), both so the viewer's timezone
+ * can't cause a hydration mismatch and so the Sunday handoff logic lives in one
+ * place rather than being re-derived in the browser.
  */
 export default function CircleGuideCard({ guide }: { guide: CircleGuideLink }) {
   return (
@@ -25,7 +26,7 @@ export default function CircleGuideCard({ guide }: { guide: CircleGuideLink }) {
 
       <div className="px-4 py-4">
         <h2 className="text-sm font-bold text-neutral-900 tracking-tight">
-          {guide.title ?? 'Every Circle Guide, newest first'}
+          {guide.headline}
         </h2>
         {guide.dateDisplay && (
           <p className="text-xs text-neutral-500 mt-1">{guide.dateDisplay}</p>
@@ -36,7 +37,7 @@ export default function CircleGuideCard({ guide }: { guide: CircleGuideLink }) {
           rel="noopener noreferrer"
           className="cs-message-cta"
         >
-          <span>{guide.title ? 'Open the guide' : 'Browse the guides'}</span>
+          <span>{guide.ctaLabel}</span>
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>

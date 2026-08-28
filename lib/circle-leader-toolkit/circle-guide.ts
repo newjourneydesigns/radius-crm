@@ -53,6 +53,20 @@ const THIS_WEEK_MAX_AGE_DAYS = 10;
  *  the current one until its date arrives. */
 const FUTURE_TOLERANCE_HOURS = 12;
 
+/**
+ * Sunday handoff window, Central. Leaders are told the new guide is up by 1pm,
+ * and the refresh runs at noon, 1pm and 2pm. From HANDOFF_START the cached guide
+ * is knowably last week's, so the card stops sending leaders confidently to a
+ * stale guide and points at the index until this week's arrives.
+ *
+ * It reopens at HANDOFF_END rather than waiting indefinitely: guides skip a week
+ * now and then, and once the last refresh has come and gone with nothing new, the
+ * previous guide really is the latest one — the site's own index shows it at the
+ * top too. A real guide beats a bare index link.
+ */
+const HANDOFF_START_HOUR = 9;
+const HANDOFF_END_HOUR = 15;
+
 export type CircleGuide = {
   title: string;
   /** ISO 8601, as published by the source. */
@@ -70,20 +84,55 @@ export type CircleGuide = {
  * client bundle.
  */
 export type CircleGuideLink = {
+  /** The guide's own title, set only when the card points at a specific guide. */
   title: string | null;
   publishedAt: string | null;
   dateDisplay: string | null;
   eyebrow: string;
+  /** Main line on the card. */
+  headline: string;
+  ctaLabel: string;
   url: string;
 };
 
+/** Nothing cached at all — first deploy, or the cache is unreachable. */
 const INDEX_FALLBACK: CircleGuideLink = {
   title: null,
   publishedAt: null,
   dateDisplay: null,
   eyebrow: 'Circle Guides',
+  headline: 'Every Circle Guide, newest first',
+  ctaLabel: 'Browse the guides',
   url: CIRCLE_GUIDES_INDEX_URL,
 };
+
+/** Sunday morning: this week's guide is due but we haven't picked it up yet. */
+const AWAITING_THIS_WEEK: CircleGuideLink = {
+  title: null,
+  publishedAt: null,
+  dateDisplay: null,
+  eyebrow: "This Week's Circle Guide",
+  headline: 'Posts by 1pm today',
+  ctaLabel: 'Browse past guides',
+  url: CIRCLE_GUIDES_INDEX_URL,
+};
+
+/**
+ * True when the cached guide is last week's and this week's is still expected —
+ * Sunday between HANDOFF_START_HOUR and HANDOFF_END_HOUR, Central.
+ *
+ * `now` is injectable so the window is testable without freezing the clock.
+ */
+export function isAwaitingThisWeeksGuide(
+  publishedAt: DateTime,
+  now: DateTime = DateTime.now().setZone(GUIDE_TZ)
+): boolean {
+  if (now.weekday !== 7) return false; // Luxon: 7 = Sunday
+  if (now.hour < HANDOFF_START_HOUR || now.hour >= HANDOFF_END_HOUR) return false;
+  // Already holding a guide dated today? Then this week's has landed.
+  // Guides post Sunday morning Central, so "not today" reliably means last week's.
+  return publishedAt.startOf('day') < now.startOf('day');
+}
 
 /** Pull one JSON string field out of the scan window, unescaping it properly. */
 function readStringField(window: string, key: string): string | null {
@@ -189,6 +238,8 @@ export async function fetchLatestCircleGuide(): Promise<CircleGuide | null> {
 
 function toLink(guide: CircleGuide): CircleGuideLink {
   const published = DateTime.fromISO(guide.publishedAt, { zone: GUIDE_TZ });
+  if (published.isValid && isAwaitingThisWeeksGuide(published)) return AWAITING_THIS_WEEK;
+
   const isCurrent =
     published.isValid &&
     DateTime.now().setZone(GUIDE_TZ).diff(published, 'days').days <= THIS_WEEK_MAX_AGE_DAYS;
@@ -198,6 +249,8 @@ function toLink(guide: CircleGuide): CircleGuideLink {
     publishedAt: guide.publishedAt,
     dateDisplay: published.isValid ? published.toFormat('LLLL d') : null,
     eyebrow: isCurrent ? "This Week's Circle Guide" : 'Latest Circle Guide',
+    headline: guide.title,
+    ctaLabel: 'Open the guide',
     url: guide.url,
   };
 }
