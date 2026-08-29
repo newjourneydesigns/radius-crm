@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import {
+  enablePushForThisDevice,
+  PUSH_STAGE_SHORT_LABEL,
+  type PushStage,
+} from '../../../lib/circle-leader-toolkit/enable-push';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -66,13 +71,6 @@ function isIOS() {
   return /iPad|iPhone|iPod/.test(window.navigator.userAgent);
 }
 
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  return Uint8Array.from(Array.from(rawData).map((char) => char.charCodeAt(0)));
-}
-
 export default function CircleOnboardingPrompts({ groupId }: { groupId: string }) {
   const [installAvailable, setInstallAvailable] = useState(false);
   const [installed, setInstalled] = useState(true);
@@ -81,6 +79,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('unsupported');
   const [busy, setBusy] = useState<'install' | 'notifications' | null>(null);
+  const [pushStage, setPushStage] = useState<PushStage | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -170,20 +169,15 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
     setBusy('notifications');
     setError(null);
     setMessage(null);
+    setPushStage('permission');
     try {
-      if (!pushAvailable || !settings?.publicKey) throw new Error('Push notifications are not available in this browser.');
-      const permissionResult = await Notification.requestPermission();
-      setPermission(permissionResult);
-      if (permissionResult !== 'granted') throw new Error('Notifications were not enabled.');
-
-      const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      const ready = await navigator.serviceWorker.ready;
-      const existing = await ready.pushManager.getSubscription();
-      const subscription = existing || await ready.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(settings.publicKey),
+      const { subscription, registration } = await enablePushForThisDevice({
+        publicKey: settings?.publicKey,
+        onStage: setPushStage,
+        onPermission: setPermission,
       });
 
+      setPushStage('saving');
       const res = await fetch('/api/circle-leader-toolkit/notifications/', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -198,7 +192,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
         body: JSON.stringify({
           inboxPushEnabled: true,
           summaryReminderPushEnabled: true,
-          badgeCountEnabled: settings.preferences?.badge_count_enabled !== false,
+          badgeCountEnabled: settings?.preferences?.badge_count_enabled !== false,
         }),
       }).catch(() => null);
 
@@ -210,6 +204,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not enable notifications.');
     } finally {
+      setPushStage(null);
       setBusy(null);
     }
   }
@@ -277,7 +272,7 @@ export default function CircleOnboardingPrompts({ groupId }: { groupId: string }
                 Not now
               </button>
               <button type="button" disabled={busy !== null} onClick={enableNotifications} className="cs-inbox-banner-cta rounded-full bg-[#34B233] px-4 py-2 text-xs font-extrabold shadow-sm disabled:opacity-50">
-                {busy === 'notifications' ? 'Working...' : 'Enable'}
+                {busy === 'notifications' ? PUSH_STAGE_SHORT_LABEL[pushStage ?? 'permission'] : 'Enable'}
               </button>
             </div>
           </div>

@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useMarkCircleAppEntered } from '../../../../lib/circle-leader-toolkit/appEntered';
 import { setCircleSummaryAppBadge } from '../../../../lib/circle-leader-toolkit/badging';
+import {
+  enablePushForThisDevice,
+  PUSH_STAGE_SHORT_LABEL,
+  type PushStage,
+} from '../../../../lib/circle-leader-toolkit/enable-push';
 import { useInstallEnv } from '../../../../lib/circle-leader-toolkit/installEnv';
 import InstallAppGuide from '../../InstallAppGuide';
 
@@ -29,13 +34,6 @@ type MagicLinkInfo = {
   expiresAt: string;
   expiresInDays: number;
 };
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  return Uint8Array.from(Array.from(rawData).map((char) => char.charCodeAt(0)));
-}
 
 async function getCurrentPushEndpoint(): Promise<string | null> {
   try {
@@ -70,6 +68,7 @@ export default function CircleSummaryNotificationSettingsPage() {
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('unsupported');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [pushStage, setPushStage] = useState<PushStage | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [magicLink, setMagicLink] = useState<MagicLinkInfo | null>(null);
@@ -152,18 +151,14 @@ export default function CircleSummaryNotificationSettingsPage() {
     setBusy(true);
     setError(null);
     setMessage(null);
+    setPushStage('permission');
     try {
-      if (!pushAvailable || !publicKey) throw new Error('Push notifications are not available in this browser yet.');
-      const permissionResult = await Notification.requestPermission();
-      setPermission(permissionResult);
-      if (permissionResult !== 'granted') throw new Error('Notification permission was not granted.');
-      const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      const ready = await navigator.serviceWorker.ready;
-      const existing = await ready.pushManager.getSubscription();
-      const subscription = existing || await ready.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      const { subscription, registration } = await enablePushForThisDevice({
+        publicKey,
+        onStage: setPushStage,
+        onPermission: setPermission,
       });
+      setPushStage('saving');
       const res = await fetch('/api/circle-leader-toolkit/notifications/', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -178,6 +173,7 @@ export default function CircleSummaryNotificationSettingsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not enable push notifications.');
     } finally {
+      setPushStage(null);
       setBusy(false);
     }
   }
@@ -397,7 +393,7 @@ export default function CircleSummaryNotificationSettingsPage() {
                       onClick={enablePush}
                       className="inline-flex h-11 min-w-[8.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-[#34B233] px-5 text-sm font-extrabold text-white shadow-sm ring-1 ring-[#2ca52b]/20 transition-colors hover:bg-[#2fa62e] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {busy ? 'Working…' : 'Enable push'}
+                      {busy ? PUSH_STAGE_SHORT_LABEL[pushStage ?? 'permission'] : 'Enable push'}
                     </button>
                   ) : null}
                 </div>

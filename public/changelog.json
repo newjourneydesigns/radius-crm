@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-08-29",
+    "date_display": "August 29, 2026",
+    "date_iso": "2026-08-29",
+    "id": "toolkit-enable-notifications-no-hang",
+    "type": "fix",
+    "category": "Circle Leader Toolkit",
+    "description": "Tapping \"Enable notifications\" during setup could sit on \"Working...\" forever. Three of the browser steps behind that button are allowed to stall with no error and no timeout, and when one did, the button never came back. Each step now has a time limit and says which one it's on — asking for permission, setting up, registering this device, saving — and if a step stalls you get a message telling you what to do instead of a spinner that never ends. On iPhone and iPad the step now says up front that Circles has to be added to the Home Screen first, rather than letting you tap a button that can't work there.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-08-28",
     "date_display": "August 28, 2026",
     "date_iso": "2026-08-28",

@@ -22,6 +22,12 @@ import {
   normalizeQuestionResponseKey,
   type QuestionResponseKey,
 } from '../../../lib/circle-leader-toolkit/dynamic-question-response-keys';
+import {
+  enablePushForThisDevice,
+  pushBlockedReason,
+  PUSH_STAGE_LABEL,
+  type PushStage,
+} from '../../../lib/circle-leader-toolkit/enable-push';
 import InstallAppGuide from '../InstallAppGuide';
 
 type ToolkitOnboardingState = {
@@ -83,13 +89,6 @@ function isStandaloneApp() {
   return window.matchMedia('(display-mode: standalone)').matches || nav.standalone === true;
 }
 
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  return Uint8Array.from(Array.from(rawData).map((char) => char.charCodeAt(0)));
-}
-
 function homeScreenResolved(state: ToolkitOnboardingState) {
   return Boolean(state.homeScreenCompletedAt || state.homeScreenDismissedAt);
 }
@@ -129,6 +128,8 @@ export default function OnboardingClient({
   const [installed, setInstalled] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('unsupported');
+  const [pushStage, setPushStage] = useState<PushStage | null>(null);
+  const [pushBlocked, setPushBlocked] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -216,6 +217,14 @@ export default function OnboardingClient({
     }
   }, [installed, markStep, onboarding]);
 
+  // Say up front when this device can't turn notifications on — an iPhone in a
+  // Safari tab can't, and tapping Enable there only produces a dead end.
+  useEffect(() => {
+    // Wait for the settings fetch — a missing key mid-load is not a blocker.
+    if (busy || !notificationSettings) return;
+    setPushBlocked(pushBlockedReason(notificationSettings.publicKey));
+  }, [busy, installed, notificationSettings]);
+
   useEffect(() => {
     let cancelled = false;
     fetch('/api/circle-leader-toolkit/notifications/', { cache: 'no-store' })
@@ -285,26 +294,25 @@ export default function OnboardingClient({
     setBusy('notifications:enable');
     setError(null);
     setMessage(null);
+    setPushStage('permission');
+    let settings = notificationSettings;
     try {
-      if (!notificationSettings?.publicKey || !('Notification' in window) || !('PushManager' in window)) {
-        throw new Error('Notifications are not available in this browser.');
-      }
-      const permissionResult = await Notification.requestPermission();
-      setPermission(permissionResult);
-      if (permissionResult !== 'granted') {
-        throw new Error('Notifications were not enabled.');
-      }
+      const { subscription, registration } = await enablePushForThisDevice({
+        publicKey: settings?.publicKey,
+        // The settings fetch can still be in flight on a fresh setup. Load the
+        // key on demand rather than telling the leader their browser is at fault.
+        resolvePublicKey: async () => {
+          settings = await fetch('/api/circle-leader-toolkit/notifications/', { cache: 'no-store' })
+            .then((res) => (res.ok ? res.json() : null))
+            .catch(() => null);
+          if (settings) setNotificationSettings(settings);
+          return settings?.publicKey;
+        },
+        onStage: setPushStage,
+        onPermission: setPermission,
+      });
 
-      const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      const ready = await navigator.serviceWorker.ready;
-      const existing = await ready.pushManager.getSubscription();
-      const subscription =
-        existing ||
-        (await ready.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(notificationSettings.publicKey),
-        }));
-
+      setPushStage('saving');
       const saveRes = await fetch('/api/circle-leader-toolkit/notifications/', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -319,7 +327,7 @@ export default function OnboardingClient({
         body: JSON.stringify({
           inboxPushEnabled: true,
           summaryReminderPushEnabled: true,
-          badgeCountEnabled: notificationSettings.preferences?.badge_count_enabled !== false,
+          badgeCountEnabled: settings?.preferences?.badge_count_enabled !== false,
         }),
       }).catch(() => null);
 
@@ -328,6 +336,7 @@ export default function OnboardingClient({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not enable notifications.');
     } finally {
+      setPushStage(null);
       setBusy(null);
     }
   }
@@ -616,19 +625,24 @@ export default function OnboardingClient({
               Notifications help you catch summary reminders and messages from your team.
               You can change this later in Settings.
             </p>
-            {permission === 'denied' && (
+            {permission === 'denied' ? (
               <div className="cs-alert cs-alert-warning">
-                Notifications are blocked in this browser. You can skip this step and turn them on later.
+                Notifications are blocked for Circles. Turn them back on in your device settings, or
+                skip this step and come back to it in Settings.
               </div>
+            ) : (
+              pushBlocked && <div className="cs-alert cs-alert-warning">{pushBlocked}</div>
             )}
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={enableNotifications}
-                disabled={busy !== null || permission === 'denied'}
+                disabled={busy !== null || permission === 'denied' || pushBlocked !== null}
                 className="cs-btn cs-btn-primary disabled:opacity-50"
               >
-                {busy === 'notifications:enable' ? 'Working...' : 'Enable notifications'}
+                {busy === 'notifications:enable'
+                  ? PUSH_STAGE_LABEL[pushStage ?? 'permission']
+                  : 'Enable notifications'}
               </button>
               <button
                 type="button"
