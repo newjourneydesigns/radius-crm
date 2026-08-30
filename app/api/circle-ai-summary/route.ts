@@ -17,6 +17,7 @@ import {
   TIMEFRAME_KEYS,
   buildNotesCorpus,
   computeMetrics,
+  extractSubmittedAttendance,
   resolveTimeframe,
   type AppSummaryRow,
   type AttendeeRow,
@@ -84,8 +85,13 @@ async function loadMetrics(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   leaderId: number,
   timeframe: Timeframe
-): Promise<{ metrics: CircleMetrics; occurrences: OccurrenceRow[] }> {
-  const [occRes, priorRes, rosterRes] = await Promise.all([
+): Promise<{ metrics: CircleMetrics; occurrences: OccurrenceRow[]; appSummaries: AppSummaryRow[] }> {
+  // Leader-submitted summaries: occurrence is a timestamptz stored from a
+  // Central-time parse, so read with a half-open CT→UTC window.
+  const windowStartUtc = DateTime.fromISO(timeframe.startDate, { zone: ZONE }).startOf('day').toUTC().toISO()!;
+  const windowEndExclusiveUtc = DateTime.fromISO(timeframe.endDate, { zone: ZONE }).plus({ days: 1 }).startOf('day').toUTC().toISO()!;
+
+  const [occRes, priorRes, rosterRes, subRes, priorSubRes] = await Promise.all([
     supabase
       .from('circle_meeting_occurrences')
       .select('id, meeting_date, status, headcount, regular_count, visitor_count, topic, notes, prayer_requests')
@@ -104,13 +110,30 @@ async function loadMetrics(
       .select('ccb_individual_id, full_name, added_at')
       .eq('circle_leader_id', leaderId)
       .eq('is_active', true),
+    supabase
+      .from('circle_event_summaries')
+      .select('occurrence, did_not_meet, did_not_meet_reason, topic, notes, prayer_requests, dynamic_responses, manual_attendees, attendee_ccb_ids')
+      .eq('leader_id', leaderId)
+      .gte('occurrence', windowStartUtc)
+      .lt('occurrence', windowEndExclusiveUtc)
+      .order('occurrence', { ascending: true }),
+    // Prior submissions only need to answer "has this person been here before?",
+    // so that someone the CCB sync never brought back isn't called a new face.
+    supabase
+      .from('circle_event_summaries')
+      .select('occurrence, did_not_meet, attendee_ccb_ids')
+      .eq('leader_id', leaderId)
+      .lt('occurrence', windowStartUtc),
   ]);
   if (occRes.error) throw new Error(occRes.error.message);
   if (priorRes.error) throw new Error(priorRes.error.message);
   if (rosterRes.error) throw new Error(rosterRes.error.message);
+  if (subRes.error) throw new Error(subRes.error.message);
+  if (priorSubRes.error) throw new Error(priorSubRes.error.message);
 
   const occurrences = (occRes.data ?? []) as OccurrenceRow[];
   const priorOccurrences = (priorRes.data ?? []) as Array<{ id: string; meeting_date: string }>;
+  const appSummaries = (subRes.data ?? []) as AppSummaryRow[];
 
   const attendeeSelect = (chunk: string[]) =>
     supabase
@@ -125,6 +148,9 @@ async function loadMetrics(
 
   const normalizeId = (row: AttendeeRow) => ({ ...row, ccb_individual_id: String(row.ccb_individual_id) });
   const priorAttendeeIds = new Set(priorAttendees.map((a) => String(a.ccb_individual_id)));
+  for (const prior of extractSubmittedAttendance((priorSubRes.data ?? []) as AppSummaryRow[])) {
+    for (const id of prior.attendeeCcbIds) priorAttendeeIds.add(id);
+  }
 
   const rosterRows = ((rosterRes.data ?? []) as Array<{ ccb_individual_id: unknown; full_name: string | null; added_at: string | null }>)
     .map((r): RosterRow => ({ ccb_individual_id: String(r.ccb_individual_id), full_name: r.full_name, added_at: r.added_at }));
@@ -138,9 +164,10 @@ async function loadMetrics(
     priorAttendeeIds,
     rosterRows,
     firstRecordedMeeting,
+    submitted: extractSubmittedAttendance(appSummaries),
   });
 
-  return { metrics, occurrences };
+  return { metrics, occurrences, appSummaries };
 }
 
 async function loadSavedSummary(
@@ -335,26 +362,13 @@ export async function POST(request: NextRequest) {
     const leaderName = leader.ccb_group_name || leader.circle_name || leader.name || `Leader ${leaderId}`;
 
     // Metrics are always recomputed server-side — the client is never trusted.
-    const { metrics, occurrences } = await loadMetrics(supabase, leaderId, timeframe);
+    const { metrics, occurrences, appSummaries } = await loadMetrics(supabase, leaderId, timeframe);
 
     if (metrics.meetings.total === 0) {
       return NextResponse.json({ error: 'No meeting records in this timeframe — nothing to summarize.' }, { status: 422 });
     }
 
-    // Leader-submitted summaries: occurrence is a timestamptz stored from a
-    // Central-time parse, so read with a half-open CT→UTC window.
-    const windowStartUtc = DateTime.fromISO(timeframe.startDate, { zone: ZONE }).startOf('day').toUTC().toISO()!;
-    const windowEndExclusiveUtc = DateTime.fromISO(timeframe.endDate, { zone: ZONE }).plus({ days: 1 }).startOf('day').toUTC().toISO()!;
-    const { data: appSummaries, error: subError } = await supabase
-      .from('circle_event_summaries')
-      .select('occurrence, did_not_meet, did_not_meet_reason, topic, notes, prayer_requests, dynamic_responses, manual_attendees')
-      .eq('leader_id', leaderId)
-      .gte('occurrence', windowStartUtc)
-      .lt('occurrence', windowEndExclusiveUtc)
-      .order('occurrence', { ascending: true });
-    if (subError) throw new Error(subError.message);
-
-    const corpus = buildNotesCorpus(occurrences, (appSummaries ?? []) as AppSummaryRow[]);
+    const corpus = buildNotesCorpus(occurrences, appSummaries);
     const promptText = [
       formatMetricsBlock(timeframe, metrics, leaderName),
       '',

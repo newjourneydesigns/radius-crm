@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-08-30",
+    "date_display": "August 30, 2026",
+    "date_iso": "2026-08-30",
+    "id": "circle-snapshot-counts-leader-recorded-attendance",
+    "type": "fix",
+    "category": "Circle Snapshot",
+    "description": "The Circle Snapshot could show people as attending fewer meetings than they actually did — a circle that met twice with the same nine people every week showed everyone as \"1 of 2\". The snapshot only counted attendance after it had made the round trip out to CCB and back on the nightly sync, so a meeting the sync hadn't brought back yet still counted in the total with nobody in it. It now also counts what the Circle Leader recorded in the Circles app, the same way meeting notes have always worked. A meeting the leader reported that the sync hasn't picked up at all now shows up too, instead of the timeframe reading as empty.",
+    "page": "/circle-dashboard"
+  },
+  {
     "date": "2026-08-29",
     "date_display": "August 29, 2026",
     "date_iso": "2026-08-29",

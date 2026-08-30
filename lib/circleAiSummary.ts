@@ -50,14 +50,25 @@ export interface RosterRow {
 export interface AppSummaryRow {
   occurrence: string; // timestamptz
   did_not_meet: boolean | null;
-  did_not_meet_reason: string | null;
-  topic: string | null;
-  notes: string | null;
-  prayer_requests: string | null;
-  dynamic_responses: unknown;
+  did_not_meet_reason?: string | null;
+  topic?: string | null;
+  notes?: string | null;
+  prayer_requests?: string | null;
+  dynamic_responses?: unknown;
   // JSONB array of {firstName,lastName,...} — people the leader reported who
   // aren't in CCB yet. Names only reach the AI corpus (no contact info).
   manual_attendees?: unknown;
+  // TEXT[] of the roster people the leader ticked when submitting.
+  attendee_ccb_ids?: unknown;
+}
+
+/** Who the leader reported for one meeting date, from their own submission. */
+export interface SubmittedAttendance {
+  date: string; // YYYY-MM-DD, Central
+  didNotMeet: boolean;
+  attendeeCcbIds: string[];
+  /** Off-roster people the leader listed by hand — counted, but not identified. */
+  manualCount: number;
 }
 
 export interface CircleMetrics {
@@ -107,6 +118,43 @@ function regularsFor(occ: OccurrenceRow): number | null {
   return null;
 }
 
+/**
+ * Per-date attendance out of the leader's own submitted summaries.
+ *
+ * A circle can have more than one CCB event landing on the same date, so
+ * summaries are merged per date rather than letting the last row win. A date is
+ * only "did not meet" when no summary for it reports a meeting.
+ */
+export function extractSubmittedAttendance(rows: AppSummaryRow[]): SubmittedAttendance[] {
+  const byDate = new Map<string, SubmittedAttendance>();
+
+  for (const row of rows) {
+    const date = DateTime.fromISO(row.occurrence, { zone: ZONE }).toISODate();
+    if (!date) continue;
+
+    const entry = byDate.get(date) ?? {
+      date,
+      didNotMeet: Boolean(row.did_not_meet),
+      attendeeCcbIds: [],
+      manualCount: 0,
+    };
+
+    if (!row.did_not_meet) {
+      entry.didNotMeet = false;
+      const ids = Array.isArray(row.attendee_ccb_ids) ? row.attendee_ccb_ids : [];
+      for (const raw of ids) {
+        const id = String(raw ?? '').trim();
+        if (id && !entry.attendeeCcbIds.includes(id)) entry.attendeeCcbIds.push(id);
+      }
+      entry.manualCount += manualAttendeeNames(row.manual_attendees).length;
+    }
+
+    byDate.set(date, entry);
+  }
+
+  return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
 export function computeMetrics(args: {
   timeframe: Timeframe;
   occurrences: OccurrenceRow[]; // in-window, ascending by meeting_date
@@ -114,17 +162,86 @@ export function computeMetrics(args: {
   priorAttendeeIds: Set<string>; // every ccb_individual_id seen before the window
   rosterRows: RosterRow[];      // current active roster
   firstRecordedMeeting: string | null;
+  submitted: SubmittedAttendance[]; // what the leader recorded in the app, in-window
 }): CircleMetrics {
-  const { timeframe, occurrences, attendees, priorAttendeeIds, rosterRows, firstRecordedMeeting } = args;
+  const { timeframe, occurrences, attendees, priorAttendeeIds, rosterRows, firstRecordedMeeting, submitted } = args;
 
-  const met = occurrences.filter((o) => o.status === 'met');
-  const didNotMeet = occurrences.filter((o) => o.status === 'did_not_meet').length;
-  const noRecord = occurrences.filter((o) => o.status === 'no_record').length;
+  const rosterNames = new Map(rosterRows.map((r) => [r.ccb_individual_id, r.full_name || 'Unknown']));
+
+  const attendeesByOccurrence = new Map<string, AttendeeRow[]>();
+  for (const a of attendees) {
+    const list = attendeesByOccurrence.get(a.occurrence_id);
+    if (list) list.push(a);
+    else attendeesByOccurrence.set(a.occurrence_id, [a]);
+  }
+
+  // One row per meeting date, merged from both records of it: the CCB sync and
+  // the leader's own submission. RADIUS only learns who was in the room when
+  // the CCB round trip brings them back, and that trip can lag a day or miss an
+  // occurrence entirely — which used to leave the meeting counted in the
+  // denominator with nobody in it. Meeting notes have always merged the two
+  // sources (see buildNotesCorpus); attendance now does the same.
+  type MergedDay = {
+    date: string;
+    status: 'met' | 'did_not_meet' | 'no_record';
+    headcount: number | null;
+    regulars: number | null;
+    people: Map<string, string>; // ccb_individual_id → display name
+  };
+  const days = new Map<string, MergedDay>();
+  const dayFor = (date: string): MergedDay => {
+    let day = days.get(date);
+    if (!day) {
+      day = { date, status: 'no_record', headcount: null, regulars: null, people: new Map() };
+      days.set(date, day);
+    }
+    return day;
+  };
+
+  for (const occ of occurrences) {
+    const day = dayFor(occ.meeting_date);
+    if (occ.status === 'met' || day.status === 'no_record') day.status = occ.status;
+    if (occ.headcount != null) day.headcount = occ.headcount;
+    const regulars = regularsFor(occ);
+    if (regulars != null) day.regulars = regulars;
+
+    for (const a of attendeesByOccurrence.get(occ.id) ?? []) {
+      const id = String(a.ccb_individual_id ?? '').trim();
+      // An attendee row with no CCB id can't be told apart from any other one,
+      // so it stays in the head count rather than collapsing every unidentified
+      // person in the circle into a single name.
+      if (!id) continue;
+      if (a.name || !day.people.has(id)) day.people.set(id, a.name || rosterNames.get(id) || 'Unknown');
+    }
+  }
+
+  for (const sub of submitted) {
+    const day = dayFor(sub.date);
+    if (sub.didNotMeet) {
+      // The leader saying the circle didn't meet outranks a synced occurrence.
+      day.status = 'did_not_meet';
+      day.people.clear();
+      continue;
+    }
+    day.status = 'met';
+    for (const id of sub.attendeeCcbIds) {
+      if (!day.people.has(id)) day.people.set(id, rosterNames.get(id) || 'Unknown');
+    }
+    // Off-roster guests carry no CCB id to follow across meetings, so they are
+    // counted here and named in the notes corpus instead of the per-person list.
+    if (day.headcount == null) day.headcount = sub.attendeeCcbIds.length + sub.manualCount;
+    if (day.regulars == null) day.regulars = sub.attendeeCcbIds.length;
+  }
+
+  const orderedDays = Array.from(days.values()).sort((a, b) => a.date.localeCompare(b.date));
+  const met = orderedDays.filter((d) => d.status === 'met');
+  const didNotMeet = orderedDays.filter((d) => d.status === 'did_not_meet').length;
+  const noRecord = orderedDays.filter((d) => d.status === 'no_record').length;
 
   // Average attendance over met meetings with a recorded headcount.
-  const counted = met.filter((o) => o.headcount != null);
+  const counted = met.filter((d) => d.headcount != null);
   const average = counted.length
-    ? round1(counted.reduce((sum, o) => sum + o.headcount!, 0) / counted.length)
+    ? round1(counted.reduce((sum, d) => sum + d.headcount!, 0) / counted.length)
     : null;
 
   // Trend: split the window at its midpoint date and compare met-meeting
@@ -132,20 +249,20 @@ export function computeMetrics(args: {
   const start = DateTime.fromISO(timeframe.startDate, { zone: ZONE });
   const end = DateTime.fromISO(timeframe.endDate, { zone: ZONE });
   const midpoint = start.plus({ milliseconds: end.diff(start).as('milliseconds') / 2 }).toISODate()!;
-  const firstHalf = counted.filter((o) => o.meeting_date < midpoint);
-  const secondHalf = counted.filter((o) => o.meeting_date >= midpoint);
+  const firstHalf = counted.filter((d) => d.date < midpoint);
+  const secondHalf = counted.filter((d) => d.date >= midpoint);
   let firstHalfAvg: number | null = null;
   let secondHalfAvg: number | null = null;
   let trendLabel: string | null = null;
   if (firstHalf.length >= 2 && secondHalf.length >= 2) {
-    firstHalfAvg = round1(firstHalf.reduce((s, o) => s + o.headcount!, 0) / firstHalf.length);
-    secondHalfAvg = round1(secondHalf.reduce((s, o) => s + o.headcount!, 0) / secondHalf.length);
+    firstHalfAvg = round1(firstHalf.reduce((s, d) => s + d.headcount!, 0) / firstHalf.length);
+    secondHalfAvg = round1(secondHalf.reduce((s, d) => s + d.headcount!, 0) / secondHalf.length);
     trendLabel = `averaging ${firstHalfAvg} → ${secondHalfAvg}`;
   }
 
   // Roster show-rate: avg regulars per met meeting ÷ current active roster.
   const rosterCount = rosterRows.length;
-  const regularCounts = met.map(regularsFor).filter((n): n is number => n != null);
+  const regularCounts = met.map((d) => d.regulars).filter((n): n is number => n != null);
   const rosterShowRate = rosterCount > 0 && regularCounts.length > 0
     ? Math.min(100, Math.round((regularCounts.reduce((s, n) => s + n, 0) / regularCounts.length / rosterCount) * 100))
     : null;
@@ -163,16 +280,15 @@ export function computeMetrics(args: {
     reliable: epochRows.length === 0,
   };
 
-  // Per-person attendance across the in-window occurrences.
-  const dateByOccurrence = new Map(occurrences.map((o) => [o.id, o.meeting_date]));
+  // Per-person attendance across the merged meeting days.
   const perPerson = new Map<string, { name: string; dates: Set<string> }>();
-  for (const a of attendees) {
-    const date = dateByOccurrence.get(a.occurrence_id);
-    if (!date) continue;
-    const entry = perPerson.get(a.ccb_individual_id) ?? { name: a.name || 'Unknown', dates: new Set<string>() };
-    if (a.name) entry.name = a.name;
-    entry.dates.add(date);
-    perPerson.set(a.ccb_individual_id, entry);
+  for (const day of orderedDays) {
+    for (const [id, name] of day.people) {
+      const entry = perPerson.get(id) ?? { name, dates: new Set<string>() };
+      if (name && name !== 'Unknown') entry.name = name;
+      entry.dates.add(day.date);
+      perPerson.set(id, entry);
+    }
   }
 
   const newFaces = Array.from(perPerson.entries())
@@ -192,7 +308,7 @@ export function computeMetrics(args: {
   return {
     rosterCount,
     membersAdded,
-    meetings: { met: met.length, didNotMeet, noRecord, total: occurrences.length },
+    meetings: { met: met.length, didNotMeet, noRecord, total: orderedDays.length },
     attendance: { average, firstHalfAvg, secondHalfAvg, trendLabel },
     rosterShowRate,
     newFaces,
