@@ -280,6 +280,82 @@ Set in `.env.local` for development, Netlify dashboard for production.
 
 ---
 
+## Leader Toolkits (three portals, one codebase)
+
+Three leader-facing portals ship from this repo, each on its own Netlify site and
+hostname, each serving its own audience. `middleware.ts` routes them: a shared
+`rewriteToolkitHost(request, prefix, apiPrefix)` serves the portal at its host's
+root, 404s every API route that isn't that portal's own, and strips the internal
+prefix so the address bar stays clean.
+
+| | Circle Leader Toolkit | Teams Toolkit | Student Leader Toolkit |
+|---|---|---|---|
+| Route prefix | `/circle-leader-toolkit` | `/teams-toolkit` | `/student-toolkit` |
+| Host env | `LEADER_TOOLKIT_HOST` | `TEAMS_TOOLKIT_HOST` | `STUDENT_TOOLKIT_HOST` |
+| Feature flag | none (live) | `NEXT_PUBLIC_TEAMS_TOOLKIT_ENABLED` | `NEXT_PUBLIC_STUDENT_TOOLKIT_ENABLED` |
+| URL key | `[ccbGroupId]` | `[categoryId]` | `[studentLeaderId]` |
+| Identity | `circle_leaders` | `circle_leaders` (`leader_type='host_team'`) | `student_leaders` (own table) |
+| Session cookie | `radius_leader_session` | same (shared table) | `radius_student_session` (own table) |
+| `audience` value | `circle` | `host_team` | `student` |
+| Push | yes | none | yes |
+
+**Content is shared, identity is not.** `circle_summary_messages`,
+`circle_summary_inbox_messages`, `circle_leader_resources`,
+`circle_leader_resource_pages` and `leader_pro_tips` all carry an `audience`
+discriminator, so one Message Center / Leader Messages / Resources admin serves
+all three portals. Recipient and read-receipt tables cannot be shared the same
+way — `circle_summary_inbox_recipients.leader_id` has a FK to `circle_leaders` —
+so students get `student_inbox_recipients` and their own delivery path.
+`loadTargetLeaders` throws on `audience === 'student'` rather than resolving it
+against `circle_leaders`, where it would return zero recipients and report a
+successful send to nobody.
+
+Team leaders are `circle_leaders` rows, so the Teams Toolkit reuses the circle
+session module wholesale. Student leaders are not, so `lib/student-toolkit/`
+carries its own session, cookie, and OTP flow — a student session must never
+satisfy the circle or teams host.
+
+### Student Leader Toolkit specifics
+
+Built for student-ministry leaders, who differ from adult circle leaders in ways
+that shape the whole design:
+
+- **The roster is leader-curated and pull-only.** A leader picks their ~10
+  students from the union of their campus's mapped CCB groups. Add and remove
+  write only to `student_roster_members` — never to CCB, unlike the adult
+  roster's `roster/{add,remove}` routes.
+- **No student contact information, anywhere.** The roster shows first name,
+  last name, birthday, and two attendance dates. No phone, email or address and
+  no call/text buttons — the adult roster leads with those. This is enforced
+  structurally: `student_directory_cache` has no column for contact data and the
+  sync drops those fields before upserting. Leaders reach students through
+  GroupMe, outside the app.
+- **Two attendance dates**: last at their circle, last at the movement (the main
+  student gathering).
+- **Term-aware.** Student CCB groups are rebuilt every semester, so group config,
+  directory rows, roster membership and attendance all carry a term slug
+  (`2026-fall`). The active term follows what staff have configured, not the
+  calendar.
+- **Cache-only reads.** `lib/student-toolkit/attendance-sync.ts` runs nightly
+  (`netlify/functions/sync-student-attendance.ts`, 10:00 UTC — between
+  `prewarm-circle-summary` at 09:00 and `sync-attendance` at 11:00) and fills
+  `student_directory_cache` and `student_attendance` from CCB v2. The roster
+  reads only those caches. Unlike `loadLeaderAttendance`, it never falls through
+  to live CCB — a room of leaders opening the app on a Wednesday night must not
+  stampede the shared daily budget.
+
+Student tables: `student_leaders`, `student_sessions`, `student_otp_codes`,
+`student_ministry_groups` (the CCB group map staff maintain at
+`/admin/student-groups`), `student_directory_cache`, `student_attendance`,
+`student_roster_members`, `student_inbox_recipients`,
+`student_push_subscriptions`, `student_notification_preferences`,
+`student_notification_deliveries`. All RLS-on with no browser policies — every
+read and write goes through a server route on the service role.
+
+See `docs/student-leader-toolkit.md` for the spec and decision log.
+
+---
+
 ## Scripts
 
 | Command              | Description                                      |

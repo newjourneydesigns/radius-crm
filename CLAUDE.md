@@ -32,6 +32,13 @@ For any UI work, follow this loop:
 Don't ship the first render. The screenshot loop exists to catch what code alone misses — spacing, alignment, color contrast, visual hierarchy. Use it every time.
 
 **Design defaults:**
+- **White text only ever sits on Valley Creek green (`#34B233`).** A secondary
+  action is green-on-white, never white or pale text on a light surface. Watch
+  for two `!important` rules that silently defeat Tailwind text colours:
+  `styles/globals.css` sets `a { color: #94a3b8 !important }` app-wide, and
+  `circle-leader-toolkit.css` resets `span/p/label/input/button/h1-h4` (but not
+  `a`) inside `.cs-root`. A link styled only with a Tailwind class loses to
+  both — check the computed colour in a browser, not the class name.
 - Mobile-first, then scale up to tablet and desktop
 - Dark mode default; system color scheme override available
 - DaisyUI + Tailwind CSS — use existing component patterns before inventing new ones
@@ -211,6 +218,8 @@ To keep deploy credits down:
 | `LEADER_TOOLKIT_EMAIL_FROM` / `LEADER_TOOLKIT_EMAIL_FROM_NAME` | Sender address/name for leader-facing toolkit emails. Falls back to `EMAIL_FROM`/`EMAIL_FROM_NAME` if unset. | No |
 | `TEAMS_TOOLKIT_HOST` / `NEXT_PUBLIC_TEAMS_TOOLKIT_HOST` | Dedicated hostname (e.g. `teamstoolkit.netlify.app`) for the **Teams Toolkit** (team-leader portal mirroring the Circle Leader Toolkit). When set, middleware serves the toolkit at this host's root and leader links point here. Set on **both** Netlify sites in production. Reuses `LEADER_SESSION_SECRET` (must stay byte-identical across sites). A dedicated teams site also needs `DISABLE_SCHEDULED_FUNCTIONS=true`. | No |
 | `TEAMS_TOOLKIT_RESEND_API_KEY` / `TEAMS_TOOLKIT_EMAIL_FROM` / `TEAMS_TOOLKIT_EMAIL_FROM_NAME` | Resend key + sender for Teams Toolkit emails. Each falls back to the `LEADER_TOOLKIT_*` value, then RADIUS's `RESEND_API_KEY` / `EMAIL_FROM` / `EMAIL_FROM_NAME`. | Key: Yes |
+| `STUDENT_TOOLKIT_HOST` / `NEXT_PUBLIC_STUDENT_TOOLKIT_HOST` | Dedicated hostname (e.g. `studentstoolkit.netlify.app`) for the **Student Leader Toolkit** (student-ministry leader portal). When set, middleware serves the toolkit at this host's root. Set on **both** Netlify sites in production. Reuses `LEADER_SESSION_SECRET` (must stay byte-identical across sites). A dedicated student site also needs `DISABLE_SCHEDULED_FUNCTIONS=true` — though `scheduledFunctionsDisabled()` also auto-disables cron when the deploy's own URL matches this host. | No |
+| `NEXT_PUBLIC_STUDENT_TOOLKIT_ENABLED` | Feature flag for the Student Leader Toolkit. **Default OFF** — when unset (or not exactly `"true"`) the portal, its API, and its dedicated host all 404 (so the nightly CCB sync has nothing to hit), and the Radius-side student routes (Student Message Center, Student Leader Resources, Student Groups, Student Leader Messages, Import Students) redirect home. | No |
 | `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | VAPID public key for Web Push — shared by the Circle Leader Toolkit and Today-page reminders | No |
 | `WEB_PUSH_VAPID_PRIVATE_KEY` | VAPID private key for Web Push | Yes |
 | `WEB_PUSH_VAPID_SUBJECT` | VAPID subject (`mailto:` or URL). Falls back to `NEXT_PUBLIC_APP_URL` | No |

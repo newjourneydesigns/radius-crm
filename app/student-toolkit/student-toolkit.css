@@ -1,0 +1,121 @@
+/* Student Toolkit skin.
+ *
+ * The Student Toolkit reuses the Circle Leader Toolkit's structural styles (the
+ * `.cs-*` class system in circle-leader-toolkit.css) and the EXACT same Valley
+ * Creek green. Student pages wrap their content in `.cs-root.st-root`, so the
+ * brand color comes straight from `.cs-root` (#34B233) — this file only adds the
+ * load-seam paint and the Student-specific onboarding bits. Imported AFTER
+ * circle-leader-toolkit.css.
+ */
+
+/* Paint the document green during the cross-document load seams (same role
+   circle-leader-toolkit.css gives via html:has(.cs-root)). */
+html:has(.st-root) {
+  background: #34B233 !important;
+  color: #3E3E3E !important;
+  color-scheme: light;
+}
+body:has(.st-root .st-splash),
+.st-root:has(.st-splash) {
+  background: #34B233 !important;
+}
+
+/* ─── Student launch splash ─────────────────────────────────────
+   A calm full-screen green hold on first paint / route loads. */
+.st-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #34B233;
+  color: #ffffff;
+  overflow: hidden;
+  font-family: 'Open Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  padding: 24px;
+}
+.st-splash::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 14px,
+    rgba(0, 0, 0, 0.045) 14px,
+    rgba(0, 0, 0, 0.045) 15px
+  );
+  pointer-events: none;
+}
+.st-splash-title {
+  font-family: var(--font-cs-body), 'Open Sans', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  line-height: 1;
+  font-size: clamp(2rem, 9vw, 3rem);
+  color: #ffffff;
+}
+
+/* ─── Onboarding progress bar ───────────────────────────────────
+   Three segments: done (green), current (amber), pending (grey). */
+.st-root .st-progress-step {
+  height: 0.5rem;
+  flex: 1 1 0%;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+.st-root .st-progress-step-current {
+  background: #fbbf24;
+}
+.st-root .st-progress-step-done {
+  background: var(--cs-green);
+}
+
+/* ─── Links and call-to-action buttons ──────────────────────────────────────
+ * `styles/globals.css` carries an app-wide `a { color: #94a3b8 !important }`,
+ * and the shared toolkit reset in circle-leader-toolkit.css covers
+ * span/p/label/input/button/h1-h4 — but NOT `a`. So every link in this portal
+ * inherited washed-out slate that no Tailwind text colour could beat, which is
+ * how two CTAs ended up grey-on-white and grey-on-green. Reset links to the
+ * toolkit's ink here (scoped to .st-root, so the live Circle Leader Toolkit is
+ * untouched), then paint the CTAs explicitly.
+ *
+ * House rule: white text only ever sits on Valley Creek green. A secondary
+ * action is green-on-white, never white on a pale surface.
+ */
+.st-root a {
+  color: #3E3E3E !important;
+}
+/* The hero paints its own contents white; keep that winning over the reset. */
+.st-root .cs-hero a,
+.st-root .cs-hero a * {
+  color: #ffffff !important;
+}
+
+.st-root .st-cta,
+.st-root .st-cta * {
+  color: #ffffff !important;
+}
+.st-root .st-cta {
+  background: #34B233 !important;
+  border: 1px solid #34B233 !important;
+}
+.st-root .st-cta:hover {
+  background: #2fa62e !important;
+  border-color: #2fa62e !important;
+}
+
+.st-root .st-cta-secondary,
+.st-root .st-cta-secondary * {
+  color: #1F7320 !important;
+}
+.st-root .st-cta-secondary {
+  background: #ffffff !important;
+  border: 1px solid rgba(52, 178, 51, 0.45) !important;
+}
+.st-root .st-cta-secondary:hover {
+  background: rgba(52, 178, 51, 0.10) !important;
+}
