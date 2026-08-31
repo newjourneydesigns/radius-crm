@@ -28,7 +28,9 @@ export const dynamic = 'force-dynamic';
 const TARGET_TYPES = new Set(['all', 'campus', 'acpd', 'leader', 'filter']);
 
 function parseAudience(value: unknown): LeaderAudience {
-  return value === 'host_team' ? 'host_team' : 'circle';
+  if (value === 'host_team') return 'host_team';
+  if (value === 'student') return 'student';
+  return 'circle';
 }
 
 /** Build the loadTargetLeaders options from a message-shaped object. */
