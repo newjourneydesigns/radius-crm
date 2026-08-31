@@ -15,6 +15,7 @@ import { createServiceSupabaseClient, getUserFromAuthHeader } from '../../../../
 import {
   AudienceFilters,
   LeaderAudience,
+  LeaderTarget,
   TargetType,
   deliverToLeaders,
   insertRevision,
@@ -22,6 +23,13 @@ import {
   normalizeAudienceFilters,
   parseLeaderTargetIds,
 } from '../../../../lib/circle-leader-toolkit/inbox-delivery';
+import {
+  StudentTarget,
+  StudentTargetType,
+  clearStudentRecipients,
+  deliverToStudents,
+  loadStudentTargets,
+} from '../../../../lib/student-toolkit/inbox-delivery';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +51,45 @@ function targetOpts(source: { audience?: unknown; audience_filters?: unknown }):
     audience,
     filters: audience === 'host_team' ? normalizeAudienceFilters(source.audience_filters) : null,
   };
+}
+
+// ── Student audience ────────────────────────────────────────────────────────
+// Student leaders are rows in `student_leaders`, not `circle_leaders`, and
+// their read receipts live in `student_inbox_recipients`. `loadTargetLeaders`
+// throws on this audience by design, so every resolve and every delivery in
+// this file goes through the two dispatchers below rather than calling the
+// circle helpers directly. Students target by campus only — no ACPD, and none
+// of the Teams `audience_filters` machinery.
+type InboxTarget = LeaderTarget | StudentTarget;
+
+const STUDENT_TARGET_TYPES = new Set<string>(['all', 'campus', 'leader']);
+
+async function loadInboxTargets(
+  targetType: TargetType,
+  targetValue: string | null,
+  opts: { audience: LeaderAudience; filters: AudienceFilters | null }
+): Promise<InboxTarget[]> {
+  if (opts.audience === 'student') {
+    if (!STUDENT_TARGET_TYPES.has(targetType)) {
+      throw new Error(
+        'Student messages can go to all student leaders, one campus, or specific leaders.'
+      );
+    }
+    return loadStudentTargets(targetType as StudentTargetType, targetValue);
+  }
+  return loadTargetLeaders(targetType, targetValue, opts);
+}
+
+async function deliverInboxMessage(
+  message: { id: string; title: string },
+  targets: InboxTarget[],
+  audience: LeaderAudience
+) {
+  if (audience === 'student') {
+    await deliverToStudents(message, targets as StudentTarget[]);
+    return;
+  }
+  await deliverToLeaders(message, targets as LeaderTarget[]);
 }
 
 /** True when an error is a "column does not exist" for status/scheduled_at,
@@ -131,29 +178,43 @@ type PushStatus = 'enabled' | 'pref_off' | 'no_device';
  * push notification. A push only fires when the leader has inbox_push_enabled
  * AND at least one enabled device subscription (see lib/circle-leader-toolkit/push).
  */
-async function loadPushStatusByLeader(leaderIds: Array<number | string>) {
+async function loadPushStatusByLeader(
+  leaderIds: Array<number | string>,
+  audience: LeaderAudience = 'circle'
+) {
   const statusByLeader = new Map<string, PushStatus>();
   if (leaderIds.length === 0) return statusByLeader;
+
+  // The student toolkit keeps its own three notification tables, keyed on
+  // student_leader_id, so the preview reads whichever set matches the audience.
+  const isStudent = audience === 'student';
+  const prefsTable = isStudent
+    ? 'student_notification_preferences'
+    : 'circle_leader_notification_preferences';
+  const subsTable = isStudent
+    ? 'student_push_subscriptions'
+    : 'circle_leader_push_subscriptions';
+  const idColumn = isStudent ? 'student_leader_id' : 'leader_id';
 
   const supabase = createServiceSupabaseClient();
   const [prefsResult, subsResult] = await Promise.all([
     supabase
-      .from('circle_leader_notification_preferences')
-      .select('leader_id, inbox_push_enabled')
-      .in('leader_id', leaderIds),
+      .from(prefsTable)
+      .select(`${idColumn}, inbox_push_enabled`)
+      .in(idColumn, leaderIds),
     supabase
-      .from('circle_leader_push_subscriptions')
-      .select('leader_id')
+      .from(subsTable)
+      .select(idColumn)
       .eq('enabled', true)
-      .in('leader_id', leaderIds),
+      .in(idColumn, leaderIds),
   ]);
 
   const inboxEnabled = new Map<string, boolean>();
-  for (const row of prefsResult.data || []) {
-    inboxEnabled.set(String(row.leader_id), row.inbox_push_enabled === true);
+  for (const row of (prefsResult.data || []) as any[]) {
+    inboxEnabled.set(String(row[idColumn]), row.inbox_push_enabled === true);
   }
   const hasDevice = new Set<string>(
-    (subsResult.data || []).map((row: any) => String(row.leader_id))
+    (subsResult.data || []).map((row: any) => String(row[idColumn]))
   );
 
   for (const leaderId of leaderIds) {
@@ -222,8 +283,11 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const leaders = await loadTargetLeaders(targetType, targetValue, { audience, filters });
-      const pushStatusByLeader = await loadPushStatusByLeader(leaders.map((l) => l.id));
+      const leaders = await loadInboxTargets(targetType, targetValue, { audience, filters });
+      const pushStatusByLeader = await loadPushStatusByLeader(
+        leaders.map((l) => l.id),
+        audience
+      );
       const recipients = leaders.map((leader) => ({
         ...leader,
         push_status: pushStatusByLeader.get(String(leader.id)) || 'no_device',
@@ -271,8 +335,10 @@ export async function GET(req: NextRequest) {
   );
   const leaderLabels = new Map<string, string>();
   if (leaderTargetIds.length > 0) {
+    // Both tables number their ids from 1, so resolving student target ids
+    // against circle_leaders would label a message with the wrong person.
     const { data: targetLeaders, error: targetLeaderError } = await supabase
-      .from('circle_leaders')
+      .from(audience === 'student' ? 'student_leaders' : 'circle_leaders')
       .select('id, name, campus')
       .in('id', leaderTargetIds);
     if (targetLeaderError) {
@@ -381,7 +447,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Validate the target resolves to at least one eligible leader at compose time.
-    const leaders = await loadTargetLeaders(fields.target_type, fields.target_value, targetOpts(fields));
+    const leaders = await loadInboxTargets(fields.target_type, fields.target_value, targetOpts(fields));
     if (leaders.length === 0) {
       return NextResponse.json({ error: 'No eligible leaders match that target.' }, { status: 400 });
     }
@@ -401,7 +467,7 @@ export async function POST(req: NextRequest) {
     if (messageError) throw messageError;
 
     if (!isScheduled) {
-      await deliverToLeaders(message, leaders);
+      await deliverInboxMessage(message, leaders, fields.audience);
     }
 
     await insertRevision({
@@ -477,7 +543,7 @@ export async function PUT(req: NextRequest) {
     const stillScheduled = scheduled.iso != null && scheduled.future;
 
     try {
-      const leaders = await loadTargetLeaders(fields.target_type, fields.target_value, targetOpts(fields));
+      const leaders = await loadInboxTargets(fields.target_type, fields.target_value, targetOpts(fields));
       if (leaders.length === 0) {
         return NextResponse.json({ error: 'No eligible leaders match that target.' }, { status: 400 });
       }
@@ -500,7 +566,7 @@ export async function PUT(req: NextRequest) {
 
       // If they cleared the schedule (or set it to now), deliver immediately.
       if (!stillScheduled) {
-        await deliverToLeaders({ id, title }, leaders);
+        await deliverInboxMessage({ id, title }, leaders, fields.audience);
       }
 
       return NextResponse.json({
@@ -589,7 +655,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     try {
-      const leaders = await loadTargetLeaders(
+      const leaders = await loadInboxTargets(
         existing.target_type as TargetType,
         existing.target_value,
         targetOpts(existing)
@@ -611,7 +677,7 @@ export async function PATCH(req: NextRequest) {
         .single();
       if (updateError) throw updateError;
 
-      await deliverToLeaders({ id, title: existing.title }, leaders);
+      await deliverInboxMessage({ id, title: existing.title }, leaders, parseAudience(existing.audience));
       return NextResponse.json({ message, recipients: leaders });
     } catch (e: any) {
       return NextResponse.json({ error: e.message || 'Send failed.' }, { status: 500 });
@@ -632,12 +698,22 @@ export async function PATCH(req: NextRequest) {
       .single();
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
-    const { error: deleteRecipientsError } = await supabase
-      .from('circle_summary_inbox_recipients')
-      .delete()
-      .eq('message_id', id);
-    if (deleteRecipientsError) {
-      return NextResponse.json({ error: deleteRecipientsError.message }, { status: 500 });
+    // Student read receipts live in their own table; unsending has to clear the
+    // one that actually holds this message's recipients.
+    if (parseAudience(existing.audience) === 'student') {
+      try {
+        await clearStudentRecipients(id);
+      } catch (e: any) {
+        return NextResponse.json({ error: e?.message || 'Unsend failed.' }, { status: 500 });
+      }
+    } else {
+      const { error: deleteRecipientsError } = await supabase
+        .from('circle_summary_inbox_recipients')
+        .delete()
+        .eq('message_id', id);
+      if (deleteRecipientsError) {
+        return NextResponse.json({ error: deleteRecipientsError.message }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ message });
@@ -653,7 +729,7 @@ export async function PATCH(req: NextRequest) {
     if (targetValueError) return targetValueError;
 
     try {
-      const leaders = await loadTargetLeaders(fields.target_type, fields.target_value, targetOpts(fields));
+      const leaders = await loadInboxTargets(fields.target_type, fields.target_value, targetOpts(fields));
       if (leaders.length === 0) {
         return NextResponse.json({ error: 'No eligible leaders match that target.' }, { status: 400 });
       }
@@ -675,7 +751,7 @@ export async function PATCH(req: NextRequest) {
         .single();
       if (updateError) throw updateError;
 
-      await deliverToLeaders({ id, title: fields.title }, leaders);
+      await deliverInboxMessage({ id, title: fields.title }, leaders, fields.audience);
       await insertRevision({
         messageId: id,
         version: nextVersion,
