@@ -28,15 +28,20 @@
  *      per group. Stale-fallback groups are skipped: they don't meet today, so
  *      their roster can wait for their own day to come around.
  *
- * Requires `Authorization: Bearer ${CRON_SECRET}`.
+ * Auth: `Authorization: Bearer ${CRON_SECRET}` for the scheduled run, or a
+ * signed-in RADIUS admin (role ACPD/admin) so staff can trigger it on demand —
+ * after wiring up a group, or to check a run — without handling the cron
+ * secret. Same two-path pattern as /api/student-toolkit/sync.
  */
 
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { DateTime } from 'luxon';
 import { createCCBClient, CCBCircuitBreakerError } from '../../../../lib/ccb/ccb-client';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { computeLastAttended, storeDerivedLastAttended } from '../../../../lib/circle-leader-toolkit/roster-data';
 import { syncRosterCacheForLeader } from '../../../../lib/ccb/roster-cache';
+import { verifyAdminAccess } from '../../../../lib/auth-middleware';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 600;
@@ -63,13 +68,28 @@ function unauthorized() {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 }
 
-export async function POST(req: Request) {
-  const auth = req.headers.get('authorization') || '';
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
+function isCronRequest(req: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    // Loud in the function logs, quiet to the caller: an unset secret means the
+    // nightly cron can never authenticate, which is worth seeing in ops output,
+    // but config state doesn't belong in an unauthenticated response body.
+    console.error('[daily-bulk-sync] CRON_SECRET is not configured; the scheduled run cannot authenticate.');
+    return false;
   }
-  if (auth !== `Bearer ${expected}`) return unauthorized();
+  return req.headers.get('authorization') === `Bearer ${secret}`;
+}
+
+export async function POST(req: Request) {
+  // Cron secret first (the scheduled path), then a signed-in admin. Both arrive
+  // in the same Authorization header, so the order matters: the cron secret is
+  // not a JWT and would only fail the admin check.
+  let authorized = isCronRequest(req);
+  if (!authorized) {
+    const admin = await verifyAdminAccess(req as NextRequest);
+    authorized = admin.isAdmin;
+  }
+  if (!authorized) return unauthorized();
 
   // Optional override: ?limit=N caps per-run group count (for testing).
   const url = new URL(req.url);
