@@ -1022,6 +1022,8 @@ export interface StudentRosterRow {
   lastAttendedCircle: string | null;   // YYYY-MM-DD
   lastAttendedMovement: string | null; // YYYY-MM-DD
   snoozed_until: string | null;
+  /** The circle date the snooze was set against — see isAbsentAlert. */
+  snoozed_on_last_attended: string | null;
   is_active: boolean;
 }
 

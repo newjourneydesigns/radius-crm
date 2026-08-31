@@ -56,13 +56,31 @@ export function daysSince(
  * the snooze was set is what makes that self-voiding possible.
  */
 export function isAbsentAlert(
-  row: Pick<StudentRosterRow, 'lastAttendedCircle' | 'snoozed_until'>,
+  row: Pick<
+    StudentRosterRow,
+    'lastAttendedCircle' | 'snoozed_until' | 'snoozed_on_last_attended'
+  >,
   now: DateTime = DateTime.now().setZone(APP_TIME_ZONE)
 ): boolean {
   const days = daysSince(row.lastAttendedCircle, now);
   if (days === null) return false; // unknown ≠ absent
   if (days < ABSENCE_THRESHOLD_DAYS) return false;
-  if (row.snoozed_until && DateTime.fromISO(row.snoozed_until) > now) return false;
+
+  if (row.snoozed_until && DateTime.fromISO(row.snoozed_until) > now) {
+    // The snooze was "leave me alone about this absence", not about whatever
+    // happens next. If they've been to circle since it was set, it's spent.
+    //
+    // With the current 15-day threshold and 7-day snooze this can't change the
+    // answer on its own — a student who returned is under the threshold anyway,
+    // and a fresh 15-day absence can't accrue inside 7 days. It matters the
+    // moment either constant moves, which is exactly when nobody will remember
+    // the interaction.
+    const attendedSinceSnooze =
+      !!row.snoozed_on_last_attended &&
+      !!row.lastAttendedCircle &&
+      row.lastAttendedCircle > row.snoozed_on_last_attended;
+    if (!attendedSinceSnooze) return false;
+  }
   return true;
 }
 
@@ -126,7 +144,7 @@ export async function loadStudentRoster(
 
   const { data: members, error: membersError } = await supabase
     .from('student_roster_members')
-    .select('ccb_individual_id, snoozed_until')
+    .select('ccb_individual_id, snoozed_until, snoozed_on_last_attended')
     .eq('student_leader_id', leader.id)
     .eq('term', term)
     .is('removed_at', null);
@@ -143,7 +161,12 @@ export async function loadStudentRoster(
   }
 
   const ids = members.map((m) => String(m.ccb_individual_id));
-  const snoozeById = new Map(members.map((m) => [String(m.ccb_individual_id), m.snoozed_until]));
+  const snoozeById = new Map(
+    members.map((m) => [
+      String(m.ccb_individual_id),
+      { until: m.snoozed_until, anchor: m.snoozed_on_last_attended as string | null },
+    ])
+  );
 
   const [{ data: directory, error: directoryError }, lastAttended] = await Promise.all([
     supabase
@@ -170,7 +193,8 @@ export async function loadStudentRoster(
       grade: entry?.grade ?? null,
       lastAttendedCircle: lastAttended[id]?.circle ?? null,
       lastAttendedMovement: lastAttended[id]?.movement ?? null,
-      snoozed_until: snoozeById.get(id) ?? null,
+      snoozed_until: snoozeById.get(id)?.until ?? null,
+      snoozed_on_last_attended: snoozeById.get(id)?.anchor ?? null,
       is_active: entry?.is_active ?? true,
     };
   });
