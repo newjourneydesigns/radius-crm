@@ -108,7 +108,9 @@ export async function POST(req: Request) {
     grade: student.grade ?? null,
     lastAttendedCircle: latest.circle ?? null,
     lastAttendedMovement: latest.movement ?? null,
+    // A freshly added student carries no snooze — add/ clears any stale one.
     snoozed_until: null,
+    snoozed_on_last_attended: null,
     is_active: student.is_active ?? true,
   };
 

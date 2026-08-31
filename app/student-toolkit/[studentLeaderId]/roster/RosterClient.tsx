@@ -574,10 +574,10 @@ export default function RosterClient({
           <div className="cs-alert cs-alert-info">
             <div className="font-bold">Attendance isn&apos;t connected yet</div>
             <div className="mt-1 leading-relaxed">
-              Student ministry hasn&apos;t handed over the check-in groups for {termLabel}, so
-              circle and movement dates are blank — not empty because nobody came. Ask your campus
-              student director to get them added. Build your roster now and every date fills in the
-              day it&apos;s connected.
+              Student ministry hasn&apos;t connected the {termLabel} check-in groups yet, so circle
+              and movement dates are blank — that&apos;s the missing connection, not students who
+              didn&apos;t show. Ask your campus student director to get it set up; every date fills
+              in the day it&apos;s connected.
             </div>
           </div>
         )}
@@ -668,7 +668,10 @@ export default function RosterClient({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setRemoveTarget(row)}
+                      onClick={() => {
+                        setActionError(null);
+                        setRemoveTarget(row);
+                      }}
                       className="cs-remove-roster-btn inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold shadow-sm transition-colors"
                       style={{ background: '#ffffff' }}
                     >
@@ -793,7 +796,10 @@ export default function RosterClient({
                     {editMode ? (
                       <button
                         type="button"
-                        onClick={() => setRemoveTarget(row)}
+                        onClick={() => {
+                          setActionError(null);
+                          setRemoveTarget(row);
+                        }}
                         className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-red-300 text-red-500 transition-colors hover:border-red-500 hover:bg-red-500 hover:text-white"
                         aria-label={`Remove ${name} from your roster`}
                       >
@@ -807,7 +813,10 @@ export default function RosterClient({
 
                     <button
                       type="button"
-                      onClick={() => setDetailTarget(row)}
+                      onClick={() => {
+                        setActionError(null);
+                        setDetailTarget(row);
+                      }}
                       className="min-w-0 flex-1 text-left"
                       aria-label={`Open options for ${name}`}
                     >
@@ -853,6 +862,14 @@ export default function RosterClient({
             </button>
           ) : (
             <div className="space-y-3 rounded-lg border border-[color:var(--cs-border)] bg-[color:var(--cs-bg-soft)] p-4">
+              {/* Same connection feeds the campus student list, so say so here
+                  rather than leaving a leader searching an empty directory. */}
+              {!attendanceConnected && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900">
+                  Your campus student list comes from the same connection, so there may be nobody to
+                  find here until student ministry sets it up.
+                </div>
+              )}
               <div className="cs-search-field">
                 <label className="cs-search-field-label" htmlFor="st-roster-search">
                   Search students{campus ? ` at ${campus}` : ''}
@@ -927,6 +944,7 @@ export default function RosterClient({
           row={detailTarget}
           info={detailInfo}
           attendanceConnected={attendanceConnected}
+          error={actionError}
           snoozing={snoozingId === detailTarget.ccb_individual_id}
           onSnooze={() => snooze(detailTarget)}
           onRemove={() => {
@@ -954,6 +972,7 @@ export default function RosterClient({
               <InfoIcon />
               <span>You can add them back any time they come back around.</span>
             </div>
+            {actionError && <div className="cs-alert cs-alert-error mb-3">{actionError}</div>}
             <div className="cs-sheet-actions">
               <button
                 type="button"
@@ -1056,6 +1075,7 @@ function StudentSheet({
   row,
   info,
   attendanceConnected,
+  error,
   snoozing,
   onSnooze,
   onRemove,
@@ -1064,6 +1084,7 @@ function StudentSheet({
   row: StudentRosterRow;
   info: Attendance;
   attendanceConnected: boolean;
+  error: string | null;
   snoozing: boolean;
   onSnooze: () => void;
   onRemove: () => void;
@@ -1103,6 +1124,14 @@ function StudentSheet({
             Check-in dates show up here once student ministry connects attendance.
           </p>
         )}
+
+        {snoozed && row.snoozed_until && (
+          <div className="mb-4 text-center text-xs font-semibold text-neutral-500">
+            Alerts snoozed until {formatLastAttended(row.snoozed_until.slice(0, 10))}
+          </div>
+        )}
+
+        {error && <div className="cs-alert cs-alert-error mb-3">{error}</div>}
 
         <div className="cs-sheet-actions">
           {!snoozed && info.tone !== 'ok' && info.tone !== 'unknown' && (
