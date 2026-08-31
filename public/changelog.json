@@ -3,10 +3,20 @@
     "date": "2026-08-31",
     "date_display": "August 31, 2026",
     "date_iso": "2026-08-31",
+    "id": "student-toolkit-button-contrast",
+    "type": "fix",
+    "category": "Student Leader Toolkit",
+    "description": "The buttons on the Student Toolkit home page were washed out \u2014 \"Browse resources\" was nearly invisible against the white card, and \"Check your roster\" read grey rather than white on its green. An app-wide link colour was overriding them both. Buttons and links across the Student Toolkit now render at full contrast: white on Valley Creek green for the main action, green on white for the secondary one.",
+    "page": "/student-toolkit"
+  },
+  {
+    "date": "2026-08-31",
+    "date_display": "August 31, 2026",
+    "date_iso": "2026-08-31",
     "id": "student-leader-toolkit",
     "type": "feature",
     "category": "Student Leader Toolkit",
-    "description": "Student circle leaders get their own toolkit, so they launch alongside adult circle leaders instead of after them. A leader signs in with a code emailed to them and sees their campus's messages, their inbox, their resources, and a roster of the students they've chosen to shepherd — each one showing the last time they were at circle and the last time they were at the main student gathering. That roster is the point: it turns \"who haven't I seen lately\" into something a leader can answer in a few seconds and act on. Because these are minors, the roster shows names, birthdays and attendance only — no phone numbers, emails or addresses, and no call or text buttons; leaders reach students through GroupMe as they always have. Adding or removing someone changes only the leader's own list and never touches CCB. Staff map each campus's CCB groups under Admin → Student Groups, and until that's done the roster says attendance isn't connected yet rather than implying nobody has shown up. The whole toolkit stays hidden until it's switched on.",
+    "description": "Student circle leaders get their own toolkit, so they launch alongside adult circle leaders instead of after them. A leader signs in with a code emailed to them and sees their campus's messages, their inbox, their resources, and a roster of the students they've chosen to shepherd \u2014 each one showing the last time they were at circle and the last time they were at the main student gathering. That roster is the point: it turns \"who haven't I seen lately\" into something a leader can answer in a few seconds and act on. Because these are minors, the roster shows names, birthdays and attendance only \u2014 no phone numbers, emails or addresses, and no call or text buttons; leaders reach students through GroupMe as they always have. Adding or removing someone changes only the leader's own list and never touches CCB. Staff map each campus's CCB groups under Admin \u2192 Student Groups, and until that's done the roster says attendance isn't connected yet rather than implying nobody has shown up. The whole toolkit stays hidden until it's switched on.",
     "page": "/admin/student-groups"
   },
   {
@@ -16,7 +26,7 @@
     "id": "circle-snapshot-counts-leader-recorded-attendance",
     "type": "fix",
     "category": "Circle Snapshot",
-    "description": "The Circle Snapshot could show people as attending fewer meetings than they actually did — a circle that met twice with the same nine people every week showed everyone as \"1 of 2\". The snapshot only counted attendance after it had made the round trip out to CCB and back on the nightly sync, so a meeting the sync hadn't brought back yet still counted in the total with nobody in it. It now also counts what the Circle Leader recorded in the Circles app, the same way meeting notes have always worked. A meeting the leader reported that the sync hasn't picked up at all now shows up too, instead of the timeframe reading as empty.",
+    "description": "The Circle Snapshot could show people as attending fewer meetings than they actually did \u2014 a circle that met twice with the same nine people every week showed everyone as \"1 of 2\". The snapshot only counted attendance after it had made the round trip out to CCB and back on the nightly sync, so a meeting the sync hadn't brought back yet still counted in the total with nobody in it. It now also counts what the Circle Leader recorded in the Circles app, the same way meeting notes have always worked. A meeting the leader reported that the sync hasn't picked up at all now shows up too, instead of the timeframe reading as empty.",
     "page": "/circle-dashboard"
   },
   {
@@ -26,7 +36,7 @@
     "id": "toolkit-enable-notifications-no-hang",
     "type": "fix",
     "category": "Circle Leader Toolkit",
-    "description": "Tapping \"Enable notifications\" during setup could sit on \"Working...\" forever. Three of the browser steps behind that button are allowed to stall with no error and no timeout, and when one did, the button never came back. Each step now has a time limit and says which one it's on — asking for permission, setting up, registering this device, saving — and if a step stalls you get a message telling you what to do instead of a spinner that never ends. On iPhone and iPad the step now says up front that Circles has to be added to the Home Screen first, rather than letting you tap a button that can't work there.",
+    "description": "Tapping \"Enable notifications\" during setup could sit on \"Working...\" forever. Three of the browser steps behind that button are allowed to stall with no error and no timeout, and when one did, the button never came back. Each step now has a time limit and says which one it's on \u2014 asking for permission, setting up, registering this device, saving \u2014 and if a step stalls you get a message telling you what to do instead of a spinner that never ends. On iPhone and iPad the step now says up front that Circles has to be added to the Home Screen first, rather than letting you tap a button that can't work there.",
     "page": "/circle-leader-toolkit"
   },
   {
@@ -56,7 +66,7 @@
     "id": "auto-send-python-alias-note",
     "type": "improvement",
     "category": "Auto Send",
-    "description": "The Auto Send setup guide now tells you what the Python file actually looks like when you go to add it to Full Disk Access. After you paste the path, Finder selects python3 but shows it with a blank \"?\" icon and calls it an Alias of only a few dozen bytes — which looks like the wrong file and has stopped people mid-setup. Step 6b now says up front that this is exactly right: an alias is just a Mac shortcut to the real Python, and clicking Open follows it through.",
+    "description": "The Auto Send setup guide now tells you what the Python file actually looks like when you go to add it to Full Disk Access. After you paste the path, Finder selects python3 but shows it with a blank \"?\" icon and calls it an Alias of only a few dozen bytes \u2014 which looks like the wrong file and has stopped people mid-setup. Step 6b now says up front that this is exactly right: an alias is just a Mac shortcut to the real Python, and clicking Open follows it through.",
     "page": "/settings?tab=auto_send"
   },
   {
@@ -66,7 +76,7 @@
     "id": "bulk-message-ccb-group-import",
     "type": "feature",
     "category": "Bulk Message",
-    "description": "Bulk Message can now pull recipients straight from any CCB group. A new CCB Group tab sits next to Paste Import: type a group number (the one in the group's CCB page URL) and its whole contact list imports in one shot — no need for the group to be linked to a circle in Radius first. Everyone added is labeled with the group's actual name from CCB and a Group badge in the recipient list, people already on your list or without a phone number are skipped and counted for you, anyone under 18 is still held back automatically, and an imported group can be removed again with one click.",
+    "description": "Bulk Message can now pull recipients straight from any CCB group. A new CCB Group tab sits next to Paste Import: type a group number (the one in the group's CCB page URL) and its whole contact list imports in one shot \u2014 no need for the group to be linked to a circle in Radius first. Everyone added is labeled with the group's actual name from CCB and a Group badge in the recipient list, people already on your list or without a phone number are skipped and counted for you, anyone under 18 is still held back automatically, and an imported group can be removed again with one click.",
     "page": "/bulk-message"
   },
   {
@@ -76,7 +86,7 @@
     "id": "event-summary-new-people-copy-and-ccb-shortcut",
     "type": "improvement",
     "category": "Event Summary Tracker",
-    "description": "The New People to Add to CCB box is now built for the actual data-entry run. Clicking a person's name, phone number, or email copies it straight to your clipboard — phone numbers copy as just the digits, no dashes or parentheses — with a checkmark flash so you know it took. And a new Open CCB button on the box jumps straight to that circle's group page in CCB in a new tab, so adding the person is copy, paste, done. Works in both the Event Summary Tracker review and the calendar's event summary view.",
+    "description": "The New People to Add to CCB box is now built for the actual data-entry run. Clicking a person's name, phone number, or email copies it straight to your clipboard \u2014 phone numbers copy as just the digits, no dashes or parentheses \u2014 with a checkmark flash so you know it took. And a new Open CCB button on the box jumps straight to that circle's group page in CCB in a new tab, so adding the person is copy, paste, done. Works in both the Event Summary Tracker review and the calendar's event summary view.",
     "page": "/event-summary-tracker"
   },
   {
@@ -86,7 +96,7 @@
     "id": "sign-in-viewer-downgrade-fix",
     "type": "fix",
     "category": "Sign In",
-    "description": "Signing in no longer briefly downgrades you to a read-only Viewer. A stalled profile lookup during the sign-in handshake (the 'Profile fetch timed out' console error) could hide admin menus and ACPD tools for a few seconds — or until a reload. The profile now loads immediately after sign-in instead of racing the handshake, a failed lookup keeps your last-known role and quietly retries in the background rather than downgrading you, and several admin pages now share one database connection instead of opening duplicates (the 'Multiple GoTrueClient instances' warning), which could also cause surprise sign-outs.",
+    "description": "Signing in no longer briefly downgrades you to a read-only Viewer. A stalled profile lookup during the sign-in handshake (the 'Profile fetch timed out' console error) could hide admin menus and ACPD tools for a few seconds \u2014 or until a reload. The profile now loads immediately after sign-in instead of racing the handshake, a failed lookup keeps your last-known role and quietly retries in the background rather than downgrading you, and several admin pages now share one database connection instead of opening duplicates (the 'Multiple GoTrueClient instances' warning), which could also cause surprise sign-outs.",
     "page": "/dashboard"
   },
   {
@@ -96,7 +106,7 @@
     "id": "event-summary-new-people-surfaced",
     "type": "fix",
     "category": "Event Summary Tracker",
-    "description": "New people a Circle Leader reports on their event summary no longer vanish into the head count. When a leader adds someone the Circles Toolkit can't find in CCB, the summary you review in RADIUS — on the Event Summary Tracker and the circle meetings calendar — now shows a \"New people to add to CCB\" section with each person's name, phone, and email, so the Attended-vs-Roster gap finally explains itself. Each person gets an \"Added to CCB\" checkbox that records who handled the CCB entry and when, and it survives the leader re-editing their summary. A follow-up is also created on that Circle Leader automatically so the CCB entry work lands in your existing follow-up list, and requested meeting day/time/location changes from leaders now show in the same summary views instead of only living in the CCB notes blob.",
+    "description": "New people a Circle Leader reports on their event summary no longer vanish into the head count. When a leader adds someone the Circles Toolkit can't find in CCB, the summary you review in RADIUS \u2014 on the Event Summary Tracker and the circle meetings calendar \u2014 now shows a \"New people to add to CCB\" section with each person's name, phone, and email, so the Attended-vs-Roster gap finally explains itself. Each person gets an \"Added to CCB\" checkbox that records who handled the CCB entry and when, and it survives the leader re-editing their summary. A follow-up is also created on that Circle Leader automatically so the CCB entry work lands in your existing follow-up list, and requested meeting day/time/location changes from leaders now show in the same summary views instead of only living in the CCB notes blob.",
     "page": "/event-summary-tracker"
   },
   {
@@ -116,7 +126,7 @@
     "id": "circle-location-filter",
     "type": "feature",
     "category": "Find a Circle",
-    "description": "You can now find every circle that meets online — or on campus, or out in the city. Circles have a new Circle Location field (Campus Circle / City Circle / Online Circle), pulled straight from the same classification staff already maintain in CCB. Find a Circle gets a Circle Location filter and column, so pulling up all online circles with their day, type, time, and campus is one click — and the export includes it for reports. The value also shows on each circle's profile, where it can be edited by hand, and it comes in automatically with CCB imports and re-syncs.",
+    "description": "You can now find every circle that meets online \u2014 or on campus, or out in the city. Circles have a new Circle Location field (Campus Circle / City Circle / Online Circle), pulled straight from the same classification staff already maintain in CCB. Find a Circle gets a Circle Location filter and column, so pulling up all online circles with their day, type, time, and campus is one click \u2014 and the export includes it for reports. The value also shows on each circle's profile, where it can be edited by hand, and it comes in automatically with CCB imports and re-syncs.",
     "page": "/search"
   },
   {
@@ -126,7 +136,7 @@
     "id": "event-tracker-hide-non-radius-groups",
     "type": "improvement",
     "category": "Event Summary Tracker",
-    "description": "The issues banner on the Event Summary Tracker no longer lists every CCB group that submitted a summary but isn't a circle in Radius — serve teams, kids ministry classes, and other church groups were burying the warnings that matter. The banner now sticks to Radius circles: circles that haven't met for 2+ scheduled weeks and inactive circles that still submitted a summary. Groups outside Radius are searchable from the Valley Creek Toolkit instead.",
+    "description": "The issues banner on the Event Summary Tracker no longer lists every CCB group that submitted a summary but isn't a circle in Radius \u2014 serve teams, kids ministry classes, and other church groups were burying the warnings that matter. The banner now sticks to Radius circles: circles that haven't met for 2+ scheduled weeks and inactive circles that still submitted a summary. Groups outside Radius are searchable from the Valley Creek Toolkit instead.",
     "page": "/event-summary-tracker"
   },
   {
@@ -136,7 +146,7 @@
     "id": "event-summary-tracker-database-errors",
     "type": "fix",
     "category": "Event Summary Tracker",
-    "description": "Cleaned up the ~1,600 database errors RADIUS was generating every day. Two pieces of the Event Summary Tracker's database schema (the CCB orphan-summaries table and the scheduled-event flag) had never been applied to production, so the tracker's orphan banner silently never loaded and every page load and Sync Now logged errors behind the scenes. Those are now restored — the banner that flags CCB summaries with no matching circle works again. The circle summary push-reminder job was also quietly erroring every 5 minutes re-checking reminders it had already sent; it now checks first instead of relying on the database to reject duplicates.",
+    "description": "Cleaned up the ~1,600 database errors RADIUS was generating every day. Two pieces of the Event Summary Tracker's database schema (the CCB orphan-summaries table and the scheduled-event flag) had never been applied to production, so the tracker's orphan banner silently never loaded and every page load and Sync Now logged errors behind the scenes. Those are now restored \u2014 the banner that flags CCB summaries with no matching circle works again. The circle summary push-reminder job was also quietly erroring every 5 minutes re-checking reminders it had already sent; it now checks first instead of relying on the database to reject duplicates.",
     "page": "/event-summary-tracker"
   },
   {
@@ -146,7 +156,7 @@
     "id": "circles-toolkit-rescheduled-meeting-dates",
     "type": "fix",
     "category": "Circles Toolkit",
-    "description": "The Circles Toolkit events list now matches the group's actual CCB calendar. When a circle's meetings were rescheduled in CCB — individual dates moved, or the schedule replaced with a new one — the Toolkit kept asking for summaries on the old dates and never showed the new ones. It now reads moved and canceled occurrences the way CCB records them, and a date CCB itself schedules (a moved meeting, a one-off, or an already bi-weekly calendar) always shows even if the circle's RADIUS meeting-frequency settings point at an out-of-date week. Circles affected by previously cached wrong dates are corrected automatically the next time their events page loads.",
+    "description": "The Circles Toolkit events list now matches the group's actual CCB calendar. When a circle's meetings were rescheduled in CCB \u2014 individual dates moved, or the schedule replaced with a new one \u2014 the Toolkit kept asking for summaries on the old dates and never showed the new ones. It now reads moved and canceled occurrences the way CCB records them, and a date CCB itself schedules (a moved meeting, a one-off, or an already bi-weekly calendar) always shows even if the circle's RADIUS meeting-frequency settings point at an out-of-date week. Circles affected by previously cached wrong dates are corrected automatically the next time their events page loads.",
     "page": "/circle-leader-toolkit"
   },
   {
@@ -156,7 +166,7 @@
     "id": "find-a-circle-phone-contact-modal",
     "type": "improvement",
     "category": "Find a Circle",
-    "description": "Tapping a phone number on Find a Circle now opens the contact sheet instead of immediately dialing. Pick Call or Send Text and the right app opens with the leader's number already filled in — and if the leader has an email on file, Send Email is right there too. No more accidental calls from a stray tap on the results list.",
+    "description": "Tapping a phone number on Find a Circle now opens the contact sheet instead of immediately dialing. Pick Call or Send Text and the right app opens with the leader's number already filled in \u2014 and if the leader has an email on file, Send Email is right there too. No more accidental calls from a stray tap on the results list.",
     "page": "/search"
   },
   {
@@ -166,7 +176,7 @@
     "id": "find-a-circle-day-filter-layering",
     "type": "fix",
     "category": "Find a Circle",
-    "description": "The Day filter on Find a Circle now opens on top of everything else instead of sliding behind the Status and ACPD filters below it. On phones the list was effectively unusable — days at the bottom were covered up and couldn't be tapped. The menu now stays anchored to the field as you scroll, flips above the field when there isn't room below, keeps itself inside the screen edges, and scrolls internally when space is tight. You can also close it with Escape or by tapping away.",
+    "description": "The Day filter on Find a Circle now opens on top of everything else instead of sliding behind the Status and ACPD filters below it. On phones the list was effectively unusable \u2014 days at the bottom were covered up and couldn't be tapped. The menu now stays anchored to the field as you scroll, flips above the field when there isn't room below, keeps itself inside the screen edges, and scrolls internally when space is tight. You can also close it with Escape or by tapping away.",
     "page": "/search"
   },
   {
@@ -177,7 +187,7 @@
     "id": "roster-removals-and-reminder-freshness",
     "type": "fix",
     "category": "Integrations",
-    "description": "Three more accuracy holes closed. People removed from a circle in CCB now actually leave the RADIUS roster: every roster refresh compares the fresh CCB member list against what's cached and deactivates anyone who's gone, so departed members stop appearing on roster pages, in member counts, and in coaching automations. (They're deactivated rather than deleted — if a bad CCB response ever drops someone by mistake, the next good refresh brings them right back, and an empty response never wipes a roster.) Meeting reminders now refuse to run on old calendar data: if a circle's cached CCB calendar hasn't been refreshed in three days, its reminders pause instead of nudging leaders about times the church may have changed, and the gap is logged so it's findable. And the dashboard's Needs Attention sync endpoint now requires a signed-in session — it could previously be triggered by anyone, spending CCB API quota and rewriting attendance records without authentication.",
+    "description": "Three more accuracy holes closed. People removed from a circle in CCB now actually leave the RADIUS roster: every roster refresh compares the fresh CCB member list against what's cached and deactivates anyone who's gone, so departed members stop appearing on roster pages, in member counts, and in coaching automations. (They're deactivated rather than deleted \u2014 if a bad CCB response ever drops someone by mistake, the next good refresh brings them right back, and an empty response never wipes a roster.) Meeting reminders now refuse to run on old calendar data: if a circle's cached CCB calendar hasn't been refreshed in three days, its reminders pause instead of nudging leaders about times the church may have changed, and the gap is logged so it's findable. And the dashboard's Needs Attention sync endpoint now requires a signed-in session \u2014 it could previously be triggered by anyone, spending CCB API quota and rewriting attendance records without authentication.",
     "page": "/circle-dashboard"
   },
   {
@@ -188,7 +198,7 @@
     "id": "ccb-sync-current-event-fix",
     "type": "fix",
     "category": "Integrations",
-    "description": "Syncing a circle from CCB now reads the circle's current calendar event instead of whichever event CCB happened to list first. A circle's CCB calendar keeps its whole history — when a circle changed its meeting day or time, the old event stayed in the list, and both \"Re-sync from CCB\" and the importer kept reading the retired schedule as if it were current. The sync now ranks the group's events and takes the one actually in effect today: an active repeating series wins over one-off gatherings and over events whose run has ended, and a brand-new schedule beats the one it replaced. On top of that, every CCB read now goes out with caching explicitly disabled, so a sync can never be answered from a saved copy of an old CCB response — what you see in a sync preview is what CCB has right now.",
+    "description": "Syncing a circle from CCB now reads the circle's current calendar event instead of whichever event CCB happened to list first. A circle's CCB calendar keeps its whole history \u2014 when a circle changed its meeting day or time, the old event stayed in the list, and both \"Re-sync from CCB\" and the importer kept reading the retired schedule as if it were current. The sync now ranks the group's events and takes the one actually in effect today: an active repeating series wins over one-off gatherings and over events whose run has ended, and a brand-new schedule beats the one it replaced. On top of that, every CCB read now goes out with caching explicitly disabled, so a sync can never be answered from a saved copy of an old CCB response \u2014 what you see in a sync preview is what CCB has right now.",
     "page": "/import-circles"
   },
   {
@@ -199,7 +209,7 @@
     "id": "attendance-accuracy-hardening",
     "type": "fix",
     "category": "Integrations",
-    "description": "A sweep of the attendance and event-summary pipeline closed several ways old or empty CCB records could replace real ones. The nightly attendance sync compared CCB's records against expected meeting dates using mismatched date formats, so it filled \"no record\" stubs over meetings that actually had attendance — a summary a leader submitted could vanish overnight. That comparison is fixed, and CCB deep links that rendered as \"Invalid DateTime\" now point at the right occurrence. When CCB holds both a pre-created empty attendance record and the one a leader actually filled in for the same week, the filled-in one now wins instead of whichever CCB listed first, so circles stop reading as \"nothing received\" when a summary exists. A circle's saved CCB event list can no longer be wiped by one failed lookup, attendance found on a profile page only files under a leader when the event title actually names them (a similarly-named circle's meetings no longer land on the wrong leader or overwrite their match key), roster contact info now prefers what CCB just returned over an older saved copy, and a failed overnight cache refresh keeps yesterday's good attendance data instead of erasing it.",
+    "description": "A sweep of the attendance and event-summary pipeline closed several ways old or empty CCB records could replace real ones. The nightly attendance sync compared CCB's records against expected meeting dates using mismatched date formats, so it filled \"no record\" stubs over meetings that actually had attendance \u2014 a summary a leader submitted could vanish overnight. That comparison is fixed, and CCB deep links that rendered as \"Invalid DateTime\" now point at the right occurrence. When CCB holds both a pre-created empty attendance record and the one a leader actually filled in for the same week, the filled-in one now wins instead of whichever CCB listed first, so circles stop reading as \"nothing received\" when a summary exists. A circle's saved CCB event list can no longer be wiped by one failed lookup, attendance found on a profile page only files under a leader when the event title actually names them (a similarly-named circle's meetings no longer land on the wrong leader or overwrite their match key), roster contact info now prefers what CCB just returned over an older saved copy, and a failed overnight cache refresh keeps yesterday's good attendance data instead of erasing it.",
     "page": "/dashboard"
   },
   {
@@ -210,7 +220,7 @@
     "id": "mass-update-sync-from-ccb",
     "type": "feature",
     "category": "Integrations",
-    "description": "Mass Update now has Sync from CCB: select any set of circles and refresh their data straight from CCB in one run. It works in two steps so nothing is written blind — Check pulls each selected circle fresh from CCB in small paced batches (gentle on CCB's API limits, with live progress and a Stop button) and lays out exactly which fields would change, from and to; Apply then writes only the changes you keep ticked. Circles that are already accurate say so, and problem circles are flagged instead of silently skipped — no CCB Group ID on file, group not found in CCB, or group marked inactive in CCB. Leader names stay untouched unless you opt in, so couple-led circles keep their combined RADIUS name. It updates the same fields as the per-circle \"Re-sync from CCB\": meeting day, time, frequency, location, campus, circle type, leader contact info and birthday, CCB group name, and linked event IDs.",
+    "description": "Mass Update now has Sync from CCB: select any set of circles and refresh their data straight from CCB in one run. It works in two steps so nothing is written blind \u2014 Check pulls each selected circle fresh from CCB in small paced batches (gentle on CCB's API limits, with live progress and a Stop button) and lays out exactly which fields would change, from and to; Apply then writes only the changes you keep ticked. Circles that are already accurate say so, and problem circles are flagged instead of silently skipped \u2014 no CCB Group ID on file, group not found in CCB, or group marked inactive in CCB. Leader names stay untouched unless you opt in, so couple-led circles keep their combined RADIUS name. It updates the same fields as the per-circle \"Re-sync from CCB\": meeting day, time, frequency, location, campus, circle type, leader contact info and birthday, CCB group name, and linked event IDs.",
     "page": "/import-circles"
   },
   {
@@ -221,7 +231,7 @@
     "id": "ccb-lookup-age-fix",
     "type": "fix",
     "category": "Messaging",
-    "description": "Adding someone to a bulk message by searching CCB now picks up their birthday, so the under-18 check actually applies to them. Their details arrive from CCB in two steps — the search result first, then the full profile a moment later — and the second step was being discarded as a duplicate, which left everyone added this way looking like their age was unknown. A minor added by hand could still be texted. The same fix keeps CCB's better phone number when the profile has one, instead of adding the person to the list a second time.",
+    "description": "Adding someone to a bulk message by searching CCB now picks up their birthday, so the under-18 check actually applies to them. Their details arrive from CCB in two steps \u2014 the search result first, then the full profile a moment later \u2014 and the second step was being discarded as a duplicate, which left everyone added this way looking like their age was unknown. A minor added by hand could still be texted. The same fix keeps CCB's better phone number when the profile has one, instead of adding the person to the list a second time.",
     "page": "/bulk-message"
   },
   {
@@ -232,7 +242,7 @@
     "id": "roster-import-ccb-v2-fallback",
     "type": "improvement",
     "category": "Integrations",
-    "description": "Adding a circle's roster to a bulk message can now pull from CCB's newer API, which returns everyone's phone number and birthday in a single call. The old path asked CCB for one person at a time and ran out of time on Netlify at around eighteen people, and it only ever learned a birthday for someone whose phone number was missing — so most rosters came in with no ages to check against. If the newer API is unavailable the roster still loads the old way rather than failing, and inactive members stay excluded either way. Turning this on is a setting change; nothing about the roster looks different when it's off.",
+    "description": "Adding a circle's roster to a bulk message can now pull from CCB's newer API, which returns everyone's phone number and birthday in a single call. The old path asked CCB for one person at a time and ran out of time on Netlify at around eighteen people, and it only ever learned a birthday for someone whose phone number was missing \u2014 so most rosters came in with no ages to check against. If the newer API is unavailable the roster still loads the old way rather than failing, and inactive members stay excluded either way. Turning this on is a setting change; nothing about the roster looks different when it's off.",
     "page": "/bulk-message"
   },
   {
@@ -243,7 +253,7 @@
     "id": "under-18-send-block",
     "type": "feature",
     "category": "Messaging",
-    "description": "Anyone under 18 is now held back from bulk texting. On Bulk Message and on a campaign's Follow Up, people who can't be texted move to their own \"Can't send\" list that names each person and the reason — \"Under 18\" with their age, or \"No phone\". They're skipped by the step-through batch, by Auto Send, and by the per-person Send button, and they're never marked contacted, so they stay on your list to follow up another way. Ages come from a leader's birthday in RADIUS, a birthdate CCB has on file, or a Birthdate or Age column on a pasted roster or list. When someone has no birthdate on record the check can't run for them, and the page says so instead of implying the whole list was verified — a campaign's CSV export now carries Age and Can Text columns so you can see the coverage yourself.",
+    "description": "Anyone under 18 is now held back from bulk texting. On Bulk Message and on a campaign's Follow Up, people who can't be texted move to their own \"Can't send\" list that names each person and the reason \u2014 \"Under 18\" with their age, or \"No phone\". They're skipped by the step-through batch, by Auto Send, and by the per-person Send button, and they're never marked contacted, so they stay on your list to follow up another way. Ages come from a leader's birthday in RADIUS, a birthdate CCB has on file, or a Birthdate or Age column on a pasted roster or list. When someone has no birthdate on record the check can't run for them, and the page says so instead of implying the whole list was verified \u2014 a campaign's CSV export now carries Age and Can Text columns so you can see the coverage yourself.",
     "page": "/bulk-message"
   },
   {
@@ -264,7 +274,7 @@
     "id": "bulk-message-fill-phones-from-ccb",
     "type": "feature",
     "category": "Bulk Message",
-    "description": "Leaders missing a phone number can now be filled in from CCB without leaving Bulk Message. Where the recipients panel lists who can't be texted, a Fill from CCB button looks each one up and saves any number CCB has, then refreshes the list so they join the recipients immediately. Anyone CCB has no number for is named separately from anyone who couldn't be matched to a CCB profile at all — so what's left is a real worklist rather than a guess. It only ever fills blanks, never overwriting a number already in Radius, so it's safe to re-run. Lookups go to CCB in small batches with a pause between each, and if CCB's daily read budget runs out it says how many were saved before it stopped.",
+    "description": "Leaders missing a phone number can now be filled in from CCB without leaving Bulk Message. Where the recipients panel lists who can't be texted, a Fill from CCB button looks each one up and saves any number CCB has, then refreshes the list so they join the recipients immediately. Anyone CCB has no number for is named separately from anyone who couldn't be matched to a CCB profile at all \u2014 so what's left is a real worklist rather than a guess. It only ever fills blanks, never overwriting a number already in Radius, so it's safe to re-run. Lookups go to CCB in small batches with a pause between each, and if CCB's daily read budget runs out it says how many were saved before it stopped.",
     "page": "/bulk-message"
   },
   {
@@ -286,7 +296,7 @@
     "id": "ccb-location-source-fix",
     "type": "fix",
     "category": "Integrations",
-    "description": "Circle locations now come from the address on the group's \"When & Where\" tab in CCB, which is the field you actually edit. Previously RADIUS read the address off the group's calendar event instead — and CCB only copies the address onto an event when that event is created, so any circle that changed venue kept showing its old meeting spot no matter how many times you re-synced. Venue names also stopped getting shortened: a group whose street reads \"Einstein Bros. Bagels\" no longer comes through as just \"Einstein Bros\", and a multi-line address is tidied onto one line. Re-sync any circle whose location looks wrong to pull the corrected value.",
+    "description": "Circle locations now come from the address on the group's \"When & Where\" tab in CCB, which is the field you actually edit. Previously RADIUS read the address off the group's calendar event instead \u2014 and CCB only copies the address onto an event when that event is created, so any circle that changed venue kept showing its old meeting spot no matter how many times you re-synced. Venue names also stopped getting shortened: a group whose street reads \"Einstein Bros. Bagels\" no longer comes through as just \"Einstein Bros\", and a multi-line address is tidied onto one line. Re-sync any circle whose location looks wrong to pull the corrected value.",
     "page": "/import-circles"
   },
   {
@@ -297,7 +307,7 @@
     "id": "bulk-message-excluded-leaders",
     "type": "improvement",
     "category": "Bulk Message",
-    "description": "Bulk Message now explains why the recipient count is smaller than the number of leaders your filters matched. Filtering by an ACPD could match 75 leaders and produce 33 recipients with nothing to explain the gap — leaders with no phone number on file can't be texted, and anyone sharing a number with someone already on the list is skipped so they don't get the same message twice. A line above the recipients now reads how many matched and how many were left out, split by reason, and Show lists them by name and campus with a link straight to each profile. That doubles as a to-do list: fill in a missing phone number and the leader joins the next list automatically.",
+    "description": "Bulk Message now explains why the recipient count is smaller than the number of leaders your filters matched. Filtering by an ACPD could match 75 leaders and produce 33 recipients with nothing to explain the gap \u2014 leaders with no phone number on file can't be texted, and anyone sharing a number with someone already on the list is skipped so they don't get the same message twice. A line above the recipients now reads how many matched and how many were left out, split by reason, and Show lists them by name and campus with a link straight to each profile. That doubles as a to-do list: fill in a missing phone number and the leader joins the next list automatically.",
     "page": "/bulk-message"
   },
   {
@@ -308,7 +318,7 @@
     "id": "additional-leader-card",
     "type": "feature",
     "category": "Circle Leaders",
-    "description": "An additional leader can now be edited or removed from a circle's profile. Until now the additional leader's name showed next to the circle name in the header, on dashboard cards, and in search results, but there was nowhere to change it — so when someone stepped down, their name stayed. The profile now has an Additional Leader card holding their name, phone, email, birthday, and CCB profile link, with the same Fill from CCB search the primary leader has. Hit Edit and the card gains a Remove button that clears all five fields at once, so the person also drops out of bulk messaging, the prayer list, and the birthday list rather than lingering with a leftover phone number. Save to apply, or Cancel to back out. The card appears once someone is set, and while editing so one can be added.",
+    "description": "An additional leader can now be edited or removed from a circle's profile. Until now the additional leader's name showed next to the circle name in the header, on dashboard cards, and in search results, but there was nowhere to change it \u2014 so when someone stepped down, their name stayed. The profile now has an Additional Leader card holding their name, phone, email, birthday, and CCB profile link, with the same Fill from CCB search the primary leader has. Hit Edit and the card gains a Remove button that clears all five fields at once, so the person also drops out of bulk messaging, the prayer list, and the birthday list rather than lingering with a leftover phone number. Save to apply, or Cancel to back out. The card appears once someone is set, and while editing so one can be added.",
     "page": "/dashboard"
   },
   {
@@ -319,7 +329,7 @@
     "id": "auto-send-restart-button",
     "type": "improvement",
     "category": "Auto Send",
-    "description": "Turning on delivery tracking no longer sends you back to Terminal. After you add Python to Full Disk Access, the setup guide has a Restart companion button that does it for you — it restarts the helper on your Mac, waits for it to come back, and rechecks Full Disk Access, so step 6 flips to \"Delivery tracking is on\" without you doing anything else. If the restart doesn't work, or your companion is too old to support it, the guide falls back to showing the Terminal command like before. Requires companion 1.6.0 — reinstall from the Auto Send page to get it, though nothing breaks if you don't.",
+    "description": "Turning on delivery tracking no longer sends you back to Terminal. After you add Python to Full Disk Access, the setup guide has a Restart companion button that does it for you \u2014 it restarts the helper on your Mac, waits for it to come back, and rechecks Full Disk Access, so step 6 flips to \"Delivery tracking is on\" without you doing anything else. If the restart doesn't work, or your companion is too old to support it, the guide falls back to showing the Terminal command like before. Requires companion 1.6.0 \u2014 reinstall from the Auto Send page to get it, though nothing breaks if you don't.",
     "page": "/settings?tab=auto_send"
   },
   {
@@ -330,7 +340,7 @@
     "id": "auto-send-full-disk-access-steps",
     "type": "improvement",
     "category": "Auto Send",
-    "description": "The Mac Companion setup guide now walks all the way through turning on delivery tracking. Python never shows up in the Full Disk Access list on its own — macOS only lists apps that ask for the permission — so the guide says that up front, explains that the file picker hides the folder Python lives in, and tells you what the entry looks like once it's added (\"Python\" or a version number like python3.13, not lowercase \"python\"). It also adds the step that was missing entirely: restarting the companion. macOS only checks Full Disk Access when a program starts, so until the companion restarts the switch looks on in System Settings while RADIUS still reads delivery tracking as off — the guide now gives you that one-line restart command with a copy button, and the Delivery tracking card points there too. And if the companion isn't responding when you open the guide, the path step no longer comes up blank: it explains why and hands you the command to look the path up yourself.",
+    "description": "The Mac Companion setup guide now walks all the way through turning on delivery tracking. Python never shows up in the Full Disk Access list on its own \u2014 macOS only lists apps that ask for the permission \u2014 so the guide says that up front, explains that the file picker hides the folder Python lives in, and tells you what the entry looks like once it's added (\"Python\" or a version number like python3.13, not lowercase \"python\"). It also adds the step that was missing entirely: restarting the companion. macOS only checks Full Disk Access when a program starts, so until the companion restarts the switch looks on in System Settings while RADIUS still reads delivery tracking as off \u2014 the guide now gives you that one-line restart command with a copy button, and the Delivery tracking card points there too. And if the companion isn't responding when you open the guide, the path step no longer comes up blank: it explains why and hands you the command to look the path up yourself.",
     "page": "/settings?tab=auto_send"
   },
   {
@@ -341,7 +351,7 @@
     "id": "export-location-field",
     "type": "improvement",
     "category": "Find a Circle",
-    "description": "The export on Find a Circle can now include each circle's location. Location joins the Include fields checkboxes — checked by default, and you can uncheck it like any other field — and it carries through all three outputs: copy to clipboard, the text file, and the CSV. Circles with no location recorded read \"Not specified\" in the text export and come through as an empty cell in the CSV, so the column still lines up in a spreadsheet.",
+    "description": "The export on Find a Circle can now include each circle's location. Location joins the Include fields checkboxes \u2014 checked by default, and you can uncheck it like any other field \u2014 and it carries through all three outputs: copy to clipboard, the text file, and the CSV. Circles with no location recorded read \"Not specified\" in the text export and come through as an empty cell in the CSV, so the column still lines up in a spreadsheet.",
     "page": "/search"
   },
   {
@@ -352,7 +362,7 @@
     "id": "calendar-schedule-rollback",
     "type": "fix",
     "category": "Integrations",
-    "description": "The CCB-calendar-as-schedule feature from August 6 is backed out for now. In practice the calendar sync kept colliding with CCB's per-endpoint rate limits, leaving most circles stuck in \"Sync failed\" states and their schedules locked read-only — so everything returns to how it worked before: day, time, and frequency are hand-editable everywhere again (profile, mass update, row edit), the event summary tracker, daily digest, and Today read those fields directly, and the Calendar Sync tab is gone. Nothing was lost: snapshots that did sync stay stored in the database, and circles whose schedule was filled in from their calendar keep those values — now editable if any look wrong. The feature will come back once the sync is redesigned to live within CCB's limits.",
+    "description": "The CCB-calendar-as-schedule feature from August 6 is backed out for now. In practice the calendar sync kept colliding with CCB's per-endpoint rate limits, leaving most circles stuck in \"Sync failed\" states and their schedules locked read-only \u2014 so everything returns to how it worked before: day, time, and frequency are hand-editable everywhere again (profile, mass update, row edit), the event summary tracker, daily digest, and Today read those fields directly, and the Calendar Sync tab is gone. Nothing was lost: snapshots that did sync stay stored in the database, and circles whose schedule was filled in from their calendar keep those values \u2014 now editable if any look wrong. The feature will come back once the sync is redesigned to live within CCB's limits.",
     "page": "/search"
   },
   {
@@ -363,7 +373,7 @@
     "id": "ccb-429-retry-after",
     "type": "fix",
     "category": "Integrations",
-    "description": "The calendar backfill kept tripping CCB's per-endpoint rate limit: after the first few circles, CCB answered every request with \"rate limited (429), retry after 1s\" — and RADIUS treated each of those as a hard failure, so one busy stretch cascaded into a whole run of failed circles. RADIUS now does exactly what CCB's reply asks: it waits the second or two and quietly retries (up to a few attempts), so bulk syncs pace themselves instead of collapsing. Genuine limit problems — a long cool-down or persistent throttling — still surface as errors. Bulk runs take a little longer now; that's the rate limit being respected rather than fought.",
+    "description": "The calendar backfill kept tripping CCB's per-endpoint rate limit: after the first few circles, CCB answered every request with \"rate limited (429), retry after 1s\" \u2014 and RADIUS treated each of those as a hard failure, so one busy stretch cascaded into a whole run of failed circles. RADIUS now does exactly what CCB's reply asks: it waits the second or two and quietly retries (up to a few attempts), so bulk syncs pace themselves instead of collapsing. Genuine limit problems \u2014 a long cool-down or persistent throttling \u2014 still surface as errors. Bulk runs take a little longer now; that's the rate limit being respected rather than fought.",
     "page": "/import-circles"
   },
   {
@@ -374,7 +384,7 @@
     "id": "calendar-backfill-batch-resilience",
     "type": "fix",
     "category": "Integrations",
-    "description": "The Calendar Sync backfill could die mid-run: a batch with several slow-failing circles ran past the server's time limit, got killed, and the page then crashed on the dead response (on iPad that surfaced as Safari's cryptic \"The string did not match the expected pattern\") — abandoning every circle it hadn't reached yet. The server now stops before its time limit and hands unfinished circles back, the page automatically re-queues them and keeps going, and a batch that dies outright is reported without ending the run. The Status column also now shows the actual reason under each \"Sync failed\" badge, so a failing circle explains itself right in the table.",
+    "description": "The Calendar Sync backfill could die mid-run: a batch with several slow-failing circles ran past the server's time limit, got killed, and the page then crashed on the dead response (on iPad that surfaced as Safari's cryptic \"The string did not match the expected pattern\") \u2014 abandoning every circle it hadn't reached yet. The server now stops before its time limit and hands unfinished circles back, the page automatically re-queues them and keeps going, and a batch that dies outright is reported without ending the run. The Status column also now shows the actual reason under each \"Sync failed\" badge, so a failing circle explains itself right in the table.",
     "page": "/import-circles"
   },
   {
@@ -385,7 +395,7 @@
     "id": "circle-calendar-sync-412",
     "type": "fix",
     "category": "Integrations",
-    "description": "Resync Calendar on a circle's profile (and the Import Circles calendar backfill) could fail with an unexplained \"HTTP 412\" from CCB. The sync asks CCB for the circle's full schedule window — eight weeks back through a year ahead — in a single request, and CCB can refuse a request that wide. When that happens, RADIUS now automatically retries in narrower date slices until CCB accepts, stitches the results back together, and carries on; nothing changes about what gets synced. And if CCB turns a sync down for any other reason, the error message now includes CCB's own explanation instead of just a bare status code, so it's clear what to fix.",
+    "description": "Resync Calendar on a circle's profile (and the Import Circles calendar backfill) could fail with an unexplained \"HTTP 412\" from CCB. The sync asks CCB for the circle's full schedule window \u2014 eight weeks back through a year ahead \u2014 in a single request, and CCB can refuse a request that wide. When that happens, RADIUS now automatically retries in narrower date slices until CCB accepts, stitches the results back together, and carries on; nothing changes about what gets synced. And if CCB turns a sync down for any other reason, the error message now includes CCB's own explanation instead of just a bare status code, so it's clear what to fix.",
     "page": "/search"
   },
   {
@@ -396,7 +406,7 @@
     "id": "ccb-calendar-schedule-source-of-truth",
     "type": "feature",
     "category": "Integrations",
-    "description": "A circle's meeting schedule now comes straight from its CCB group calendar instead of hand-kept day/time/frequency fields. Importing a circle snapshots the calendar's actual event dates (a year ahead) into RADIUS, derives the day, time, and frequency from them — including odd cadences like \"1st, 3rd\" that CCB's recurrence codes couldn't express — and every schedule surface reads those real dates: the event summary tracker, circle reporting, the daily digest, Today, and attendance sync (which no longer invents \"no record\" weeks for ordinal circles). Schedule fields on calendar-synced circles are read-only; change the events in CCB, then hit Resync Calendar on the profile. Syncs are deliberately manual — a new Calendar Sync tab on Import Circles backfills or refreshes everyone in batches. If a circle's calendar has no upcoming dates, RADIUS flags it on the profile and the tracker with instructions (set up the recurring event in CCB, then resync) and falls back to the last known schedule so the circle never disappears.",
+    "description": "A circle's meeting schedule now comes straight from its CCB group calendar instead of hand-kept day/time/frequency fields. Importing a circle snapshots the calendar's actual event dates (a year ahead) into RADIUS, derives the day, time, and frequency from them \u2014 including odd cadences like \"1st, 3rd\" that CCB's recurrence codes couldn't express \u2014 and every schedule surface reads those real dates: the event summary tracker, circle reporting, the daily digest, Today, and attendance sync (which no longer invents \"no record\" weeks for ordinal circles). Schedule fields on calendar-synced circles are read-only; change the events in CCB, then hit Resync Calendar on the profile. Syncs are deliberately manual \u2014 a new Calendar Sync tab on Import Circles backfills or refreshes everyone in batches. If a circle's calendar has no upcoming dates, RADIUS flags it on the profile and the tracker with instructions (set up the recurring event in CCB, then resync) and falls back to the last known schedule so the circle never disappears.",
     "page": "/import-circles"
   },
   {
@@ -407,7 +417,7 @@
     "id": "ccb-roster-phone-timeout",
     "type": "fix",
     "category": "Integrations",
-    "description": "Pulling a CCB group roster could time out and fail with a bare 502 instead of returning anyone. CCB's group data often leaves phone numbers out, so RADIUS was fetching them one person at a time — which takes half a second each and runs past the server's ten-second limit at around eighteen people, smaller than most real groups. Callers can now ask for the roster without the phone numbers and get it back in about a second, then fill the numbers in afterwards through a new endpoint that works in timed batches and hands back whatever it didn't reach. RADIUS's own screens are unchanged — they still get phone numbers the way they always have.",
+    "description": "Pulling a CCB group roster could time out and fail with a bare 502 instead of returning anyone. CCB's group data often leaves phone numbers out, so RADIUS was fetching them one person at a time \u2014 which takes half a second each and runs past the server's ten-second limit at around eighteen people, smaller than most real groups. Callers can now ask for the roster without the phone numbers and get it back in about a second, then fill the numbers in afterwards through a new endpoint that works in timed batches and hands back whatever it didn't reach. RADIUS's own screens are unchanged \u2014 they still get phone numbers the way they always have.",
     "page": "/campaigns"
   },
   {
@@ -418,7 +428,7 @@
     "id": "roster-multi-value-cells",
     "type": "fix",
     "category": "Campaigns",
-    "description": "When you paste a list into a campaign, a cell holding several values separated by semicolons — \"Hosts; Prayer\" in a Team column — was read as a single value, so that person ended up on one team literally named \"Hosts; Prayer\" instead of showing up under both. It now splits into separate values, so grouping and filtering find them under each one. Commas are deliberately left alone, since campus names contain them (\"Flower Mound, North\"). This also makes duplicating a pasted-list campaign exact: someone on two teams with no CCB ID used to come back merged into that junk value.",
+    "description": "When you paste a list into a campaign, a cell holding several values separated by semicolons \u2014 \"Hosts; Prayer\" in a Team column \u2014 was read as a single value, so that person ended up on one team literally named \"Hosts; Prayer\" instead of showing up under both. It now splits into separate values, so grouping and filtering find them under each one. Commas are deliberately left alone, since campus names contain them (\"Flower Mound, North\"). This also makes duplicating a pasted-list campaign exact: someone on two teams with no CCB ID used to come back merged into that junk value.",
     "page": "/campaigns"
   },
   {
@@ -429,7 +439,7 @@
     "id": "ccb-form-responses-proxy",
     "type": "feature",
     "category": "Integrations",
-    "description": "RADIUS can now hand Valley Creek Pulse a CCB form's responses, which is what lets Pulse run its own follow-up campaigns. Pulse holds no CCB credentials of its own — every CCB call it makes comes through RADIUS, so the church's shared 10,000-a-day CCB limit still has exactly one consumer, with one budget guard and one set of telemetry watching it. The existing group roster endpoint can also return the group's name now when asked, so Pulse can roll a campaign up by campus without anyone re-typing group names. Nothing changes for RADIUS itself: campaigns here work exactly as they did.",
+    "description": "RADIUS can now hand Valley Creek Pulse a CCB form's responses, which is what lets Pulse run its own follow-up campaigns. Pulse holds no CCB credentials of its own \u2014 every CCB call it makes comes through RADIUS, so the church's shared 10,000-a-day CCB limit still has exactly one consumer, with one budget guard and one set of telemetry watching it. The existing group roster endpoint can also return the group's name now when asked, so Pulse can roll a campaign up by campus without anyone re-typing group names. Nothing changes for RADIUS itself: campaigns here work exactly as they did.",
     "page": "/campaigns"
   },
   {

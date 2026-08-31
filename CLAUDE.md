@@ -32,6 +32,13 @@ For any UI work, follow this loop:
 Don't ship the first render. The screenshot loop exists to catch what code alone misses — spacing, alignment, color contrast, visual hierarchy. Use it every time.
 
 **Design defaults:**
+- **White text only ever sits on Valley Creek green (`#34B233`).** A secondary
+  action is green-on-white, never white or pale text on a light surface. Watch
+  for two `!important` rules that silently defeat Tailwind text colours:
+  `styles/globals.css` sets `a { color: #94a3b8 !important }` app-wide, and
+  `circle-leader-toolkit.css` resets `span/p/label/input/button/h1-h4` (but not
+  `a`) inside `.cs-root`. A link styled only with a Tailwind class loses to
+  both — check the computed colour in a browser, not the class name.
 - Mobile-first, then scale up to tablet and desktop
 - Dark mode default; system color scheme override available
 - DaisyUI + Tailwind CSS — use existing component patterns before inventing new ones
