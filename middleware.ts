@@ -21,6 +21,7 @@ const STUDENT_RADIUS_ROUTES = [
   '/admin/student-message-center',
   '/admin/student-leader-resources',
   '/admin/student-groups',
+  '/admin/student-leaders',
   '/student-leader-messages',
   '/import-students',
 ];
