@@ -18,6 +18,7 @@ import UpdateToast from "../components/ui/UpdateToast";
 import ToastProvider from "../components/ui/ToastProvider";
 import { isToolkitHostName } from "../lib/circle-leader-toolkit/paths";
 import { isTeamsToolkitHostName } from "../lib/teams-toolkit/paths";
+import { isStudentToolkitHostName } from "../lib/student-toolkit/paths";
 import { useOpenAlertCount } from "../hooks/useOpenAlertCount";
 import { useAcpdUnreadCount } from "../hooks/useAcpdUnreadCount";
 import { useInboxUnreadCount } from "../hooks/useInboxUnreadCount";
@@ -87,10 +88,12 @@ function AppChrome() {
 
 // Only these routes are accessible without being signed in.
 // `/auth/*` is required for the Supabase magic-link callback to complete the login flow.
-// Covers both toolkits' clean-host routes (numeric group/category id + a known
-// section). `schedule` is the Teams Toolkit's; the rest are shared/circles.
+// Covers all three toolkits' clean-host routes (numeric group/category/leader id
+// + a known section). `schedule` is the Teams Toolkit's, `home` the Student
+// Toolkit's (it has no events page — students submit no summaries); the rest are
+// shared/circles.
 function isCleanToolkitRoute(pathname: string) {
-  return /^\/\d+\/(events|roster|inbox|schedule|people|resources|health|settings|help)(\/|$)/.test(pathname);
+  return /^\/\d+\/(events|home|roster|inbox|schedule|people|resources|health|settings|help)(\/|$)/.test(pathname);
 }
 
 function isPublicRoute(pathname: string, isDedicatedToolkitHost = false) {
@@ -105,6 +108,7 @@ function isPublicRoute(pathname: string, isDedicatedToolkitHost = false) {
     p.startsWith('/auth') ||
     p.startsWith('/circle-leader-toolkit') ||
     p.startsWith('/teams-toolkit') ||
+    p.startsWith('/student-toolkit') ||
     isCleanToolkitRoute(p) ||
     // Public intake forms — anyone can fill these out without signing in.
     p === '/f' ||
@@ -116,7 +120,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '';
   const isDedicatedToolkitHost =
     typeof window !== 'undefined' &&
-    (isToolkitHostName(window.location.hostname) || isTeamsToolkitHostName(window.location.hostname));
+    (isToolkitHostName(window.location.hostname) ||
+      isTeamsToolkitHostName(window.location.hostname) ||
+      isStudentToolkitHostName(window.location.hostname));
   const isPublic = isPublicRoute(pathname, isDedicatedToolkitHost);
   const hideChrome =
     isDedicatedToolkitHost ||
@@ -125,6 +131,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/auth') ||
     pathname.startsWith('/circle-leader-toolkit') ||
     pathname.startsWith('/teams-toolkit') ||
+    pathname.startsWith('/student-toolkit') ||
     isCleanToolkitRoute(pathname) ||
     pathname === '/f' ||
     pathname.startsWith('/f/');
