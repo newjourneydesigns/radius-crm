@@ -8,6 +8,7 @@ import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { isCoachingAutomationsEnabled } from "../../lib/circle-leader-toolkit/coaching/feature-flag";
 import { isTeamsToolkitEnabled } from "../../lib/teams-toolkit/feature-flag";
+import { isStudentToolkitEnabled } from "../../lib/student-toolkit/feature-flag";
 import { MESSAGES_ENABLED } from "../../lib/features";
 import GlobalSearch from './GlobalSearch';
 import { useQuickActions } from "../../contexts/QuickActionsContext";
@@ -212,6 +213,17 @@ const teamsToolkitNavItems = [
   { href: '/admin/team-leader-resources', label: 'Leader Resources', Icon: NotebookIcon, adminOnly: true },
 ];
 
+// Routes here must match STUDENT_RADIUS_ROUTES in middleware.ts — that list is
+// what hides them while the Student Toolkit flag is off. (/import-students is
+// the sixth; it sits under Admin with the other import screens.)
+const studentToolkitNavItems = [
+  { href: '/admin/student-message-center', label: 'Message Center', Icon: MessageBulkIcon, adminOnly: true },
+  { href: '/student-leader-messages', label: 'Leader Messages', Icon: MessageBulkIcon },
+  { href: '/admin/student-leader-resources', label: 'Leader Resources', Icon: NotebookIcon, adminOnly: true },
+  { href: '/admin/student-groups', label: 'Student Groups', Icon: LayoutListIcon, adminOnly: true },
+  { href: '/admin/student-leaders', label: 'Student Leaders', Icon: UsersIcon, adminOnly: true },
+];
+
 const adminToolsNavItems = [
   // Hidden until the coaching automations feature flag is turned on.
   ...(isCoachingAutomationsEnabled()
@@ -222,6 +234,10 @@ const adminToolsNavItems = [
   // Hidden until the Teams Toolkit feature flag is turned on.
   ...(isTeamsToolkitEnabled()
     ? [{ href: '/import-team',        label: 'Import Host Team',         Icon: UserPlusIcon }]
+    : []),
+  // Hidden until the Student Toolkit feature flag is turned on.
+  ...(isStudentToolkitEnabled()
+    ? [{ href: '/import-students',    label: 'Import Students',          Icon: UserPlusIcon }]
     : []),
   { href: '/import-circles/#mass-update', label: 'Mass Update',         Icon: MassUpdateIcon },
   { href: '/users',                  label: 'Manage Users',             Icon: UsersIcon },
@@ -280,6 +296,7 @@ export default function AuthenticatedNavigation({
   const visibleToolsNavItems = toolsNavItems.filter((item) => !item.adminOnly || admin);
   const visibleCircleSummaryNavItems = circleSummaryNavItems.filter((item) => !item.adminOnly || admin);
   const visibleTeamsToolkitNavItems = teamsToolkitNavItems.filter((item) => !item.adminOnly || admin);
+  const visibleStudentToolkitNavItems = studentToolkitNavItems.filter((item) => !item.adminOnly || admin);
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0].toUpperCase() ?? '?';
@@ -459,6 +476,20 @@ export default function AuthenticatedNavigation({
                       </div>
                       <div className="py-1">
                         {visibleTeamsToolkitNavItems.map(({ href, label, Icon }) => (
+                          <Link key={href} href={href} onClick={closeAll} className={dropdownLinkClass(href)}>
+                            <Icon /> {label}
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {isStudentToolkitEnabled() && (
+                    <>
+                      <div className="border-t border-white/[0.06] px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Student Toolkit</p>
+                      </div>
+                      <div className="py-1">
+                        {visibleStudentToolkitNavItems.map(({ href, label, Icon }) => (
                           <Link key={href} href={href} onClick={closeAll} className={dropdownLinkClass(href)}>
                             <Icon /> {label}
                           </Link>

@@ -21,7 +21,9 @@ import type { ResourcePageAudience } from '../../../../lib/supabase';
 export const dynamic = 'force-dynamic';
 
 function parseAudience(value: unknown): ResourcePageAudience {
-  return value === 'host_team' ? 'host_team' : 'circle';
+  if (value === 'host_team') return 'host_team';
+  if (value === 'student') return 'student';
+  return 'circle';
 }
 
 function slugify(title: string): string {
