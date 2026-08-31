@@ -155,13 +155,13 @@ export default function HomeClient() {
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
             <Link
               href={hrefFor('roster')}
-              className="inline-flex h-10 items-center justify-center rounded-full bg-[#34B233] px-5 text-sm font-extrabold text-white shadow-sm transition-colors hover:bg-[#2fa62e]"
+              className="st-cta inline-flex h-10 items-center justify-center rounded-full px-5 text-sm font-extrabold shadow-sm transition-colors"
             >
               Check your roster
             </Link>
             <Link
               href={hrefFor('resources')}
-              className="inline-flex h-10 items-center justify-center rounded-full border border-[#34B233]/40 bg-white px-5 text-sm font-extrabold text-[#1f7320] transition-colors hover:bg-[#34B233]/10"
+              className="st-cta-secondary inline-flex h-10 items-center justify-center rounded-full px-5 text-sm font-extrabold transition-colors"
             >
               Browse resources
             </Link>
