@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-08-31",
+    "date_display": "August 31, 2026",
+    "date_iso": "2026-08-31",
+    "id": "student-leader-toolkit",
+    "type": "feature",
+    "category": "Student Leader Toolkit",
+    "description": "Student circle leaders get their own toolkit, so they launch alongside adult circle leaders instead of after them. A leader signs in with a code emailed to them and sees their campus's messages, their inbox, their resources, and a roster of the students they've chosen to shepherd — each one showing the last time they were at circle and the last time they were at the main student gathering. That roster is the point: it turns \"who haven't I seen lately\" into something a leader can answer in a few seconds and act on. Because these are minors, the roster shows names, birthdays and attendance only — no phone numbers, emails or addresses, and no call or text buttons; leaders reach students through GroupMe as they always have. Adding or removing someone changes only the leader's own list and never touches CCB. Staff map each campus's CCB groups under Admin → Student Groups, and until that's done the roster says attendance isn't connected yet rather than implying nobody has shown up. The whole toolkit stays hidden until it's switched on.",
+    "page": "/admin/student-groups"
+  },
+  {
     "date": "2026-08-30",
     "date_display": "August 30, 2026",
     "date_iso": "2026-08-30",
