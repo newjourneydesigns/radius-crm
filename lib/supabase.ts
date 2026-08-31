@@ -895,6 +895,19 @@ export interface StudentLeader {
   campus: string | null;
   status: string; // 'active' | 'archived'
   toolkit_access_enabled: boolean;
+  // Set by /import-students so a re-import updates people instead of duplicating them.
+  ccb_individual_id: string | null;
+  source_ccb_group_id: string | null;
+  term: string | null;
+  // Onboarding state lives on the leader row, matching the Circle Leader Toolkit.
+  toolkit_home_screen_completed_at: string | null;
+  toolkit_home_screen_dismissed_at: string | null;
+  toolkit_notifications_completed_at: string | null;
+  toolkit_notifications_dismissed_at: string | null;
+  toolkit_roster_completed_at: string | null;
+  toolkit_roster_dismissed_at: string | null;
+  toolkit_onboarding_completed_at: string | null;
+  last_seen_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -921,24 +934,143 @@ export interface StudentOtpCode {
   created_at: string;
 }
 
-export interface StudentMessage {
-  id: string;
-  header: string;
-  body_html: string;
-  url: string | null;
-  url_label: string | null;
-  campus_filter: string[];
-  start_date: string | null; // YYYY-MM-DD
-  end_date: string | null;   // YYYY-MM-DD
-  priority: number;
+/**
+ * The two attendance questions a student leader asks: did they come to *their
+ * circle*, and did they come to the *movement* (the main student gathering).
+ */
+export type StudentAttendanceKind = 'circle' | 'movement';
+
+/**
+ * Staff-maintained map of CCB groups per campus and semester. Until a campus has
+ * rows here the toolkit still runs — the roster reports attendance as
+ * unconnected rather than blank.
+ */
+export interface StudentMinistryGroup {
+  id: number;
+  campus: string;
+  term: string; // '2026-fall'
+  kind: StudentAttendanceKind;
+  ccb_group_id: string;
+  label: string | null;
   active: boolean;
+  last_synced_at: string | null;
+  last_sync_error: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }
 
+/**
+ * Students pulled from the mapped CCB groups — the pool a leader picks their
+ * roster from. Deliberately carries no contact information: these are minors,
+ * and the toolkit never surfaces a phone, email, or address.
+ */
+export interface StudentDirectoryEntry {
+  term: string;
+  ccb_individual_id: string;
+  ccb_group_id: string | null;
+  campus: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  full_name: string | null;
+  birthday: string | null;
+  grade: string | null;
+  /**
+   * Which of the campus's mapped groups list this student. A student in the
+   * movement group but not the circle group is exactly the person a leader most
+   * wants on their roster, so the candidate picker searches the union of both.
+   */
+  in_circle_group: boolean;
+  in_movement_group: boolean;
+  is_active: boolean;
+  last_seen_in_group_at: string | null;
+  synced_at: string;
+}
+
+/** One row per student per occurrence attended. Last attended is MAX(occurrence). */
+export interface StudentAttendanceRecord {
+  id: number;
+  ccb_individual_id: string;
+  kind: StudentAttendanceKind;
+  occurrence: string; // YYYY-MM-DD
+  ccb_group_id: string;
+  ccb_event_id: string | null;
+  term: string;
+  synced_at: string;
+}
+
+/** A leader's own curated list. Never pushed back to CCB. */
+export interface StudentRosterMember {
+  id: number;
+  student_leader_id: number;
+  ccb_individual_id: string;
+  term: string;
+  added_at: string;
+  removed_at: string | null;
+  snoozed_until: string | null;
+  snoozed_on_last_attended: string | null;
+}
+
+/** A roster row as the toolkit renders it — name, birthday, two dates. */
+export interface StudentRosterRow {
+  ccb_individual_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  full_name: string | null;
+  birthday: string | null;
+  grade: string | null;
+  lastAttendedCircle: string | null;   // YYYY-MM-DD
+  lastAttendedMovement: string | null; // YYYY-MM-DD
+  snoozed_until: string | null;
+  /** The circle date the snooze was set against — see isAbsentAlert. */
+  snoozed_on_last_attended: string | null;
+  is_active: boolean;
+}
+
+export interface StudentPushSubscription {
+  id: number;
+  student_leader_id: number;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  device_label: string | null;
+  enabled: boolean;
+  last_successful_delivery_at: string | null;
+  last_failed_delivery_at: string | null;
+  failure_count: number;
+  disabled_at: string | null;
+  created_at: string;
+}
+
+export interface StudentNotificationPreferences {
+  student_leader_id: number;
+  inbox_push_enabled: boolean;
+  roster_absence_push_enabled: boolean;
+  badge_count_enabled: boolean;
+  push_nudge_requested_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Read receipts for student inbox messages. The messages themselves live in
+ * circle_summary_inbox_messages under the 'student' audience — only the
+ * recipient join is student-specific, because circle_summary_inbox_recipients
+ * FKs to circle_leaders.
+ */
+export interface StudentInboxRecipient {
+  id: number;
+  message_id: string;
+  student_leader_id: number;
+  read_at: string | null;
+  read_version: number | null;
+  created_at: string;
+}
+
 
 // ── Circle Leader Toolkit — Resources pages ──
-export type ResourcePageAudience = 'circle' | 'host_team';
+export type ResourcePageAudience = 'circle' | 'host_team' | 'student';
 
 export interface CircleLeaderResourcePage {
   id: string;

@@ -32,7 +32,9 @@ export const dynamic = 'force-dynamic';
 type ServiceClient = ReturnType<typeof createServiceSupabaseClient>;
 
 function parseAudience(value: unknown): ResourcePageAudience {
-  return value === 'host_team' ? 'host_team' : 'circle';
+  if (value === 'host_team') return 'host_team';
+  if (value === 'student') return 'student';
+  return 'circle';
 }
 
 type TipFields = {

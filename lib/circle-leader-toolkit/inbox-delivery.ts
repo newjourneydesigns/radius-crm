@@ -13,7 +13,7 @@ import { buildCircleSummaryUrl, deliverLeaderPush } from './push';
 
 export type TargetType = 'all' | 'campus' | 'acpd' | 'leader' | 'filter';
 
-export type LeaderAudience = 'circle' | 'host_team';
+export type LeaderAudience = 'circle' | 'host_team' | 'student';
 
 /**
  * Combinable AND filters for Teams targeting. Each non-empty array narrows the
@@ -93,6 +93,17 @@ export async function loadTargetLeaders(
   opts: LoadTargetOptions = {}
 ) {
   const audience: LeaderAudience = opts.audience ?? 'circle';
+
+  // Student leaders live in `student_leaders`, not `circle_leaders`, so this
+  // resolver cannot reach them — it would quietly return zero recipients and
+  // the admin UI would report a successful send to nobody. Throw instead: a
+  // student send must branch to the student delivery path before it gets here.
+  if (audience === 'student') {
+    throw new Error(
+      'loadTargetLeaders cannot resolve the student audience — use the Student Toolkit delivery path.'
+    );
+  }
+
   const supabase = createServiceSupabaseClient();
   let query = supabase
     .from('circle_leaders')

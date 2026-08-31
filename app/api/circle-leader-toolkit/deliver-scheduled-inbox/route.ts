@@ -14,11 +14,18 @@ import { DateTime } from 'luxon';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import {
   LeaderAudience,
+  LeaderTarget,
   TargetType,
   deliverToLeaders,
   loadTargetLeaders,
   normalizeAudienceFilters,
 } from '../../../../lib/circle-leader-toolkit/inbox-delivery';
+import {
+  StudentTarget,
+  StudentTargetType,
+  deliverToStudents,
+  loadStudentTargets,
+} from '../../../../lib/student-toolkit/inbox-delivery';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -64,17 +71,26 @@ export async function POST(req: Request) {
         continue;
       }
 
-      const leaders = await loadTargetLeaders(
-        (message.target_type || 'all') as TargetType,
-        message.target_value,
-        {
-          audience: (message.audience as LeaderAudience) || 'circle',
-          filters:
-            message.audience === 'host_team'
-              ? normalizeAudienceFilters(message.audience_filters)
-              : null,
-        }
-      );
+      const audience: LeaderAudience = (message.audience as LeaderAudience) || 'circle';
+      const targetType = (message.target_type || 'all') as TargetType;
+
+      // Student leaders are rows in `student_leaders`, so loadTargetLeaders
+      // throws on this audience by design — resolve them on their own path
+      // before it is ever reached. Students target by campus only; there is no
+      // ACPD and no Teams `audience_filters`.
+      const isStudent = audience === 'student';
+      if (isStudent && !['all', 'campus', 'leader'].includes(targetType)) {
+        throw new Error(`Unsupported student target type: ${targetType}`);
+      }
+      const leaders = isStudent
+        ? await loadStudentTargets(targetType as StudentTargetType, message.target_value)
+        : await loadTargetLeaders(targetType, message.target_value, {
+            audience,
+            filters:
+              audience === 'host_team'
+                ? normalizeAudienceFilters(message.audience_filters)
+                : null,
+          });
 
       // Mark sent first so a mid-loop failure can't double-deliver on the next run.
       const { error: updateError } = await supabase
@@ -84,7 +100,11 @@ export async function POST(req: Request) {
         .eq('status', 'scheduled');
       if (updateError) throw updateError;
 
-      await deliverToLeaders({ id: message.id, title: message.title }, leaders);
+      if (isStudent) {
+        await deliverToStudents({ id: message.id, title: message.title }, leaders as StudentTarget[]);
+      } else {
+        await deliverToLeaders({ id: message.id, title: message.title }, leaders as LeaderTarget[]);
+      }
       delivered += 1;
     } catch (e: any) {
       errors.push({ id: message.id, error: e?.message || String(e) });

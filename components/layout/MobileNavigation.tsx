@@ -7,6 +7,7 @@ import { Bug, Lightbulb } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { MESSAGES_ENABLED } from "../../lib/features";
 import { isTeamsToolkitEnabled } from "../../lib/teams-toolkit/feature-flag";
+import { isStudentToolkitEnabled } from "../../lib/student-toolkit/feature-flag";
 import { useQuickActions, type QuickActionId, type QuickActionMeta } from "../../contexts/QuickActionsContext";
 import {
   MOBILE_NAV_OPTIONS,
@@ -444,11 +445,34 @@ export default function MobileNavigation({
     ...(isTeamsToolkitEnabled()
       ? [{ href: '/import-team', label: 'Import Host Team', Icon: UserPlusIcon }]
       : []),
+    // Hidden until the Student Toolkit feature flag is turned on.
+    ...(isStudentToolkitEnabled()
+      ? [{ href: '/import-students', label: 'Import Students', Icon: UserPlusIcon }]
+      : []),
     { href: '/import-circles/#mass-update', label: 'Mass Update', Icon: MassUpdateIcon },
     { href: '/users',         label: 'Manage Users',     Icon: UsersIcon },
     { href: '/ccb-usage',     label: 'CCB Usage',        Icon: ChartIcon },
     { href: '/admin/ccb-event-occurrence-delete', label: 'CCB Event Management', Icon: CalendarIcon },
   ];
+
+  /* Student Toolkit — same routes as the desktop nav's Student Toolkit section,
+     which must stay in sync with STUDENT_RADIUS_ROUTES in middleware.ts.
+     Import Students sits with the other imports under Admin. */
+  const studentToolkitItems = isStudentToolkitEnabled()
+    ? [
+        ...(admin
+          ? [{ href: '/admin/student-message-center', label: 'Message Center', Icon: MessageBulkIcon }]
+          : []),
+        { href: '/student-leader-messages', label: 'Leader Messages', Icon: MessageBulkIcon },
+        ...(admin
+          ? [
+              { href: '/admin/student-leader-resources', label: 'Leader Resources', Icon: NotebookIcon },
+              { href: '/admin/student-groups', label: 'Student Groups', Icon: CompassIcon },
+              { href: '/admin/student-leaders', label: 'Student Leaders', Icon: UsersIcon },
+            ]
+          : []),
+      ]
+    : [];
 
   const accountItems = [
     { href: '/profile',    label: 'Profile',        Icon: UserIcon },
@@ -649,6 +673,23 @@ export default function MobileNavigation({
               ))}
             </div>
           </div>
+
+          {/* Student Toolkit */}
+          {studentToolkitItems.length > 0 && (
+            <div className="mobile-sheet-section">
+              <p className="mobile-sheet-section-title">Student Toolkit</p>
+              <div className="mobile-sheet-group">
+                {studentToolkitItems.map(({ href, label, Icon }, i) => (
+                  <Link key={href} href={href}
+                    className={`mobile-sheet-row ${i < studentToolkitItems.length - 1 ? 'bordered' : ''} ${isActive(href) ? 'active' : ''}`}>
+                    <span className="mobile-sheet-row-icon"><Icon /></span>
+                    <span className="mobile-sheet-row-label">{label}</span>
+                    <ChevronRightIcon />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Admin */}
           {admin && (

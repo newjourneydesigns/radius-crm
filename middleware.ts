@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { DEFAULT_LEADER_TOOLKIT_HOST, TOOLKIT_PREFIX } from './lib/circle-leader-toolkit/paths';
 import { DEFAULT_TEAMS_TOOLKIT_HOST, TEAMS_TOOLKIT_PREFIX } from './lib/teams-toolkit/paths';
 import { isTeamsToolkitEnabled } from './lib/teams-toolkit/feature-flag';
+import { DEFAULT_STUDENT_TOOLKIT_HOST, STUDENT_TOOLKIT_PREFIX } from './lib/student-toolkit/paths';
+import { isStudentToolkitEnabled } from './lib/student-toolkit/feature-flag';
 
 // Radius-side routes that belong to the Teams Toolkit feature. Hidden (redirected
 // home) while the feature flag is off.
@@ -11,6 +13,17 @@ const TEAMS_RADIUS_ROUTES = [
   '/admin/team-leader-resources',
   '/team-leader-messages',
   '/import-team',
+];
+
+// Radius-side routes that belong to the Student Leader Toolkit feature. Hidden
+// (redirected home) while the feature flag is off.
+const STUDENT_RADIUS_ROUTES = [
+  '/admin/student-message-center',
+  '/admin/student-leader-resources',
+  '/admin/student-groups',
+  '/admin/student-leaders',
+  '/student-leader-messages',
+  '/import-students',
 ];
 
 // Matches any path with a file extension (icons, manifest, css, etc.) so
@@ -55,6 +68,7 @@ function rewriteToolkitHost(request: NextRequest, prefix: string, apiPrefix: str
 export function middleware(request: NextRequest) {
   const toolkitHost = process.env.LEADER_TOOLKIT_HOST || DEFAULT_LEADER_TOOLKIT_HOST;
   const teamsToolkitHost = process.env.TEAMS_TOOLKIT_HOST || DEFAULT_TEAMS_TOOLKIT_HOST;
+  const studentToolkitHost = process.env.STUDENT_TOOLKIT_HOST || DEFAULT_STUDENT_TOOLKIT_HOST;
   const hostname = request.headers.get('host') || '';
 
   const pathname = request.nextUrl.pathname;
@@ -62,6 +76,26 @@ export function middleware(request: NextRequest) {
   // Circle Leader Toolkit on its dedicated subdomain.
   if (toolkitHost && hostname === toolkitHost) {
     return rewriteToolkitHost(request, TOOLKIT_PREFIX, '/api/circle-leader-toolkit/');
+  }
+
+  // Student Leader Toolkit — hidden behind its own feature flag. While off, the
+  // whole portal (pages + API + dedicated host) 404s so the nightly CCB sync has
+  // nothing to hit, and the Radius-side student routes redirect home.
+  if (!isStudentToolkitEnabled()) {
+    const onStudentHost = !!studentToolkitHost && hostname === studentToolkitHost;
+    if (
+      onStudentHost ||
+      pathname.startsWith(STUDENT_TOOLKIT_PREFIX) ||
+      pathname.startsWith('/api/student-toolkit')
+    ) {
+      return new NextResponse('Not found', { status: 404 });
+    }
+    if (STUDENT_RADIUS_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  } else if (studentToolkitHost && hostname === studentToolkitHost) {
+    // Student Leader Toolkit on its dedicated subdomain.
+    return rewriteToolkitHost(request, STUDENT_TOOLKIT_PREFIX, '/api/student-toolkit/');
   }
 
   // Teams Toolkit — hidden behind a feature flag for now. While off, the entire

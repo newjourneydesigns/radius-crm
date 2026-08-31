@@ -16,8 +16,10 @@ async function gate(req: NextRequest) {
   return null;
 }
 
-function parseAudience(value: unknown): 'circle' | 'host_team' {
-  return value === 'host_team' ? 'host_team' : 'circle';
+function parseAudience(value: unknown): 'circle' | 'host_team' | 'student' {
+  if (value === 'host_team') return 'host_team';
+  if (value === 'student') return 'student';
+  return 'circle';
 }
 
 function normalizeFilters(value: any) {
