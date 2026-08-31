@@ -59,6 +59,10 @@ export default async function CircleSummaryFormPage({
         ccb_group_id: leader.ccb_group_id ?? null,
       },
       participants: (rosterResult.participants ?? []) as EventFormInitialData['participants'],
+      // The roster cache is served at any age here, so tell the client when it
+      // has gone stale. Without this, a member added in CCB after the last
+      // roster-tab visit never shows up on the attendance list.
+      needsRosterRefresh: rosterResult.needsRosterRefresh,
       questions: (questionsResult.questions ?? []) as EventFormInitialData['questions'],
       draft: {
         draft: draftResult.draft,

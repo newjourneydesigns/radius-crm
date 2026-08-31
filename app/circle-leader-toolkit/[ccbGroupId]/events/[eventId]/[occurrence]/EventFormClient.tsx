@@ -180,6 +180,8 @@ export type EventFormInitialData = {
     submittedStatus?: string;
   };
   lastAttended: Record<string, string>;
+  /** Server-rendered roster was older than the cache TTL — revalidate it. */
+  needsRosterRefresh?: boolean;
 };
 
 export default function EventFormClient({ initial }: { initial?: EventFormInitialData }) {
@@ -238,6 +240,11 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
   const [manualForm, setManualForm] = useState<ManualAttendee>({ firstName: '', lastName: '', phone: '', email: '' });
   const [editingManualIdx, setEditingManualIdx] = useState<number | null>(null);
   const searchRequestId = useRef(0);
+  // Set once the leader edits their own roster, so an in-flight background
+  // roster revalidation can never overwrite their change with an older list.
+  const rosterEditedLocally = useRef(false);
+  // The background roster revalidation costs a live CCB call — fire it once.
+  const rosterRefreshStarted = useRef(false);
 
   const [showInfoUpdate, setShowInfoUpdate] = useState(false);
   const [loadedFromSubmission, setLoadedFromSubmission] = useState<string | null>(null);
@@ -426,6 +433,38 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
     };
   }, [eventId, occurrence, router, urlGroupId, initial, draftStorageKey]);
 
+  // The server renders this form from the roster cache at whatever age it is,
+  // so a member added or removed in CCB since the leader last opened the Roster
+  // tab would otherwise be missing from the attendance list entirely (the daily
+  // prewarm now refreshes rosters too, but that still leaves same-day CCB edits).
+  // When the server flags the cache as stale, pull a fresh roster in the
+  // background and swap it in. Attendance selections are keyed by CCB id, so
+  // replacing the list preserves every box the leader has already ticked.
+  useEffect(() => {
+    if (!initial?.needsRosterRefresh || rosterRefreshStarted.current) return;
+    rosterRefreshStarted.current = true;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/circle-leader-toolkit/roster/?refresh=1');
+        if (!res.ok) return;
+        const data = (await res.json()) as { participants?: Participant[] };
+        const fresh = data.participants ?? [];
+        // An empty list is far more likely a failed CCB pull than a genuinely
+        // empty circle — keep what the server rendered.
+        if (cancelled || rosterEditedLocally.current || fresh.length === 0) return;
+        setParticipants(fresh);
+      } catch {
+        // Background refresh only — the server-rendered roster still stands.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initial]);
+
   useEffect(() => {
     let cancelled = false;
     const cached = readAttendanceCache(urlGroupId);
@@ -608,6 +647,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
       alert(data.error || 'Could not add to your Circle.');
       return;
     }
+    rosterEditedLocally.current = true;
     const rosterRes = await fetch('/api/circle-leader-toolkit/roster/');
     const rosterData = await rosterRes.json();
     setParticipants(rosterData.participants || []);
@@ -632,6 +672,7 @@ export default function EventFormClient({ initial }: { initial?: EventFormInitia
       alert(data.error || 'Could not remove from your Circle.');
       return;
     }
+    rosterEditedLocally.current = true;
     setParticipants((prev) => prev.filter((x) => x.id !== p.id));
     setSelectedCcbIds((prev) => {
       const next = new Set(prev);

@@ -19,6 +19,15 @@
  *      days stale, so groups without a clean `day` value (or with rare
  *      schedules) eventually get warmed too.
  *
+ *   4. Roster refresh for today's-day groups ONLY. `circle_roster_cache` had
+ *      no scheduled writer at all, so it only ever refreshed when a leader
+ *      opened the Roster tab — meaning someone added to a Circle in CCB was
+ *      missing from that leader's attendance list until they happened to visit
+ *      it. Refreshing the groups that meet today puts the right roster in front
+ *      of the leaders who will actually take attendance tonight, at +1 CCB call
+ *      per group. Stale-fallback groups are skipped: they don't meet today, so
+ *      their roster can wait for their own day to come around.
+ *
  * Requires `Authorization: Bearer ${CRON_SECRET}`.
  */
 
@@ -27,16 +36,20 @@ import { DateTime } from 'luxon';
 import { createCCBClient, CCBCircuitBreakerError } from '../../../../lib/ccb/ccb-client';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { computeLastAttended, storeDerivedLastAttended } from '../../../../lib/circle-leader-toolkit/roster-data';
+import { syncRosterCacheForLeader } from '../../../../lib/ccb/roster-cache';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 600;
 
-// Pace per-group calendar fetches so we stay UNDER the 40/min circuit breaker
-// in lib/ccb/ccb-client.ts. 1.6s gap → ~37 calls/min, safely below 40.
-const PER_GROUP_DELAY_MS = 1600;
+// Pace outgoing CCB calls so we stay UNDER the 40/min circuit breaker in
+// lib/ccb/ccb-client.ts. 1.6s gap → ~37 calls/min, safely below 40. Applied
+// per CALL rather than per group, because today's-day groups now cost two
+// (calendar + roster) and pacing per group would push us over the cap.
+const PER_CALL_DELAY_MS = 1600;
 // Hard upper bound on per-run groups (safety net cap). Today's-day filtering
-// keeps the actual count to ~50-70 in normal operation.
-const MAX_GROUPS_PER_RUN = 200;
+// keeps the actual count to ~50-70 in normal operation. Sized so that even an
+// all-today run (2 calls each, 1.6s apart) finishes inside `maxDuration`.
+const MAX_GROUPS_PER_RUN = 150;
 // Safety net: any group whose cache row hasn't been refreshed in this many
 // days gets pulled into the run regardless of its meeting day. Catches groups
 // without a `day` value set, or with rare/irregular schedules.
@@ -66,7 +79,7 @@ export async function POST(req: Request) {
 
   const { data: leaders, error: leadersErr } = await supabase
     .from('circle_leaders')
-    .select('ccb_group_id, status, circle_summary_access_enabled, day')
+    .select('id, ccb_group_id, status, circle_summary_access_enabled, day')
     .not('ccb_group_id', 'is', null)
     .neq('status', 'archive')
     .neq('status', 'archived');
@@ -81,6 +94,17 @@ export async function POST(req: Request) {
   const allGroupIds = Array.from(
     new Set(activeLeaders.map((l: any) => String(l.ccb_group_id)).filter(Boolean))
   );
+
+  // circle_roster_cache rows are keyed by leader, not by group, and a group can
+  // carry co-leaders — so one roster pull may need to be written for several.
+  const leadersByGroup = new Map<string, number[]>();
+  for (const l of activeLeaders as any[]) {
+    const gid = String(l.ccb_group_id);
+    if (!gid) continue;
+    const list = leadersByGroup.get(gid) ?? [];
+    list.push(l.id);
+    leadersByGroup.set(gid, list);
+  }
 
   // Determine today's day-of-week in America/Chicago. Optional override:
   // ?day=wednesday for testing.
@@ -156,15 +180,23 @@ export async function POST(req: Request) {
   // Sequential, explicitly paced. Single worker + 1.6s gap keeps us under the
   // 40/min circuit breaker. Concurrency was the old design's downfall.
   let warmed = 0;
+  let rostersWarmed = 0;
   let breakerTripped = false;
   const errors: Array<{ groupId: string; error: string }> = [];
+
+  // Pace by CCB call, not by group: today's groups now make two calls each.
+  let ccbCallsMade = 0;
+  const paceCcbCall = async () => {
+    if (ccbCallsMade > 0) await sleep(PER_CALL_DELAY_MS);
+    ccbCallsMade += 1;
+  };
 
   for (let i = 0; i < groupIds.length; i++) {
     if (breakerTripped) break;
     const groupId = groupIds[i];
-    if (i > 0) await sleep(PER_GROUP_DELAY_MS);
 
     try {
+      await paceCcbCall();
       const calEvents = await ccb.getGroupCalendarEvents(groupId, startStr, endStr);
 
       // When the bulk attendance pull failed, leave attendance_xml OUT of the
@@ -186,23 +218,22 @@ export async function POST(req: Request) {
 
       if (upsertErr) {
         errors.push({ groupId, error: upsertErr.message || 'upsert failed' });
-        continue;
-      }
+      } else {
+        // Tier 3: derive this group's small last-attended map up front so the
+        // roster page never has to re-parse the global attendance blob on read.
+        // Separate, column-error-tolerant write — never fails the warm.
+        if (bulkAttendanceXml) {
+          storeDerivedLastAttended(
+            supabase,
+            groupId,
+            startStr,
+            endStr,
+            computeLastAttended(bulkAttendanceXml, groupId, calEvents ?? [])
+          );
+        }
 
-      // Tier 3: derive this group's small last-attended map up front so the
-      // roster page never has to re-parse the global attendance blob on read.
-      // Separate, column-error-tolerant write — never fails the warm.
-      if (bulkAttendanceXml) {
-        storeDerivedLastAttended(
-          supabase,
-          groupId,
-          startStr,
-          endStr,
-          computeLastAttended(bulkAttendanceXml, groupId, calEvents ?? [])
-        );
+        warmed += 1;
       }
-
-      warmed += 1;
     } catch (e: any) {
       if (e instanceof CCBCircuitBreakerError) {
         breakerTripped = true;
@@ -210,6 +241,36 @@ export async function POST(req: Request) {
         break;
       }
       errors.push({ groupId, error: e?.message || 'unknown' });
+    }
+
+    // Roster refresh — today's-day groups only (see note 4 in the header).
+    // Separate try/catch so a roster failure never costs the group its
+    // calendar/attendance warm, and vice versa.
+    if (!todayGroupIds.has(groupId)) continue;
+    const groupLeaderIds = leadersByGroup.get(groupId) ?? [];
+    if (groupLeaderIds.length === 0) continue;
+
+    try {
+      await paceCcbCall();
+      const participants = await ccb.getGroupParticipants(groupId);
+
+      // syncRosterCacheForLeader no-ops on an empty payload — an empty roster
+      // is far more likely a failed pull than a genuinely empty Circle, and
+      // deactivating a whole roster on it would be destructive.
+      for (const leaderId of groupLeaderIds) {
+        const result = await syncRosterCacheForLeader(supabase, leaderId, groupId, participants);
+        if (result.error) {
+          errors.push({ groupId, error: `roster (leader ${leaderId}): ${result.error}` });
+        }
+      }
+      rostersWarmed += 1;
+    } catch (e: any) {
+      if (e instanceof CCBCircuitBreakerError) {
+        breakerTripped = true;
+        errors.push({ groupId, error: `circuit breaker (roster): ${e.message}` });
+        break;
+      }
+      errors.push({ groupId, error: `roster: ${e?.message || 'unknown'}` });
     }
   }
 
@@ -221,6 +282,8 @@ export async function POST(req: Request) {
     staleGroups: staleList.length,
     groupsThisRun: groupIds.length,
     warmed,
+    rostersWarmed,
+    ccbCallsMade,
     bulkAttendanceFetched: !!bulkAttendanceXml,
     breakerTripped,
     errors,

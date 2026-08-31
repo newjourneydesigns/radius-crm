@@ -101,6 +101,51 @@ const CCB_ATTENDANCE_TTL_MS = 60_000; // 1 minute
 const ccbCalCache = new Map<string, CacheEntry<CalendarEvent[]>>();
 const ccbAttendanceCache = new Map<string, CacheEntry<unknown>>();
 
+// CCB's `attendance_profiles` is a GLOBAL, date-windowed service — it takes no
+// group id and returns every group's attendance for the window (see the note at
+// ccb-client.ts: "Index by event @_id (NOT group ID — attendance_profiles
+// doesn't include group)"). So the payload is identical for every leader, and
+// the cache key must be the WINDOW ALONE. Keying it per group (as the calendar
+// legitimately is) made each group re-fetch the same multi-megabyte blob, so a
+// warm instance serving N leaders paid for N identical CCB calls. Sharing the
+// entry costs nothing in freshness — same window, same bytes.
+function attendanceCacheKey(startStr: string, endStr: string) {
+  return `${startStr}|${endStr}`;
+}
+
+// Single-flight: leaders open the toolkit in bursts (right after a reminder
+// goes out), and without this every concurrent request on an instance starts
+// its own copy of that same global fetch. Callers that arrive while one is in
+// flight await the same promise instead.
+const ccbAttendanceInFlight = new Map<string, Promise<unknown>>();
+
+function fetchAttendanceOnce(
+  ccb: ReturnType<typeof createCCBClient>,
+  startStr: string,
+  endStr: string,
+  { bypassInFlight = false }: { bypassInFlight?: boolean } = {}
+): Promise<unknown> {
+  const key = attendanceCacheKey(startStr, endStr);
+  // A forced refresh (post-submit) must not join a request that started BEFORE
+  // the submit reached CCB — it would come back without the summary the leader
+  // just filed and show it as still pending. Those pay for their own call.
+  const existing = bypassInFlight ? undefined : ccbAttendanceInFlight.get(key);
+  if (existing) return existing;
+
+  const request = ccb
+    .getXml<unknown>({ srv: 'attendance_profiles', start_date: startStr, end_date: endStr })
+    .finally(() => {
+      // Only clear the slot if it's still ours — a bypassing refresh may have
+      // replaced it in the meantime.
+      if (ccbAttendanceInFlight.get(key) === request) ccbAttendanceInFlight.delete(key);
+    });
+
+  // A bypassing refresh still publishes its (fresher) request for others to
+  // join, replacing the older in-flight one.
+  ccbAttendanceInFlight.set(key, request);
+  return request;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -293,10 +338,13 @@ export async function loadLeaderEvents(
   const start = end.minus({ weeks: 12 });
   const startStr = start.toFormat('yyyy-LL-dd');
   const endStr = end.toFormat('yyyy-LL-dd');
+  // The calendar IS per group; the attendance payload is not (see
+  // attendanceCacheKey). Two keys, two scopes.
   const cacheKey = `${leader.ccb_group_id}|${startStr}|${endStr}`;
+  const attKey = attendanceCacheKey(startStr, endStr);
   if (forceRefresh) {
     ccbCalCache.delete(cacheKey);
-    ccbAttendanceCache.delete(cacheKey);
+    ccbAttendanceCache.delete(attKey);
   }
 
   const ccb = createCCBClient({ module: 'circle-summary', action: 'list_events' });
@@ -330,7 +378,7 @@ export async function loadLeaderEvents(
     const SHARED_ATTENDANCE_CACHE_FRESH_MS = 5 * 60_000;
 
     const calCached = cacheGet(ccbCalCache, cacheKey);
-    const attCached = cacheGet(ccbAttendanceCache, cacheKey);
+    const attCached = cacheGet(ccbAttendanceCache, attKey);
 
     // Only consult shared cache when in-memory misses AND the caller didn't
     // ask for a forced refresh (post-submit invalidation must hit CCB).
@@ -397,7 +445,7 @@ export async function loadLeaderEvents(
         : sharedCache?.attendance_xml !== undefined
         ? Promise.resolve(sharedCache.attendance_xml).then((v) => {
             if (sharedAttendanceIsFresh) {
-              cacheSet(ccbAttendanceCache, cacheKey, v, CCB_ATTENDANCE_TTL_MS);
+              cacheSet(ccbAttendanceCache, attKey, v, CCB_ATTENDANCE_TTL_MS);
             }
             return v;
           })
@@ -405,11 +453,10 @@ export async function loadLeaderEvents(
         ? // Nothing cached for this exact window. Don't reach for CCB — fall
           // through to the any-age lookup below instead.
           Promise.resolve(null)
-        : ccb
-            .getXml<unknown>({ srv: 'attendance_profiles', start_date: startStr, end_date: endStr })
+        : fetchAttendanceOnce(ccb, startStr, endStr, { bypassInFlight: forceRefresh })
             .then((v) => {
               attFromCcb = true;
-              cacheSet(ccbAttendanceCache, cacheKey, v, CCB_ATTENDANCE_TTL_MS);
+              cacheSet(ccbAttendanceCache, attKey, v, CCB_ATTENDANCE_TTL_MS);
               return v;
             })
             .catch((e) => {
@@ -741,8 +788,10 @@ async function eventHasEvidenceOfMeeting(
 
   const end = DateTime.now().setZone('America/Chicago');
   const start = end.minus({ weeks: 12 });
-  const cacheKey = `${leader.ccb_group_id}|${start.toFormat('yyyy-LL-dd')}|${end.toFormat('yyyy-LL-dd')}`;
-  const memHit = cacheGet(ccbAttendanceCache, cacheKey);
+  const memHit = cacheGet(
+    ccbAttendanceCache,
+    attendanceCacheKey(start.toFormat('yyyy-LL-dd'), end.toFormat('yyyy-LL-dd'))
+  );
   if (memHit !== undefined) {
     return buildAttendanceMap(memHit).get(key)?.has ?? false;
   }

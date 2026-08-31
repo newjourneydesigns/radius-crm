@@ -499,34 +499,38 @@ type EventsCacheRow = {
   synced_at?: string | null;
 };
 
-// Read the cache row, tolerating the `last_attended` column not existing yet
-// (pre-migration deploy ordering). Falls back to a select without it.
+// Read selected columns of the cache row for this group + window.
+//
+// `attendance_xml` holds CCB's GLOBAL attendance payload (every group, 12
+// weeks), copied onto every group's row — so it is by far the largest thing in
+// this table. Callers pick their columns deliberately: asking for it when the
+// small precomputed `last_attended` map would do drags megabytes out of
+// Postgres and across the wire on every page load, which is exactly what the
+// `last_attended` migration set out to avoid (it removed the re-parse, but the
+// read still named the column, so the transfer stayed).
 async function readEventsCacheRow(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   groupId: string,
   startStr: string,
-  endStr: string
+  endStr: string,
+  columns: string
 ): Promise<EventsCacheRow | null> {
-  const query = (columns: string) =>
-    supabase
-      .from('ccb_group_events_cache')
-      .select(columns)
-      .eq('group_id', groupId)
-      .eq('start_date', startStr)
-      .eq('end_date', endStr)
-      .maybeSingle();
+  const { data, error } = await supabase
+    .from('ccb_group_events_cache')
+    .select(columns)
+    .eq('group_id', groupId)
+    .eq('start_date', startStr)
+    .eq('end_date', endStr)
+    .maybeSingle();
 
-  const withDerived = await query('calendar_events, attendance_xml, last_attended, synced_at');
-  if (!withDerived.error) return (withDerived.data as unknown as EventsCacheRow) ?? null;
-
-  // Most likely the `last_attended` column doesn't exist yet (deploy ordered
-  // ahead of the migration) — retry without it.
-  const legacy = await query('calendar_events, attendance_xml, synced_at');
-  if (legacy.error) {
-    console.warn('[roster/attendance] cache read failed:', legacy.error.message);
+  if (error) {
+    // Most likely `last_attended` doesn't exist yet (deploy ordered ahead of
+    // the migration). Callers handle null by falling through to their next
+    // tier, so a warning is enough.
+    console.warn('[roster/attendance] cache read failed:', error.message);
     return null;
   }
-  return (legacy.data as unknown as EventsCacheRow) ?? null;
+  return (data as unknown as EventsCacheRow) ?? null;
 }
 
 // Best-effort write of just the derived map onto an existing row. Never throws;
@@ -569,31 +573,61 @@ export async function loadLeaderAttendance(leader: SessionLeader): Promise<LoadA
   const supabase = createServiceSupabaseClient();
   const timer = createTimer('loadLeaderAttendance');
 
-  // Shared cache first. Most hits are served entirely from Supabase.
+  // Shared cache first. Most hits are served entirely from Supabase, and the
+  // common one — a warm row with a precomputed map — reads only two small
+  // columns. The heavy `attendance_xml` blob is fetched in a second query, and
+  // only when we actually have to parse it.
   try {
-    const cacheRow = await readEventsCacheRow(supabase, groupId, startStr, endStr);
+    const meta = await readEventsCacheRow(
+      supabase, groupId, startStr, endStr, 'last_attended, synced_at'
+    );
     timer.mark('cacheRead');
-    if (cacheRow?.synced_at) {
-      const ageMs = Date.now() - new Date(cacheRow.synced_at).getTime();
-      if (ageMs < SHARED_CACHE_FRESH_MS) {
-        // Tier 3: prefer the precomputed per-group map and skip the XML parse.
-        if (cacheRow.last_attended && typeof cacheRow.last_attended === 'object') {
-          const merged = await mergeSubmittedSummaryAttendance(
-            supabase, leader.id, groupId, startStr, endStr, cacheRow.last_attended
-          );
-          timer.end({ source: 'cache-derived', groupId });
-          return { lastAttended: merged, source: 'cache-derived' };
-        }
-        if (cacheRow.attendance_xml) {
-          const base = computeLastAttended(cacheRow.attendance_xml, groupId, cacheRow.calendar_events);
-          // Self-heal: store the derived map so the next read skips the parse.
-          storeDerivedLastAttended(supabase, groupId, startStr, endStr, base);
-          const merged = await mergeSubmittedSummaryAttendance(
-            supabase, leader.id, groupId, startStr, endStr, base
-          );
-          timer.end({ source: 'cache', groupId });
-          return { lastAttended: merged, source: 'cache' };
-        }
+
+    if (!meta) {
+      // The `last_attended` column may not exist yet (deploy ordered ahead of
+      // the migration). Fall back to the pre-Tier-3 read so a warm cache row is
+      // still used instead of paying for a live CCB call.
+      const legacy = await readEventsCacheRow(
+        supabase, groupId, startStr, endStr, 'calendar_events, attendance_xml, synced_at'
+      );
+      if (
+        legacy?.synced_at &&
+        Date.now() - new Date(legacy.synced_at).getTime() < SHARED_CACHE_FRESH_MS &&
+        legacy.attendance_xml
+      ) {
+        const base = computeLastAttended(legacy.attendance_xml, groupId, legacy.calendar_events);
+        const merged = await mergeSubmittedSummaryAttendance(
+          supabase, leader.id, groupId, startStr, endStr, base
+        );
+        timer.end({ source: 'cache', groupId, legacyRead: true });
+        return { lastAttended: merged, source: 'cache' };
+      }
+    }
+
+    if (meta?.synced_at && Date.now() - new Date(meta.synced_at).getTime() < SHARED_CACHE_FRESH_MS) {
+      // Tier 3: the precomputed per-group map — no blob read, no XML parse.
+      if (meta.last_attended && typeof meta.last_attended === 'object') {
+        const merged = await mergeSubmittedSummaryAttendance(
+          supabase, leader.id, groupId, startStr, endStr, meta.last_attended
+        );
+        timer.end({ source: 'cache-derived', groupId });
+        return { lastAttended: merged, source: 'cache-derived' };
+      }
+
+      // No derived map yet — now it's worth paying for the blob.
+      const heavy = await readEventsCacheRow(
+        supabase, groupId, startStr, endStr, 'calendar_events, attendance_xml'
+      );
+      timer.mark('blobRead');
+      if (heavy?.attendance_xml) {
+        const base = computeLastAttended(heavy.attendance_xml, groupId, heavy.calendar_events);
+        // Self-heal: store the derived map so the next read skips both.
+        storeDerivedLastAttended(supabase, groupId, startStr, endStr, base);
+        const merged = await mergeSubmittedSummaryAttendance(
+          supabase, leader.id, groupId, startStr, endStr, base
+        );
+        timer.end({ source: 'cache', groupId });
+        return { lastAttended: merged, source: 'cache' };
       }
     }
   } catch (e) {
@@ -652,21 +686,60 @@ export async function loadLeaderAttendanceBatch(
   if (groupIds.length === 0) return result;
 
   // 1. Precomputed (or XML-derived) attendance per group, from the warm cache.
+  //
+  // Two-step on purpose. `attendance_xml` is the same global blob copied onto
+  // every group's row, so selecting it across N groups would pull N copies of
+  // it in one query. Read the small derived maps first and go back for the blob
+  // only for the groups still missing one (normally none — the prewarm job
+  // writes `last_attended` for every group it warms).
   const baseByGroup = new Map<string, Record<string, string>>();
-  const { data: cacheRows } = await supabase
+  const { data: derivedRows } = await supabase
     .from('ccb_group_events_cache')
-    .select('group_id, calendar_events, attendance_xml, last_attended')
+    .select('group_id, last_attended')
     .in('group_id', groupIds)
     .eq('start_date', startStr)
     .eq('end_date', endStr);
-  for (const row of (cacheRows || []) as Array<Record<string, unknown>>) {
+
+  const needsBlob: string[] = [];
+  for (const row of (derivedRows || []) as Array<Record<string, unknown>>) {
     const gid = String(row.group_id);
     if (row.last_attended && typeof row.last_attended === 'object') {
       baseByGroup.set(gid, row.last_attended as Record<string, string>);
-    } else if (row.attendance_xml) {
-      baseByGroup.set(gid, computeLastAttended(row.attendance_xml, gid, row.calendar_events));
     } else {
-      baseByGroup.set(gid, {});
+      needsBlob.push(gid);
+    }
+  }
+
+  if (needsBlob.length > 0) {
+    // One row is enough: every group's copy of `attendance_xml` is the same
+    // global payload, so fetch it once and parse it per group.
+    const { data: blobRow } = await supabase
+      .from('ccb_group_events_cache')
+      .select('attendance_xml')
+      .in('group_id', needsBlob)
+      .eq('start_date', startStr)
+      .eq('end_date', endStr)
+      .not('attendance_xml', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    const { data: calRows } = await supabase
+      .from('ccb_group_events_cache')
+      .select('group_id, calendar_events')
+      .in('group_id', needsBlob)
+      .eq('start_date', startStr)
+      .eq('end_date', endStr);
+    const calByGroup = new Map(
+      ((calRows || []) as Array<Record<string, unknown>>).map((r) => [String(r.group_id), r.calendar_events])
+    );
+
+    for (const gid of needsBlob) {
+      baseByGroup.set(
+        gid,
+        blobRow?.attendance_xml
+          ? computeLastAttended(blobRow.attendance_xml, gid, calByGroup.get(gid) ?? [])
+          : {}
+      );
     }
   }
 

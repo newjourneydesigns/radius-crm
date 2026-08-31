@@ -1,5 +1,25 @@
 [
   {
+    "date": "2026-08-31",
+    "date_display": "August 31, 2026",
+    "date_iso": "2026-08-31",
+    "id": "toolkit-roster-picks-up-ccb-changes",
+    "type": "fix",
+    "category": "Circle Leader Toolkit",
+    "description": "Roster changes made in CCB now show up when you take attendance. Adding someone to your Circle in CCB left them missing from the attendance list — the app only ever refreshed your roster when you opened the Roster tab, so if you went straight to reporting a meeting you got whatever list was last saved, however old. Two things changed: your roster is now refreshed overnight for every Circle meeting that day, and the attendance screen checks CCB for changes in the background when its copy is out of date. Anyone you tapped stays tapped while it updates.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-08-31",
+    "date_display": "August 31, 2026",
+    "date_iso": "2026-08-31",
+    "id": "toolkit-faster-open",
+    "type": "improvement",
+    "category": "Circle Leader Toolkit",
+    "description": "The toolkit opens faster. Attendance comes back from CCB in one big batch covering every Circle at once, but the app was requesting that same batch separately for each Circle and then, on the roster and attendance screens, loading the whole thing out of storage even when it already had the small summary it needed. It now fetches that batch once and shares it, and only reaches for the full copy when it genuinely has to. Nothing is held back longer than before — the app still checks CCB just as often, it just stops asking for the same thing over and over.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-08-30",
     "date_display": "August 30, 2026",
     "date_iso": "2026-08-30",
