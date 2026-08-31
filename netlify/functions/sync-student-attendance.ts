@@ -2,11 +2,34 @@ import { schedule } from '@netlify/functions';
 import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctionsDisabled';
 
 /**
- * Netlify Scheduled Function — nightly CCB pull for the Student Leader Toolkit.
+ * Netlify Scheduled Function — weekly CCB pull for the Student Leader Toolkit.
  *
- * Runs at 10:00 UTC (~5 AM CDT), deliberately between prewarm-circle-summary
- * (09:00) and sync-attendance (11:00) so the three CCB jobs never overlap and
- * compete for the shared daily budget.
+ * Twice on Thursday UTC, which is Wednesday night + Thursday morning locally:
+ *
+ *   03:00 UTC — Wed 10 PM CDT / 9 PM CST. The run leaders feel: student
+ *               circles and movement nights meet Wednesday at 7 PM and
+ *               everyone who is going to check in has by 8 PM, so this puts
+ *               the night's attendance in the roster the same evening instead
+ *               of holding it until the next morning.
+ *   10:00 UTC — Thu 5 AM CDT / 4 AM CST. The safety net: if the evening run
+ *               failed, this catches it before anyone opens the app Thursday.
+ *               Kept in the original slot, between prewarm-circle-summary
+ *               (09:00) and sync-attendance (11:00), so the three CCB jobs
+ *               never overlap on the shared daily budget.
+ *
+ * Cron is UTC and does not shift with daylight saving, so both times are
+ * chosen to sit clear of the 8 PM check-in cutoff in BOTH regimes — the
+ * evening run lands at 10 PM in summer and 9 PM in winter. Moving it an hour
+ * earlier would make it 8 PM CST in winter, right on the cutoff.
+ *
+ * Weekly rather than daily on purpose. Every run re-pulls the ENTIRE term
+ * (termStartDate → today) and upserts, so it is a full idempotent rebuild, not
+ * an incremental window — skipping days loses no attendance. Wednesday is the
+ * only night these groups meet, so the other five daily runs found nothing new.
+ * What they did still refresh is the directory half (who is in the CCB group),
+ * which can change any day; if mid-week roster edits turn out to be common,
+ * either restore a daily cadence or add a directory-only refresh. Staff can
+ * always run it on demand from Admin → Student Groups in the meantime.
  *
  * Calls /api/student-toolkit/sync, which walks the CCB groups staff mapped in
  * student_ministry_groups and fills student_directory_cache and
@@ -16,7 +39,7 @@ import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctions
  * A no-op until student ministry provides the group IDs — the route reports
  * that plainly rather than returning a misleading success.
  */
-const handler = schedule('0 10 * * *', async () => {
+const handler = schedule('0 3,10 * * 4', async () => {
   if (scheduledFunctionsDisabled()) {
     return { statusCode: 200, body: 'scheduled functions disabled on this site' };
   }

@@ -3,6 +3,16 @@
     "date": "2026-08-31",
     "date_display": "August 31, 2026",
     "date_iso": "2026-08-31",
+    "id": "student-toolkit-wednesday-night-sync",
+    "type": "improvement",
+    "category": "Student Leader Toolkit",
+    "description": "Student leaders now see Wednesday night's attendance on Wednesday night. The CCB pull behind the roster ran early each morning, so a leader checking after circle still saw last week's dates and had to wait until Thursday. It now runs Wednesday evening, once check-ins have closed, with a second run early Thursday as a backup in case the first one doesn't go through. It no longer runs the other five days, which found nothing new — student circles and movement nights only meet on Wednesdays, and every run rebuilds the full term either way. Staff can still trigger a sync any time from Admin → Student Groups.",
+    "page": "/admin/student-groups"
+  },
+  {
+    "date": "2026-08-31",
+    "date_display": "August 31, 2026",
+    "date_iso": "2026-08-31",
     "id": "toolkit-roster-picks-up-ccb-changes",
     "type": "fix",
     "category": "Circle Leader Toolkit",
