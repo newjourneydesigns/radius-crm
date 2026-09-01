@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { DateTime } from 'luxon';
+import { APP_TIME_ZONE } from '../../../lib/dateUtils';
 import { getUserFromAuthHeader } from '../../../lib/server-supabase';
 import { categorizeDidNotMeetReason } from '../../../lib/circle-leader-toolkit/did-not-meet-reasons';
 
@@ -304,6 +306,35 @@ function buildIndexes(
   return { submissionsByLeaderWeek, occurrencesByLeaderWeek, snapshotsByLeaderWeek };
 }
 
+// Hours a leader gets after their circle's start time before a summary counts
+// as late. Matches the Event Summary Tracker's overdue rule so the two agree.
+const REPORTING_GRACE_HOURS = 24;
+
+type Timeliness = 'on_time' | 'late' | 'never' | 'unknown';
+
+// Minutes past midnight for a stored meeting time ("6:30 PM", "19:00"), or null
+// when it isn't parseable — those fall back to end of day, the most lenient read.
+function meetingTimeMinutes(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const value = String(raw).trim();
+  const twelveHour = value.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
+  if (twelveHour) {
+    let hour = Number(twelveHour[1]) % 12;
+    if (twelveHour[3].toLowerCase() === 'pm') hour += 12;
+    return hour * 60 + (twelveHour[2] ? Number(twelveHour[2]) : 0);
+  }
+  const twentyFourHour = value.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (twentyFourHour) return Number(twentyFourHour[1]) * 60 + Number(twentyFourHour[2]);
+  return null;
+}
+
+function scheduledStart(date: string, time: string): DateTime | null {
+  const day = DateTime.fromISO(date, { zone: APP_TIME_ZONE });
+  if (!day.isValid) return null;
+  const minutes = meetingTimeMinutes(time);
+  return minutes === null ? day.endOf('day') : day.plus({ minutes });
+}
+
 function buildWeeklyEvent(
   expected: ExpectedEvent,
   indexes: ReturnType<typeof buildIndexes>
@@ -524,6 +555,7 @@ export async function GET(request: Request) {
     const circleTypeFilter = searchParams.getAll('circle_type').filter(Boolean);
     const statusFilter = searchParams.getAll('status').filter((value) => value && value !== 'all');
     const exportMode = searchParams.get('export') === '1';
+    const complianceDetailMode = searchParams.get('view') === 'compliance_detail';
 
     let startDate = customStart || addDays(currentWeek, -84);
     let endDate = customEnd || addDays(currentWeek, 6);
@@ -753,6 +785,177 @@ export async function GET(request: Request) {
         { headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
+    // Compliance drill-down: per-leader, per-week reporting timeliness across the
+    // range. Loaded on demand when someone opens the Compliance KPI, so the main
+    // dashboard payload is unaffected.
+    if (complianceDetailMode) {
+      const auditRes = await db
+        .from('event_summary_state_audit')
+        .select('leader_id, week_start_date, to_state, source, changed_at')
+        .in('leader_id', leaderIds)
+        .in('to_state', ['received', 'did_not_meet', 'skipped'])
+        .gte('week_start_date', queryStart)
+        .lte('week_start_date', startOfWeekSunday(queryEnd))
+        .order('changed_at', { ascending: true })
+        .limit(20000);
+      if (auditRes.error) throw auditRes.error;
+
+      // The earliest transition into a reported state is when that week's summary
+      // first reached RADIUS. Rows arrive oldest-first, so the first write wins.
+      // 'skipped' counts alongside 'did_not_meet' — buildWeeklyEvent reads it as a
+      // reported miss, so it has to read as a report here too.
+      const reportedByKey = new Map<string, { at: string; source: string }>();
+      for (const row of auditRes.data ?? []) {
+        const key = `${row.leader_id}|${row.week_start_date}`;
+        if (!reportedByKey.has(key)) reportedByKey.set(key, { at: row.changed_at, source: row.source });
+      }
+
+      type DetailLeader = {
+        leader_id: number;
+        leader_name: string;
+        circle_name: string;
+        campus: string;
+        acpd: string;
+        expected: number;
+        on_time: number;
+        late: number;
+        never: number;
+        unknown: number;
+        total_hours_late: number;
+        avg_hours_late: number | null;
+        worst_hours_late: number | null;
+        weeks: Array<{
+          week_start_date: string;
+          scheduled_date: string;
+          scheduled_time: string;
+          status: EventStatus;
+          status_label: string;
+          source: WeeklyEvent['source'];
+          timeliness: Timeliness;
+          scheduled_at: string | null;
+          deadline_at: string | null;
+          reported_at: string | null;
+          reported_source: string | null;
+          hours_late: number | null;
+        }>;
+      };
+
+      const detailByLeader = new Map<number, DetailLeader>();
+
+      for (const event of rangedEvents) {
+        const start = scheduledStart(event.scheduled_date, event.scheduled_time);
+        const deadline = start ? start.plus({ hours: REPORTING_GRACE_HOURS }) : null;
+        const reported = reportedByKey.get(`${event.leader_id}|${event.week_start_date}`) ?? null;
+
+        let timeliness: Timeliness;
+        let hoursLate: number | null = null;
+        if (event.status === 'no_summary') {
+          timeliness = 'never';
+        } else if (!reported || !deadline) {
+          // Reported, but with nothing to date it by — weeks that predate the
+          // audit table, or a state written outside the audited paths.
+          timeliness = 'unknown';
+        } else {
+          const hoursPastDeadline = DateTime.fromISO(reported.at, { zone: APP_TIME_ZONE })
+            .diff(deadline, 'hours').hours;
+          if (hoursPastDeadline > 0) {
+            timeliness = 'late';
+            // Sub-hour overruns still read as at least an hour late; CCB-sourced
+            // timestamps are only accurate to the sync interval anyway.
+            hoursLate = Math.max(1, Math.round(hoursPastDeadline));
+          } else {
+            timeliness = 'on_time';
+          }
+        }
+
+        let entry = detailByLeader.get(event.leader_id);
+        if (!entry) {
+          entry = {
+            leader_id: event.leader_id,
+            leader_name: event.leader_name,
+            circle_name: event.circle_name,
+            campus: event.campus,
+            acpd: event.acpd,
+            expected: 0,
+            on_time: 0,
+            late: 0,
+            never: 0,
+            unknown: 0,
+            total_hours_late: 0,
+            avg_hours_late: null,
+            worst_hours_late: null,
+            weeks: [],
+          };
+          detailByLeader.set(event.leader_id, entry);
+        }
+
+        entry.expected += 1;
+        entry[timeliness] += 1;
+        if (hoursLate !== null) {
+          entry.total_hours_late += hoursLate;
+          entry.worst_hours_late = Math.max(entry.worst_hours_late ?? 0, hoursLate);
+        }
+        entry.weeks.push({
+          week_start_date: event.week_start_date,
+          scheduled_date: event.scheduled_date,
+          scheduled_time: event.scheduled_time,
+          status: event.status,
+          status_label: event.status_label,
+          source: event.source,
+          timeliness,
+          scheduled_at: start ? start.toISO() : null,
+          deadline_at: deadline ? deadline.toISO() : null,
+          reported_at: reported?.at ?? null,
+          reported_source: reported?.source ?? null,
+          hours_late: hoursLate,
+        });
+      }
+
+      const detailLeaders = Array.from(detailByLeader.values()).map((entry) => ({
+        ...entry,
+        avg_hours_late: entry.late > 0 ? Math.round((entry.total_hours_late / entry.late) * 10) / 10 : null,
+        weeks: entry.weeks.sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
+      }));
+
+      // Worst offenders first — the reason someone opens this panel.
+      detailLeaders.sort(
+        (a, b) =>
+          b.never + b.late - (a.never + a.late) ||
+          b.late - a.late ||
+          a.leader_name.localeCompare(b.leader_name)
+      );
+
+      const totals = detailLeaders.reduce(
+        (acc, leader) => ({
+          expected: acc.expected + leader.expected,
+          on_time: acc.on_time + leader.on_time,
+          late: acc.late + leader.late,
+          never: acc.never + leader.never,
+          unknown: acc.unknown + leader.unknown,
+        }),
+        { expected: 0, on_time: 0, late: 0, never: 0, unknown: 0 }
+      );
+
+      return NextResponse.json(
+        {
+          filters: {
+            startDate,
+            endDate,
+            campuses: campusFilter,
+            acpds: acpdFilter,
+            circleTypes: circleTypeFilter,
+            statuses: statusFilter,
+          },
+          graceHours: REPORTING_GRACE_HOURS,
+          timeZone: APP_TIME_ZONE,
+          totals,
+          leaders: detailLeaders,
+        },
+        { headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
     const selectedWeekEvents = allEvents
       .filter((event) => event.week_start_date === selectedWeek && event.scheduled_date <= selectedWeekEnd)
       .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date) || a.scheduled_time.localeCompare(b.scheduled_time) || a.leader_name.localeCompare(b.leader_name));

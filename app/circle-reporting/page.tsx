@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   Building2,
   CalendarDays,
+  ChevronRight,
   ChevronsUpDown,
   Download,
   FileText,
@@ -34,6 +35,7 @@ import {
 import { Bar, Line } from 'react-chartjs-2';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { apiFetch } from '../../lib/apiClient';
+import Modal from '../../components/ui/Modal';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Tooltip, Legend);
 
@@ -47,6 +49,46 @@ type Summary = {
   compliancePct: number;
   totalAttendance: number;
   averageCircleSize: number;
+};
+
+type Timeliness = 'on_time' | 'late' | 'never' | 'unknown';
+
+type ComplianceDetailWeek = {
+  week_start_date: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  status: EventStatus;
+  status_label: string;
+  source: string;
+  timeliness: Timeliness;
+  scheduled_at: string | null;
+  deadline_at: string | null;
+  reported_at: string | null;
+  reported_source: string | null;
+  hours_late: number | null;
+};
+
+type ComplianceDetailLeader = {
+  leader_id: number;
+  leader_name: string;
+  circle_name: string;
+  campus: string;
+  acpd: string;
+  expected: number;
+  on_time: number;
+  late: number;
+  never: number;
+  unknown: number;
+  avg_hours_late: number | null;
+  worst_hours_late: number | null;
+  weeks: ComplianceDetailWeek[];
+};
+
+type ComplianceDetail = {
+  graceHours: number;
+  timeZone: string;
+  totals: { expected: number; on_time: number; late: number; never: number; unknown: number };
+  leaders: ComplianceDetailLeader[];
 };
 
 type WeeklyEvent = {
@@ -204,6 +246,7 @@ function KpiCard({
   invert = false,
   accent = 'slate',
   icon: Icon,
+  onClick,
 }: {
   label: string;
   value: string | number;
@@ -213,6 +256,7 @@ function KpiCard({
   invert?: boolean;
   accent?: 'slate' | 'emerald' | 'sky' | 'amber' | 'rose' | 'violet';
   icon: typeof Users;
+  onClick?: () => void;
 }) {
   const accents: Record<string, string> = {
     slate: 'text-slate-400',
@@ -223,11 +267,14 @@ function KpiCard({
     violet: 'text-violet-400',
   };
 
-  return (
-    <div className="group rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 transition hover:border-slate-700 hover:bg-slate-900">
+  const body = (
+    <>
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-        <Icon className={`h-4 w-4 ${accents[accent]}`} />
+        <span className="flex items-center gap-1">
+          {onClick && <ChevronRight className="h-3.5 w-3.5 text-slate-600 transition group-hover:text-slate-300" />}
+          <Icon className={`h-4 w-4 ${accents[accent]}`} />
+        </span>
       </div>
       <p className="mt-3 text-4xl font-semibold leading-none tracking-tight text-white tabular-nums">{value}</p>
       <div className="mt-3 h-5">
@@ -237,8 +284,24 @@ function KpiCard({
           <span className="text-xs text-slate-600">No comparison</span>
         )}
       </div>
-    </div>
+    </>
   );
+
+  const shell = 'group rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 transition hover:border-slate-700 hover:bg-slate-900';
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`${shell} w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60`}
+      >
+        {body}
+      </button>
+    );
+  }
+
+  return <div className={shell}>{body}</div>;
 }
 
 function DeltaPill({ value, suffix = '', invert = false, label = 'vs prior wk' }: { value: number; suffix?: string; invert?: boolean; label?: string }) {
@@ -395,6 +458,12 @@ function CircleReportingContent() {
   const [compareData, setCompareData] = useState<ReportingData | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
 
+  // Compliance drill-down — fetched on demand when the KPI card is opened.
+  const [complianceOpen, setComplianceOpen] = useState(false);
+  const [complianceDetail, setComplianceDetail] = useState<ComplianceDetail | null>(null);
+  const [complianceLoading, setComplianceLoading] = useState(false);
+  const [complianceError, setComplianceError] = useState<string | null>(null);
+
   // Weekly-events table controls (client-side only — no refetch).
   const [eventSearch, setEventSearch] = useState('');
   const [eventStatusFilter, setEventStatusFilter] = useState<StatusFilter>('all');
@@ -477,6 +546,30 @@ function CircleReportingContent() {
   useEffect(() => {
     if (hydrated) loadData();
   }, [hydrated, loadData]);
+
+  const openComplianceDetail = useCallback(async () => {
+    setComplianceOpen(true);
+    // Already loaded for the current range and filters — the effect below clears
+    // it whenever those move, so a cached payload is always the right one.
+    if (complianceDetail) return;
+    setComplianceLoading(true);
+    setComplianceError(null);
+    try {
+      const params = buildParams();
+      params.set('view', 'compliance_detail');
+      const res = await apiFetch(`/api/circle-reporting?${params.toString()}`, { cache: 'no-store' });
+      const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error || 'Failed to load compliance detail');
+      setComplianceDetail(json);
+    } catch (err: unknown) {
+      setComplianceError(err instanceof Error ? err.message : 'Failed to load compliance detail');
+    } finally {
+      setComplianceLoading(false);
+    }
+  }, [buildParams, complianceDetail]);
+
+  // The open panel describes the current range/filters, so drop it when they move.
+  useEffect(() => { setComplianceDetail(null); }, [buildParams]);
 
   // Fetch Range B whenever comparison is on. Reuses the same endpoint and the
   // same campus/type/status filters; only the date range differs.
@@ -1022,7 +1115,7 @@ function CircleReportingContent() {
                 <KpiCard icon={Users} accent="sky" label="Total Attendance" value={data.summary.totalAttendance.toLocaleString()} delta={kpiDelta?.totalAttendance} deltaLabel={kpiDeltaLabel} />
                 <KpiCard icon={CalendarDays} accent="violet" label="Total Circles" value={data.summary.expected.toLocaleString()} delta={kpiDelta?.expected} deltaLabel={kpiDeltaLabel} />
                 <KpiCard icon={Users} accent="emerald" label="Avg Circle Size" value={data.summary.averageCircleSize} delta={kpiDelta?.averageCircleSize} deltaLabel={kpiDeltaLabel} />
-                <KpiCard icon={FileText} accent={data.summary.compliancePct >= 85 ? 'emerald' : data.summary.compliancePct >= 70 ? 'amber' : 'rose'} label="Compliance" value={`${data.summary.compliancePct}%`} delta={kpiDelta?.compliancePct} deltaSuffix=" pts" deltaLabel={kpiDeltaLabel} />
+                <KpiCard icon={FileText} accent={data.summary.compliancePct >= 85 ? 'emerald' : data.summary.compliancePct >= 70 ? 'amber' : 'rose'} label="Compliance" value={`${data.summary.compliancePct}%`} delta={kpiDelta?.compliancePct} deltaSuffix=" pts" deltaLabel={kpiDeltaLabel} onClick={openComplianceDetail} />
                 <KpiCard icon={AlertTriangle} accent="amber" label="Did Not Meet" value={data.summary.didNotMeet} delta={kpiDelta?.didNotMeet} invert deltaLabel={kpiDeltaLabel} />
                 <KpiCard icon={FileText} accent="rose" label="No Summary" value={data.summary.noSummary} delta={kpiDelta?.noSummary} invert deltaLabel={kpiDeltaLabel} />
               </div>
@@ -1208,6 +1301,14 @@ function CircleReportingContent() {
           </>
         )}
       </div>
+      <ComplianceDetailModal
+        isOpen={complianceOpen}
+        onClose={() => setComplianceOpen(false)}
+        detail={complianceDetail}
+        loading={complianceLoading}
+        error={complianceError}
+        rangeLabel={rangeLabel}
+      />
     </div>
   );
 }
@@ -1241,6 +1342,182 @@ function SortableTh({
         )}
       </button>
     </th>
+  );
+}
+
+const TIMELINESS_TONE: Record<Timeliness, string> = {
+  on_time: 'text-emerald-400',
+  late: 'text-amber-400',
+  never: 'text-rose-400',
+  unknown: 'text-slate-500',
+};
+
+const TIMELINESS_LABEL: Record<Timeliness, string> = {
+  on_time: 'On time',
+  late: 'Late',
+  never: 'Never reported',
+  unknown: 'Time unknown',
+};
+
+// Mirrors the Event Summary Tracker's badge: hours until it gets unwieldy, then days.
+function formatLateness(hours: number | null): string {
+  if (hours === null) return '';
+  return hours >= 48 ? `${Math.floor(hours / 24)}d late` : `${hours}h late`;
+}
+
+// The audit source decides how precise a reported-at timestamp is, so it is
+// worth naming per row: a RADIUS form submission is exact, a CCB sync is only
+// as fresh as the hourly pull, and a staff override is not a leader action at all.
+function reportedVia(source: string | null): string {
+  switch (source) {
+    case 'app_submission': return 'RADIUS form';
+    case 'sync_auto': return 'CCB sync';
+    case 'manual':
+    case 'conflict_override':
+    case 'admin_reset': return 'Set by staff';
+    default: return '—';
+  }
+}
+
+function formatStamp(iso: string | null, timeZone: string): string {
+  if (!iso) return '—';
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleString('en-US', {
+    timeZone,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function ComplianceDetailModal({
+  isOpen,
+  onClose,
+  detail,
+  loading,
+  error,
+  rangeLabel,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  detail: ComplianceDetail | null;
+  loading: boolean;
+  error: string | null;
+  rangeLabel: string;
+}) {
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  // A fresh payload is a different range or filter set — collapse everything.
+  useEffect(() => { setExpanded(null); }, [detail]);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Compliance detail" size="xl">
+      {loading ? (
+        <p className="py-10 text-center text-sm text-slate-400">Loading reporting times…</p>
+      ) : error ? (
+        <p className="py-10 text-center text-sm text-rose-400">{error}</p>
+      ) : !detail || detail.leaders.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-slate-300">{rangeLabel}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              A summary counts as on time when it reaches RADIUS within {detail.graceHours}h of the
+              circle&apos;s start time. Times are when the summary landed in RADIUS: submissions through
+              the RADIUS form are exact, while summaries entered in CCB are picked up by the hourly
+              sync and so are accurate to about an hour.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {([
+              ['On time', detail.totals.on_time, 'text-emerald-400'],
+              ['Late', detail.totals.late, 'text-amber-400'],
+              ['Never reported', detail.totals.never, 'text-rose-400'],
+              ['Time unknown', detail.totals.unknown, 'text-slate-400'],
+            ] as Array<[string, number, string]>).map(([label, count, tone]) => (
+              <div key={label} className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+                <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{count}</p>
+                <p className="mt-0.5 text-[11px] text-slate-600">
+                  of {detail.totals.expected} expected
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="divide-y divide-slate-800 overflow-hidden rounded-xl border border-slate-800/80">
+            {detail.leaders.map((leader) => {
+              const open = expanded === leader.leader_id;
+              return (
+                <div key={leader.leader_id}>
+                  <button
+                    type="button"
+                    onClick={() => setExpanded(open ? null : leader.leader_id)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-slate-800/40"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">{leader.leader_name}</p>
+                      <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                        {leader.campus} · {leader.acpd}
+                        {leader.avg_hours_late !== null && ` · avg ${leader.avg_hours_late}h late`}
+                        {leader.worst_hours_late !== null && ` · worst ${formatLateness(leader.worst_hours_late)}`}
+                      </p>
+                    </div>
+                    <div className="flex flex-shrink-0 items-center gap-3 text-xs tabular-nums">
+                      <span className="text-emerald-400">{leader.on_time} on time</span>
+                      {leader.late > 0 && <span className="text-amber-400">{leader.late} late</span>}
+                      {leader.never > 0 && <span className="text-rose-400">{leader.never} missing</span>}
+                      {leader.unknown > 0 && <span className="text-slate-500">{leader.unknown} unknown</span>}
+                      <ChevronRight
+                        className={`h-4 w-4 text-slate-600 transition ${open ? 'rotate-90' : ''}`}
+                      />
+                    </div>
+                  </button>
+
+                  {open && (
+                    <div className="overflow-x-auto border-t border-slate-800 bg-slate-950/40">
+                      <table className="min-w-full divide-y divide-slate-800 text-sm">
+                        <thead className="text-left text-[11px] uppercase tracking-wide text-slate-500">
+                          <tr>
+                            <th className="px-4 py-2 font-medium">Week of</th>
+                            <th className="px-4 py-2 font-medium">Scheduled</th>
+                            <th className="px-4 py-2 font-medium">Reported</th>
+                            <th className="px-4 py-2 font-medium">Via</th>
+                            <th className="px-4 py-2 font-medium">Result</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/70">
+                          {leader.weeks.map((week) => (
+                            <tr key={week.week_start_date}>
+                              <td className="px-4 py-2 text-slate-300">{week.week_start_date}</td>
+                              <td className="px-4 py-2 text-slate-400">
+                                {formatStamp(week.scheduled_at, detail.timeZone)}
+                              </td>
+                              <td className="px-4 py-2 text-slate-400">
+                                {formatStamp(week.reported_at, detail.timeZone)}
+                              </td>
+                              <td className="px-4 py-2 text-slate-500">{reportedVia(week.reported_source)}</td>
+                              <td className={`px-4 py-2 font-medium ${TIMELINESS_TONE[week.timeliness]}`}>
+                                {TIMELINESS_LABEL[week.timeliness]}
+                                {week.hours_late !== null && ` · ${formatLateness(week.hours_late)}`}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 
