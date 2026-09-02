@@ -28,6 +28,9 @@ type OccurrenceRow = {
   id: string;
   leader_id: number;
   meeting_date: string;
+  // The table also stores 'no_record' — a stub the CCB sync writes to mark
+  // "we looked and CCB had nothing". Those are filtered out of the query below,
+  // because a stub is the absence of a summary, not one waiting to be reviewed.
   status: 'met' | 'did_not_meet';
   headcount: number | null;
   has_notes: boolean;
@@ -543,6 +546,11 @@ export default function EventSummaryTrackerPage() {
       const occurrencesPromise = supabase
         .from('circle_meeting_occurrences')
         .select('id, leader_id, meeting_date, status, headcount, has_notes, guest_count, topic, notes, prayer_requests, reviewed_at, reviewed_by')
+        // 'no_record' rows mean the CCB sync found nothing for that date. They are
+        // not summaries, so they must not make a leader look like they submitted:
+        // the row build treats any occurrence as a submission, which put circles
+        // that had not met yet into "Needs Review".
+        .neq('status', 'no_record')
         .gte('meeting_date', weekStart)
         .lte('meeting_date', weekEnd);
 
