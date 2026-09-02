@@ -158,13 +158,27 @@ function daysAgo(n: number): string {
   return toDateStr(d);
 }
 
-// Semester start date — all syncs go back to at least this date
+// Semester start date — the floor for every sync, narrowed or not
 const SEMESTER_START = '2026-01-18';
+
+// Clamp a `?lookbackDays=` value to a sane window. Anything missing or
+// unparseable means "no narrowing" — the full semester range.
+function parseLookbackDays(raw: string | null): number | null {
+  if (!raw) return null;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 365) return null;
+  return n;
+}
 
 // ════════════════════════════════════════════════════════════════════
 // POST — trigger attendance sync
 //
 // Syncs from semester start (2026-01-18) to today. Single CCB API call.
+//
+// `?lookbackDays=N` narrows the range to the last N days, for the hourly
+// scheduled run that only needs recent weeks. The narrowed range drives both
+// the CCB fetch and the expected-meeting-date fill below, so a narrowed run
+// leaves occurrences outside the window untouched.
 //
 // Requires event IDs to be pre-cached via POST /api/ccb/discover-events.
 //
@@ -188,9 +202,13 @@ export async function POST(request: NextRequest) {
   const url = new URL(request.url);
   const singleLeaderId = url.searchParams.get('leaderId');
 
-  // Always sync from semester start to today (1 API call either way)
+  // Sync from semester start to today unless the caller narrowed the window
+  // (1 API call either way).
+  const lookbackDays = parseLookbackDays(url.searchParams.get('lookbackDays'));
   const endDate = toDateStr(new Date());
-  const startDate = SEMESTER_START;
+  const lookbackStart = lookbackDays === null ? null : daysAgo(lookbackDays);
+  const startDate =
+    lookbackStart && lookbackStart > SEMESTER_START ? lookbackStart : SEMESTER_START;
 
   console.log(`📦 Attendance sync: range=${startDate} → ${endDate}`);
 

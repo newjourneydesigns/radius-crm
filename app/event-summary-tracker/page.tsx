@@ -640,6 +640,18 @@ export default function EventSummaryTrackerPage() {
   // Reset the dismissible banner when the user navigates to a different week
   useEffect(() => { setBannerDismissed(false); }, [weekStart]);
 
+  // Overdue durations are derived from "now", so they need a clock of their own —
+  // otherwise they sit frozen at whatever the last data load computed. Only the
+  // week in progress can advance; past weeks are clamped to their own week end
+  // (see `overdueClock` below), so there is nothing to tick for them.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    setNowTick(Date.now());
+    if (weekStart !== sundayOfThisWeek()) return;
+    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, [weekStart]);
+
   // Fetch live event summary for the modal whenever a row is selected
   useEffect(() => {
     if (!reviewRow) {
@@ -808,6 +820,13 @@ export default function EventSummaryTrackerPage() {
       return true;
     });
 
+    // Overdue is measured against "now", but only for the week in progress. When
+    // the user pages back, freeze the clock at that week's end so historical rows
+    // read "6d overdue" instead of accumulating forever ("70d overdue").
+    const weekEndDt = DateTime.fromISO(weekStart).plus({ days: 6 }).endOf('day');
+    const nowDt = DateTime.fromMillis(nowTick);
+    const overdueClock = nowDt < weekEndDt ? nowDt : weekEndDt;
+
     return filtered.map(l => {
       const occ = occByLeader.get(l.id) ?? null;
       const sub = subByLeader.get(l.id) ?? null;
@@ -854,7 +873,8 @@ export default function EventSummaryTrackerPage() {
       const attendees = headcount && guestCount ? Math.max(0, headcount - guestCount) : (headcount ?? 0);
 
       // Overdue: a leader still in "Awaiting Submission" more than 24h after their
-      // scheduled meeting time. Helps surface circles that have gone silent.
+      // scheduled meeting time, measured against `overdueClock`. Helps surface
+      // circles that have gone silent.
       let overdue = false;
       let hoursOverdue = 0;
       if (status === 'no_summary' && l.day) {
@@ -864,7 +884,7 @@ export default function EventSummaryTrackerPage() {
           const scheduledDt = minutes < 9999
             ? meetingDate.plus({ minutes })
             : meetingDate.endOf('day');
-          const diffHours = DateTime.now().diff(scheduledDt, 'hours').hours;
+          const diffHours = overdueClock.diff(scheduledDt, 'hours').hours;
           if (diffHours >= 24) {
             overdue = true;
             hoursOverdue = Math.floor(diffHours);
@@ -889,7 +909,7 @@ export default function EventSummaryTrackerPage() {
         hoursOverdue,
       };
     });
-  }, [leaders, occurrences, submissions, snapshots, scheduledLeaderIds, tracker, campusFilter, acpdFilter, circleStatusFilters, justReviewed, justUnreviewed, weekStart]);
+  }, [leaders, occurrences, submissions, snapshots, scheduledLeaderIds, tracker, campusFilter, acpdFilter, circleStatusFilters, justReviewed, justUnreviewed, weekStart, nowTick]);
 
   const sortRows = useCallback((arr: Row[]) => {
     const sorted = [...arr];
