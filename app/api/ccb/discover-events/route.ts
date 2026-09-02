@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAdminAccess } from '../../../../lib/auth-middleware';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { syncRosterCacheForLeader } from '../../../../lib/ccb/roster-cache';
 
 export const dynamic = 'force-dynamic';
+// A forced run walks every active leader at 2s apart (~70 leaders ≈ 2.5 min).
+// Nothing else in this repo pins a function timeout, so set the documented
+// knob explicitly rather than trust the platform default to be long enough —
+// leader order is stable, so a mid-loop kill would re-do the same prefix
+// every night and never reach the tail.
+export const maxDuration = 300;
 
 /**
  * POST /api/ccb/discover-events
@@ -42,13 +49,27 @@ function getServiceClient() {
 const THROTTLE_MS = 2000; // 2 seconds between CCB calls
 
 export async function POST(request: NextRequest) {
-  // Auth
+  // Auth: cron secret first (the nightly path), then a signed-in RADIUS admin
+  // so staff can re-discover a leader on demand — right after fixing a CCB
+  // event — without handling CRON_SECRET. Same pattern as prewarm and the
+  // student sync. Order matters: both arrive in the same Authorization header
+  // and the cron secret is not a JWT.
+  //
+  // Also closes a hole the old check had: with CRON_SECRET unset it skipped
+  // auth entirely and the route was open. Now an unset secret only means the
+  // cron path can't authenticate — admins still can, and nobody else.
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authHeader = request.headers.get('authorization');
+  let authorized = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
+  if (!authorized) {
+    const admin = await verifyAdminAccess(request);
+    authorized = admin.isAdmin;
+  }
+  if (!authorized) {
+    if (!cronSecret) {
+      console.error('[discover-events] CRON_SECRET is not configured; the scheduled run cannot authenticate.');
     }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const supabase = getServiceClient();

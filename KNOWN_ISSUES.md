@@ -77,3 +77,16 @@ USING (true);
 **Problem**: The follow-up status migration in `supabase/migrations/add_follow_up_status.sql` needs to be executed.
 
 **Required Action**: Run the migration via Supabase dashboard or CLI with appropriate permissions.
+
+---
+
+## Scheduled Functions
+
+### Scheduled functions rely on a 308 redirect to reach their API routes
+**Status**: Pending  
+**Date Reported**: September 2, 2026  
+**Priority**: Low (works today; latent)
+
+**Problem**: `next.config.js` sets `trailingSlash: true`, so the canonical form of every API route ends in `/` and a request without it gets a `308` redirect. Every scheduled function except `netlify/functions/discover-events.ts` posts to its route *without* the trailing slash (`/api/ccb/sync-attendance`, `/api/circle-leader-toolkit/prewarm`, `/api/student-toolkit/sync`, etc. — see `grep -rn 'fetch(\`\${appUrl}/api' netlify/ lib/netlify/`). They only work because Node's `fetch` follows the 308 and preserves `POST`. That is one extra hop per cron run, and a single point of failure: any client that does not follow redirects (or a change to `trailingSlash`) would break every scheduled job at once. The same trap already cost a debugging round when a hand-run `curl` returned the redirect body instead of JSON.
+
+**Required Action**: Sweep every `fetch(\`\${appUrl}/api/...\`)` in `netlify/functions/` and `lib/netlify/` to the canonical trailing-slash form, matching `discover-events.ts`. No behaviour change on the happy path; removes the redirect hop and the dependency on redirect-following. Deferred until the Ashley Bates `ccb_event_ids` fix is confirmed (Sep 2026).
