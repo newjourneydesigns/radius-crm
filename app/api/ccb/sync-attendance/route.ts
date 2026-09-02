@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTodayDateString } from '../../../../lib/dateUtils';
 import { createClient } from '@supabase/supabase-js';
 import { createCCBClient, type LinkRow } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
@@ -348,9 +349,13 @@ export async function POST(request: NextRequest) {
 
       // 3. Fill missing expected meeting dates with 'no_record'
       const expectedDates = getExpectedMeetingDates(leader, startDate, endDate);
-      const today = toDateStr(new Date());
+      // Only stub days that are fully behind us in church time. `toDateStr` is UTC,
+      // which rolls over at 7pm CT — on an hourly schedule that would record "CCB
+      // had nothing" for tonight's circle before it has even met. Today is left
+      // alone for the same reason; the next run picks it up once the day is done.
+      const today = getTodayDateString();
       const missingRecords: OccurrenceRow[] = expectedDates
-        .filter((d) => !ccbDates.has(d) && d <= today)
+        .filter((d) => !ccbDates.has(d) && d < today)
         .map((d) => ({
           leader_id: leader.id,
           ccb_event_id: null,
