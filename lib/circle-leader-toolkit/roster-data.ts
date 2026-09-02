@@ -19,6 +19,7 @@ import { createCCBClient } from '../ccb/ccb-client';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { createTimer } from './timing';
 import { isDidNotMeetEvent } from './did-not-meet-reasons';
+import { loadLastAttendedFromTable } from './attendance-table';
 
 // ---------------------------------------------------------------------------
 // Roster
@@ -346,7 +347,7 @@ const SHARED_CACHE_FRESH_MS = 24 * 60 * 60_000;
 
 export type LoadAttendanceResult = {
   lastAttended: Record<string, string>;
-  source: 'cache' | 'cache-derived' | 'ccb';
+  source: 'table' | 'cache' | 'cache-derived' | 'ccb';
   error?: string;
 };
 
@@ -572,6 +573,23 @@ export async function loadLeaderAttendance(leader: SessionLeader): Promise<LoadA
 
   const supabase = createServiceSupabaseClient();
   const timer = createTimer('loadLeaderAttendance');
+
+  // Tier 0: the synced attendee table (see attendance-table.ts). Two small
+  // indexed reads; no blob, no XML, no CCB. Falls through when the sync
+  // doesn't cover this leader yet.
+  try {
+    const fromTable = await loadLastAttendedFromTable(supabase, leader.id, startStr, endStr);
+    timer.mark('tableRead');
+    if (fromTable !== null) {
+      const merged = await mergeSubmittedSummaryAttendance(
+        supabase, leader.id, groupId, startStr, endStr, fromTable
+      );
+      timer.end({ source: 'table', groupId });
+      return { lastAttended: merged, source: 'table' };
+    }
+  } catch (e) {
+    console.warn('[roster/attendance] table path failed:', e);
+  }
 
   // Shared cache first. Most hits are served entirely from Supabase, and the
   // common one — a warm row with a precomputed map — reads only two small

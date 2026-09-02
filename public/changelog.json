@@ -3,6 +3,16 @@
     "date": "2026-08-31",
     "date_display": "August 31, 2026",
     "date_iso": "2026-08-31",
+    "id": "toolkit-reads-synced-attendance",
+    "type": "improvement",
+    "category": "Circle Leader Toolkit",
+    "description": "The toolkit now reads attendance from the same synced records the Event Summary Tracker uses, instead of re-downloading twelve weeks of the whole church's attendance from CCB every time you open it. Those records are refreshed from CCB every hour, so your events list and roster load from a couple of small lookups rather than a large fetch and a live CCB call. Anything you submit through the toolkit still shows up instantly. If your Circle isn't in the synced records yet, nothing changes for you — the app quietly uses the old path until it is.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-08-31",
+    "date_display": "August 31, 2026",
+    "date_iso": "2026-08-31",
     "id": "toolkit-opens-without-waiting-on-ccb",
     "type": "improvement",
     "category": "Circle Leader Toolkit",

@@ -15,6 +15,7 @@ import type { SessionLeader } from './session';
 import { createCCBClient } from '../ccb/ccb-client';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { computeLastAttended, storeDerivedLastAttended } from './roster-data';
+import { loadOccurrenceStatuses } from './attendance-table';
 import { createTimer } from './timing';
 import { isDidNotMeetEvent } from './did-not-meet-reasons';
 import { doesMeetingFrequencyIncludeDate } from '../meetingFrequency';
@@ -94,6 +95,13 @@ type IgnoredEventRow = {
   ccb_event_id: string;
   occurrence_date: string;
 };
+// Shape of a ccb_group_events_cache read. `attendance_xml` is absent on the
+// narrow select used when the occurrence table already covers attendance.
+type SharedCacheRow = {
+  calendar_events?: unknown;
+  attendance_xml?: unknown;
+  synced_at?: string | null;
+};
 type MessageRow = {
   id: string;
   header: string;
@@ -124,6 +132,11 @@ function attendanceCacheKey(startStr: string, endStr: string) {
 // its own copy of that same global fetch. Callers that arrive while one is in
 // flight await the same promise instead.
 const ccbAttendanceInFlight = new Map<string, Promise<unknown>>();
+
+// Stands in for the attendance cache value when the synced occurrence table
+// covers the leader (see loadLeaderEvents). Never parsed, never persisted —
+// every consumer checks `tableStatuses` first.
+const TABLE_ATTENDANCE_SENTINEL: unknown = Object.freeze({ __table: true });
 
 function fetchAttendanceOnce(
   ccb: ReturnType<typeof createCCBClient>,
@@ -387,6 +400,16 @@ export async function loadLeaderEvents(
   }> = [];
   let submissions: SubmittedSummaryRow[] = [];
   let ignoredEvents: IgnoredEventRow[] = [];
+  // Tier 0: the synced occurrence table. When it covers this leader, the
+  // attendance half of this loader never touches the blob or CCB at all —
+  // see attendance-table.ts. A forced refresh (post-submit) still goes live
+  // to CCB, because the table lags the sync cadence and a leader who just
+  // submitted must see it land. The calendar still comes from its own cache.
+  let tableStatuses: Map<string, { has: boolean; dnm: boolean; headCount: number | null }> | null = null;
+  if (!forceRefresh) {
+    tableStatuses = await loadOccurrenceStatuses(supabase, leader.id, startStr, endStr);
+    timer.mark('tableRead');
+  }
   // Tracks whether the live CCB attendance call failed (vs. simply returned no
   // rows) so we can fall back to cached attendance instead of silently showing
   // every reported summary as "Pending".
@@ -408,7 +431,10 @@ export async function loadLeaderEvents(
     const SHARED_ATTENDANCE_CACHE_FRESH_MS = 5 * 60_000;
 
     const calCached = cacheGet(ccbCalCache, cacheKey);
-    const attCached = cacheGet(ccbAttendanceCache, attKey);
+    // A table hit stands in for the attendance cache: non-undefined means "we
+    // already have attendance, do not fetch it". The sentinel is never parsed —
+    // the map built below is used instead of buildAttendanceMap for this case.
+    const attCached = tableStatuses ? TABLE_ATTENDANCE_SENTINEL : cacheGet(ccbAttendanceCache, attKey);
 
     // Only consult shared cache when in-memory misses AND the caller didn't
     // ask for a forced refresh (post-submit invalidation must hit CCB).
@@ -419,13 +445,31 @@ export async function loadLeaderEvents(
     // cache and is entitled to attendance no older than the window above.
     let sharedAttendanceIsFresh = false;
     if (!forceRefresh && (calCached === undefined || attCached === undefined)) {
-      const { data: cacheRow } = await supabase
-        .from('ccb_group_events_cache')
-        .select('calendar_events, attendance_xml, synced_at')
-        .eq('group_id', String(leader.ccb_group_id))
-        .eq('start_date', startStr)
-        .eq('end_date', endStr)
-        .maybeSingle();
+      // When the occurrence table already covers attendance, don't drag the
+      // multi-megabyte global blob across the wire just to read the calendar.
+      // Two literal selects rather than one conditional string: supabase-js
+      // infers the row type from the column literal, and a union of literals
+      // collapses it to a ParserError.
+      const groupId = String(leader.ccb_group_id);
+      const cacheRow: SharedCacheRow | null = tableStatuses
+        ? ((
+            await supabase
+              .from('ccb_group_events_cache')
+              .select('calendar_events, synced_at')
+              .eq('group_id', groupId)
+              .eq('start_date', startStr)
+              .eq('end_date', endStr)
+              .maybeSingle()
+          ).data as SharedCacheRow | null)
+        : ((
+            await supabase
+              .from('ccb_group_events_cache')
+              .select('calendar_events, attendance_xml, synced_at')
+              .eq('group_id', groupId)
+              .eq('start_date', startStr)
+              .eq('end_date', endStr)
+              .maybeSingle()
+          ).data as SharedCacheRow | null);
 
       if (cacheRow?.synced_at) {
         const ageMs = Date.now() - new Date(cacheRow.synced_at).getTime();
@@ -512,7 +556,7 @@ export async function loadLeaderEvents(
     timer.mark('fetch');
 
     const calSource = calCached !== undefined ? 'mem' : sharedCache?.calendar_events !== undefined ? 'shared' : 'ccb';
-    const attSource = attCached !== undefined ? 'mem' : sharedCache?.attendance_xml !== undefined ? 'shared' : allowStaleAttendance ? 'skipped' : attendanceFetchFailed ? 'failed' : 'ccb';
+    const attSource = tableStatuses ? 'table' : attCached !== undefined ? 'mem' : sharedCache?.attendance_xml !== undefined ? 'shared' : allowStaleAttendance ? 'skipped' : attendanceFetchFailed ? 'failed' : 'ccb';
     timer.end({ groupId: String(leader.ccb_group_id), calSource, attSource, calFromCcb, attFromCcb });
 
     if (ignoredRes.error) {
@@ -532,7 +576,7 @@ export async function loadLeaderEvents(
     // Never write back on the stale-attendance path: `bulkXml` there may be
     // attendance of any age, and stamping it with a fresh `synced_at` would
     // make it look current to the events page's 5-minute freshness check.
-    if (!allowStaleAttendance && (calFromCcb || attFromCcb) && bulkXml != null && Array.isArray(calEvents)) {
+    if (!tableStatuses && !allowStaleAttendance && (calFromCcb || attFromCcb) && bulkXml != null && Array.isArray(calEvents)) {
       const groupId = String(leader.ccb_group_id);
       supabase
         .from('ccb_group_events_cache')
@@ -596,11 +640,14 @@ export async function loadLeaderEvents(
     // leader never sees a CCB outage warning for data that is about to be
     // refreshed a second later.
     if (preferCachedAttendance) {
-      attendanceIsStale = attCached === undefined && !sharedAttendanceIsFresh;
+      // Table-covered leaders are fresh to the sync cadence; there is nothing
+      // for the client to revalidate against the blob, so don't ask it to.
+      attendanceIsStale = !tableStatuses && attCached === undefined && !sharedAttendanceIsFresh;
       ccbAttendanceDegraded = null;
     }
+    if (tableStatuses) ccbAttendanceDegraded = null;
 
-    const attendanceMap = buildAttendanceMap(bulkXmlResolved);
+    const attendanceMap = tableStatuses ?? buildAttendanceMap(bulkXmlResolved);
 
     const ignoredSet = new Set(
       ignoredEvents.map((row) => `${row.ccb_event_id}|${String(row.occurrence_date).slice(0, 10)}`)
