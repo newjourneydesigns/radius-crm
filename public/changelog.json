@@ -3,6 +3,16 @@
     "date": "2026-09-02",
     "date_display": "September 2, 2026",
     "date_iso": "2026-09-02",
+    "id": "nightly-ccb-event-rediscovery",
+    "type": "fix",
+    "category": "Circle Leader Toolkit",
+    "description": "A Circle whose CCB event was renamed or re-created could silently drop out of attendance tracking. The list of CCB events on each leader's profile was only ever filled in once and never refreshed, so after a change in CCB the nightly sync stopped seeing that Circle's meetings — the Event Summary Tracker could mark a summary late that was filed on time, and the toolkit fell back to its slower path. That list is now re-checked against CCB every night, so a changed event is picked up within a day with no one having to notice or fix it by hand.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-09-02",
+    "date_display": "September 2, 2026",
+    "date_iso": "2026-09-02",
     "id": "toolkit-synced-attendance-coverage-guard",
     "type": "fix",
     "category": "Circle Leader Toolkit",

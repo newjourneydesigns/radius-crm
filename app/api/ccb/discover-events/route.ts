@@ -9,14 +9,22 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/ccb/discover-events
  *
- * One-time (or periodic) endpoint that discovers the CCB event IDs
- * belonging to each circle leader's group, then caches them in
- * circle_leaders.ccb_event_ids so the daily attendance sync never
- * needs to call event_profiles per-leader again.
+ * Discovers the CCB event IDs belonging to each circle leader's group and
+ * caches them in circle_leaders.ccb_event_ids, so the attendance sync never
+ * needs to call event_profiles per-leader.
+ *
+ * Runs NIGHTLY with ?force=true (netlify/functions/discover-events.ts).
+ * It used to be one-time: without `force` it only fills leaders whose list
+ * is NULL, so a populated-but-stale list — a CCB event renamed or re-created
+ * under a new id — was never revisited, the sync stopped seeing that
+ * leader's meetings, and an on-time summary read as missing downstream.
+ * Forcing nightly is safe because of the guards in the loop below: a failed
+ * lookup keeps the existing ids, and NULL is written only when a lookup
+ * succeeds and finds no events.
  *
  * Query params:
  *   ?force=true  — re-discover even if ccb_event_ids is already set
- *   ?leaderId=X  — discover for a single leader only
+ *   ?leaderId=X  — discover for a single leader only (always forces)
  *
  * Auth: Bearer CRON_SECRET
  *

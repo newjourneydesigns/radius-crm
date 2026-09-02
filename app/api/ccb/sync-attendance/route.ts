@@ -180,7 +180,8 @@ function parseLookbackDays(raw: string | null): number | null {
 // the CCB fetch and the expected-meeting-date fill below, so a narrowed run
 // leaves occurrences outside the window untouched.
 //
-// Requires event IDs to be pre-cached via POST /api/ccb/discover-events.
+// Requires event IDs in circle_leaders.ccb_event_ids — kept current by the
+// nightly netlify/functions/discover-events.ts run (10:15 UTC, before this).
 //
 // CCB cost: 1 API call (attendance_profiles with date range)
 // ════════════════════════════════════════════════════════════════════
