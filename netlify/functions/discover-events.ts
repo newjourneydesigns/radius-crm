@@ -13,18 +13,22 @@ import { scheduledFunctionsDisabled } from '../../lib/netlify/scheduledFunctions
  * list silently went stale, the sync stopped seeing their meetings, and a
  * summary they filed on time read as missing (toolkit: PENDING; tracker: late).
  *
- * Runs at 10:15 UTC (~5:15 AM CDT), chosen to sit clear of every other CCB
- * job: after prewarm-circle-summary's paced loop (09:00) has finished, off the
- * hourly sync-attendance-recent (:30 — 10:30 would collide), and 45 minutes
- * before sync-attendance (11:00) consumes the fresh ids.
+ * Runs at 10:15 UTC (~5:15 AM CDT): after prewarm-circle-summary (09:00) has
+ * refreshed the cached calendars this reads, and 45 minutes before
+ * sync-attendance (11:00) consumes the fresh ids.
  *
- * `force=true` re-discovers every active leader, not just NULL ones — the
- * whole point is that a stale list cannot be told from a current one without
- * asking CCB. Safe to force nightly: the route keeps a leader's existing ids
- * when the CCB lookup fails, and only writes NULL when a lookup SUCCEEDS and
- * genuinely finds no events. ~1 CCB call per leader, 2s apart.
+ * Uses ?source=calendar, NOT the CCB walk. The first version of this job
+ * called the route with ?force=true, which fetches event ids and a roster
+ * from CCB per leader, 2s apart — four-plus minutes for the church. Netlify
+ * terminates synchronous function invocations at 10s (free) / 26s (paid),
+ * and `maxDuration` does not lift that ceiling; the run 504'd partway
+ * through every time (observed from a browser on the day it shipped), and
+ * because leader order is stable it would have re-done the same prefix
+ * nightly and never reached the tail. Calendar mode makes no CCB calls at
+ * all: it unions the event ids already in ccb_group_events_cache into each
+ * leader's list in three Supabase queries. Seconds, no ceiling to hit.
  *
- * Requires CRON_SECRET; the route also accepts it as Bearer auth.
+ * Requires CRON_SECRET; the route also accepts a signed-in admin.
  */
 const handler = schedule('15 10 * * *', async () => {
   if (scheduledFunctionsDisabled()) {
@@ -40,7 +44,7 @@ const handler = schedule('15 10 * * *', async () => {
   }
 
   try {
-    const response = await fetch(`${appUrl}/api/ccb/discover-events/?force=true`, {
+    const response = await fetch(`${appUrl}/api/ccb/discover-events/?source=calendar`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -56,8 +60,8 @@ const handler = schedule('15 10 * * *', async () => {
     }
 
     console.log(
-      `Event discovery complete: ${result.processed} leaders, ${result.discovered} with events, ` +
-        `${result.noEvents} with none, ${result.errors} errors`
+      `Event discovery (calendar) complete: ${result.leaders} leaders, ${result.updated} updated, ` +
+        `${result.unchanged} unchanged, ${result.noCalendar} without a cached calendar, ${result.errors} errors`
     );
     return { statusCode: 200, body: JSON.stringify(result) };
   } catch (err) {
