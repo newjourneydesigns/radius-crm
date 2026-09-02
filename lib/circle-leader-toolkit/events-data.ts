@@ -15,7 +15,7 @@ import type { SessionLeader } from './session';
 import { createCCBClient } from '../ccb/ccb-client';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { computeLastAttended, storeDerivedLastAttended } from './roster-data';
-import { loadOccurrenceStatuses, syncCoversCalendar } from './attendance-table';
+import { loadOccurrenceStatuses, lookupOccurrenceStatus, syncCoversCalendar } from './attendance-table';
 import { createTimer } from './timing';
 import { isDidNotMeetEvent } from './did-not-meet-reasons';
 import { doesMeetingFrequencyIncludeDate } from '../meetingFrequency';
@@ -683,7 +683,7 @@ export async function loadLeaderEvents(
         // real cadence (sparse series, one-off, or moved occurrence), it is
         // authoritative — never let a stale RADIUS anchor hide it.
         const key = `${e.eventId}|${e.startDate}`;
-        if (attendanceMap.get(key)?.has || submittedKeys.has(key)) return true;
+        if (lookupOccurrenceStatus(attendanceMap, e.eventId, e.startDate)?.has || submittedKeys.has(key)) return true;
         if (!isCadenceFilterable(e)) return true;
         return doesMeetingFrequencyIncludeDate({
           date: e.startDate,
@@ -692,7 +692,7 @@ export async function loadLeaderEvents(
         });
       })
       .map((e) => {
-        const att = attendanceMap.get(`${e.eventId}|${e.startDate}`);
+        const att = lookupOccurrenceStatus(attendanceMap, e.eventId, e.startDate);
         return {
           eventId: e.eventId,
           occurrenceDate: e.startDate,

@@ -3,6 +3,16 @@
     "date": "2026-09-02",
     "date_display": "September 2, 2026",
     "date_iso": "2026-09-02",
+    "id": "toolkit-synced-attendance-null-event-id",
+    "type": "fix",
+    "category": "Circle Leader Toolkit",
+    "description": "A meeting you reported through the Lead app could still show as Pending after this morning's fix. The synced attendance record for that week was there — head count and notes included — but was saved without the CCB event it belonged to, and the toolkit only matched records that named their event. It now also matches a record by date when it's the only meeting that day, and counts a record as received if it has notes on file. About a third of Circles had at least one record like this in the last two weeks, so this affects more than one leader.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-09-02",
+    "date_display": "September 2, 2026",
+    "date_iso": "2026-09-02",
     "id": "nightly-ccb-event-rediscovery",
     "type": "fix",
     "category": "Circle Leader Toolkit",

@@ -118,6 +118,7 @@ type OccurrenceRow = {
   meeting_date: string;
   status: 'met' | 'did_not_meet' | 'no_record' | string;
   headcount: number | null;
+  has_notes?: boolean | null;
   raw_payload: OccurrenceRawPayload | null;
 };
 
@@ -136,6 +137,12 @@ function textOf(value: unknown): string {
  * The toolkit's "received" rule, applied to a synced row. Mirrors
  * `buildAttendanceMap` in events-data.ts field for field so a summary can never
  * count as received on one path and pending on the other.
+ *
+ * Reads the row's own columns as well as `raw_payload`: at least one writer
+ * upserts `met` rows with `headcount` and `has_notes` set but `raw_payload`
+ * empty and `ccb_event_id` null (124 such rows across 95 leaders in a
+ * two-week window on 2026-09-02). A meeting is received if EITHER source
+ * says so.
  */
 function statusFromRow(row: OccurrenceRow): OccurrenceStatus {
   const raw = row.raw_payload ?? {};
@@ -149,6 +156,7 @@ function statusFromRow(row: OccurrenceRow): OccurrenceStatus {
   const has =
     dnm ||
     !!notes ||
+    row.has_notes === true ||
     !!textOf(raw.topic) ||
     (headCount ?? 0) > 0 ||
     attendeeCount > 0;
@@ -156,9 +164,34 @@ function statusFromRow(row: OccurrenceRow): OccurrenceStatus {
   return { has, dnm, headCount };
 }
 
+/** Date-only key for a synced row the sync stored without an event id. */
+export function dateOnlyStatusKey(date: string): string {
+  return `*|${date}`;
+}
+
+/**
+ * Look up an event's status, tolerating the sync's null event ids. The sync
+ * keys rows on (leader, date) and has been observed writing `status = 'met'`
+ * with `ccb_event_id = null` for a real meeting (a leader's 8/23 with head
+ * count 10 sat beside 8/16 and 8/30 that carried the id). Dropping those rows
+ * rendered a received summary as PENDING. So: exact key first, then the
+ * date-only key. The date fallback is safe only because `syncCoversCalendar`
+ * refuses any leader with two calendar events on one date — within a covered
+ * leader, a date identifies exactly one event.
+ */
+export function lookupOccurrenceStatus(
+  map: Map<string, OccurrenceStatus>,
+  eventId: string,
+  date: string
+): OccurrenceStatus | undefined {
+  return map.get(`${eventId}|${date}`) ?? map.get(dateOnlyStatusKey(date));
+}
+
 /**
  * Per-event status for one leader over a date window, from the synced table.
- * Keyed `"${ccb_event_id}|${YYYY-MM-DD}"` to match the blob path's map.
+ * Keyed `"${ccb_event_id}|${YYYY-MM-DD}"` to match the blob path's map; rows
+ * the sync stored with a null event id are keyed by date alone (see
+ * `lookupOccurrenceStatus`).
  *
  * Returns `null` when the table has nothing usable for this leader in the
  * window — the caller must fall back. An empty map is never returned: a leader
@@ -173,10 +206,9 @@ export async function loadOccurrenceStatuses(
 ): Promise<Map<string, OccurrenceStatus> | null> {
   const { data, error } = await supabase
     .from('circle_meeting_occurrences')
-    .select('id, ccb_event_id, meeting_date, status, headcount, raw_payload')
+    .select('id, ccb_event_id, meeting_date, status, headcount, has_notes, raw_payload')
     .eq('leader_id', leaderId)
     .in('status', ['met', 'did_not_meet'])
-    .not('ccb_event_id', 'is', null)
     .gte('meeting_date', startStr)
     .lte('meeting_date', endStr);
 
@@ -192,10 +224,12 @@ export async function loadOccurrenceStatuses(
 
   const map = new Map<string, OccurrenceStatus>();
   for (const row of rows) {
-    const eventId = textOf(row.ccb_event_id);
     const date = textOf(row.meeting_date).slice(0, 10);
-    if (!eventId || !date) continue;
-    map.set(`${eventId}|${date}`, statusFromRow(row));
+    if (!date) continue;
+    const eventId = textOf(row.ccb_event_id);
+    const status = statusFromRow(row);
+    // A null event id is NOT a reason to drop a real meeting — key it by date.
+    map.set(eventId ? `${eventId}|${date}` : dateOnlyStatusKey(date), status);
   }
   return map.size > 0 ? map : null;
 }
