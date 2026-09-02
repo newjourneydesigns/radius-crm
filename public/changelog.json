@@ -3,6 +3,16 @@
     "date": "2026-08-31",
     "date_display": "August 31, 2026",
     "date_iso": "2026-08-31",
+    "id": "toolkit-opens-without-waiting-on-ccb",
+    "type": "improvement",
+    "category": "Circle Leader Toolkit",
+    "description": "Opening the toolkit no longer waits on Church Community Builder. Your events list was being held back until a full twelve weeks of attendance had been fetched from CCB — every time you opened the app — so you sat on the green splash screen while that call finished. The list now appears straight away from what the app already has, and the received/pending marks refresh a moment later in the background. CCB is still checked every single time you open it, so nothing drifts out of date; you just aren't kept waiting while it happens.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
+    "date": "2026-08-31",
+    "date_display": "August 31, 2026",
+    "date_iso": "2026-08-31",
     "id": "student-toolkit-wednesday-night-sync",
     "type": "improvement",
     "category": "Student Leader Toolkit",

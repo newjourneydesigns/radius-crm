@@ -27,8 +27,10 @@ function parseDateStamp(iso: string) {
 /**
  * Client island for the events tab. First paint is server-rendered (props are
  * seeded from the same loaders the API uses), so there is no post-hydration
- * fetch waterfall. This component only revalidates: on a post-submit
- * invalidation flag, and when the tab regains focus.
+ * fetch waterfall. This component only revalidates: right after hydration when
+ * the server painted from stale attendance (the stale-while-revalidate path —
+ * see `preferCachedAttendance`), on a post-submit invalidation flag, and when
+ * the tab regains focus.
  */
 export default function EventsClient({
   groupId,
@@ -36,6 +38,7 @@ export default function EventsClient({
   initialMessages,
   initialError,
   initialCcbDegraded = null,
+  initialAttendanceStale = false,
   circleGuide,
 }: {
   groupId: string;
@@ -44,6 +47,8 @@ export default function EventsClient({
   initialMessages: CenterMessage[];
   initialError: string | null;
   initialCcbDegraded?: 'stale' | 'unavailable' | null;
+  /** Server painted from cached attendance past its window — revalidate. */
+  initialAttendanceStale?: boolean;
   circleGuide: CircleGuideLink;
 }) {
   useMarkCircleAppEntered();
@@ -122,7 +127,20 @@ export default function EventsClient({
       invalidated = sessionStorage.getItem(invalidationKey) === '1';
       if (invalidated) sessionStorage.removeItem(invalidationKey);
     } catch {}
-    if (invalidated) loadEvents({ force: true });
+    if (invalidated) {
+      loadEvents({ force: true });
+    } else if (initialAttendanceStale) {
+      // The server rendered instantly from cached attendance rather than
+      // waiting on CCB. Go get the live status now, in the background — the
+      // list is already on screen and usable while this runs.
+      //
+      // Deliberately NOT `force: true`: the plain path can still be served by
+      // a warm in-memory attendance entry (that cache is keyed by date window,
+      // and CCB's payload is global, so another leader's refresh in the last
+      // minute serves this one for free). Forcing would throw that away and
+      // buy nothing.
+      loadEvents();
+    }
 
     // Re-fetch when the tab returns to focus — leaders often submit, switch
     // apps, then come back. Skip if we loaded < 15s ago so rapid tab switching
@@ -138,7 +156,7 @@ export default function EventsClient({
       document.removeEventListener('visibilitychange', onFocus);
       window.removeEventListener('focus', onFocus);
     };
-  }, [invalidationKey, loadEvents]);
+  }, [invalidationKey, loadEvents, initialAttendanceStale]);
 
   const submittedEvents = events.filter((e) => !!e.submittedAt || e.hasExistingAttendance);
   const submitted = submittedEvents.length;

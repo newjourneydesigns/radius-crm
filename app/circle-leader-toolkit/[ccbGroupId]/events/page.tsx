@@ -23,7 +23,11 @@ export default async function CircleSummaryEventsPage() {
   // readCircleGuideLink is a single cached-row read — the guide itself is
   // resolved from valleycreek.plus by the sync-circle-guide cron, never here.
   const [eventsResult, messages, circleGuide] = await Promise.all([
-    loadLeaderEvents(leader),
+    // Stale-while-revalidate: never block the first paint on CCB's 12-week
+    // attendance call. EventsClient revalidates straight after hydration, so
+    // CCB is still consulted every visit — the leader just isn't held on the
+    // splash screen while it happens.
+    loadLeaderEvents(leader, { preferCachedAttendance: true }),
     loadLeaderMessages(leader),
     readCircleGuideLink(),
   ]);
@@ -33,6 +37,7 @@ export default async function CircleSummaryEventsPage() {
     leaderId: leader.id,
     eventCount: eventsResult.events.length,
     ccbDegraded: eventsResult.ccbAttendanceDegraded ?? null,
+    attendanceStale: eventsResult.attendanceIsStale ?? false,
   });
 
   const initialError = eventsResult.error
@@ -46,6 +51,7 @@ export default async function CircleSummaryEventsPage() {
       initialMessages={messages}
       initialError={initialError}
       initialCcbDegraded={eventsResult.ccbAttendanceDegraded ?? null}
+      initialAttendanceStale={eventsResult.attendanceIsStale ?? false}
       circleGuide={circleGuide}
     />
   );

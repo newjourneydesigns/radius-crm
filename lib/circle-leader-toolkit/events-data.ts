@@ -50,6 +50,12 @@ export type LoadEventsResult = {
    * already-reported summaries may render as "Pending" until CCB recovers.
    */
   ccbAttendanceDegraded?: 'stale' | 'unavailable';
+  /**
+   * Set on the `preferCachedAttendance` (first-paint) path when the attendance
+   * used was older than the freshness window. Not a warning — the client uses
+   * it to decide whether a background refresh is worth making.
+   */
+  attendanceIsStale?: boolean;
 };
 
 // In-memory TTL cache for CCB calls. The same (groupId, start, end) tuple is
@@ -316,7 +322,25 @@ export async function loadLeaderMessages(leader: SessionLeader): Promise<CircleM
  */
 export async function loadLeaderEvents(
   leader: SessionLeader,
-  opts: { forceRefresh?: boolean; allowStaleAttendance?: boolean } = {}
+  opts: {
+    forceRefresh?: boolean;
+    allowStaleAttendance?: boolean;
+    /**
+     * Stale-while-revalidate first paint. Renders from whatever attendance is
+     * already cached — at any age — and never blocks on CCB, because the live
+     * 12-week `attendance_profiles` call was the single biggest thing standing
+     * between a leader tapping the icon and seeing their events. The client
+     * revalidates immediately after hydration, so CCB is still consulted on
+     * every visit; the leader just doesn't wait on the green splash for it.
+     *
+     * Distinct from `allowStaleAttendance` (the alert badge's "never touch CCB
+     * at all" mode) in one way that matters: it suppresses
+     * `ccbAttendanceDegraded`. On this path stale attendance is expected and
+     * about to be corrected, so showing "we can't reach CCB" would be a lie.
+     * If the follow-up refresh genuinely fails, THAT response raises the flag.
+     */
+    preferCachedAttendance?: boolean;
+  } = {}
 ): Promise<LoadEventsResult> {
   if (!leader.ccb_group_id) {
     return {
@@ -331,7 +355,9 @@ export async function loadLeaderEvents(
   // CCB is never contacted for it. Locally-submitted summaries are still read
   // live from Supabase, so a leader's own submissions clear immediately — the
   // only thing that can lag is a summary entered directly in CCB.
-  const allowStaleAttendance = !!opts.allowStaleAttendance;
+  const preferCachedAttendance = !!opts.preferCachedAttendance;
+  // Reuses every "don't reach for CCB" branch already built for the badge.
+  const allowStaleAttendance = !!opts.allowStaleAttendance || preferCachedAttendance;
   const timer = createTimer('loadLeaderEvents');
 
   const end = DateTime.now().setZone('America/Chicago');
@@ -366,6 +392,10 @@ export async function loadLeaderEvents(
   // every reported summary as "Pending".
   let attendanceFetchFailed = false;
   let ccbAttendanceDegraded: 'stale' | 'unavailable' | null = null;
+  // Set on the preferCachedAttendance path when the cached attendance we
+  // rendered from was past its freshness window, so the client knows a
+  // background revalidation is worth doing.
+  let attendanceIsStale = false;
 
   try {
     // Three-tier cache: in-memory (per instance) → Supabase ccb_group_events_cache
@@ -561,6 +591,15 @@ export async function loadLeaderEvents(
       }
     }
 
+    // First-paint path: stale attendance is the expected state, not a fault.
+    // Report it as "worth revalidating" and clear the degraded flag so the
+    // leader never sees a CCB outage warning for data that is about to be
+    // refreshed a second later.
+    if (preferCachedAttendance) {
+      attendanceIsStale = attCached === undefined && !sharedAttendanceIsFresh;
+      ccbAttendanceDegraded = null;
+    }
+
     const attendanceMap = buildAttendanceMap(bulkXmlResolved);
 
     const ignoredSet = new Set(
@@ -636,6 +675,7 @@ export async function loadLeaderEvents(
   return {
     events: enriched,
     ...(ccbAttendanceDegraded ? { ccbAttendanceDegraded } : {}),
+    ...(attendanceIsStale ? { attendanceIsStale } : {}),
   };
 }
 
