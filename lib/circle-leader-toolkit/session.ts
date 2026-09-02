@@ -30,6 +30,10 @@ export type SessionLeader = {
   ccb_group_id?: string | null;
   ccb_profile_link?: string | null;
   circle_summary_access_enabled?: boolean | null;
+  // CCB event ids the attendance sync tracks for this leader. The toolkit
+  // trusts the synced occurrence table only when this list covers every
+  // event on the leader's calendar — see attendance-table.ts.
+  ccb_event_ids?: string[] | null;
   // 'circle' | 'host_team' — selects which toolkit content (Message Center,
   // Resources) the leader sees. Defaults to 'circle' when unset.
   leader_type?: string | null;
@@ -50,7 +54,7 @@ const INELIGIBLE_STATUSES = new Set(['archive', 'archived']);
 const LEADER_SELECT_BASE = [
   'id', 'name', 'email', 'phone', 'campus', 'acpd', 'status', 'day', 'time',
   'frequency', 'meeting_start_date', 'ccb_group_id', 'ccb_profile_link',
-  'circle_summary_access_enabled', 'leader_type',
+  'circle_summary_access_enabled', 'leader_type', 'ccb_event_ids',
 ];
 const TEMP_SESSION_EXPIRES_COOKIE_NAME = `${SESSION_COOKIE_NAME}_expires`;
 

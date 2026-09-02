@@ -19,7 +19,7 @@ import { createCCBClient } from '../ccb/ccb-client';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { createTimer } from './timing';
 import { isDidNotMeetEvent } from './did-not-meet-reasons';
-import { loadLastAttendedFromTable } from './attendance-table';
+import { loadLastAttendedFromTable, syncCoversCalendar } from './attendance-table';
 
 // ---------------------------------------------------------------------------
 // Roster
@@ -575,17 +575,30 @@ export async function loadLeaderAttendance(leader: SessionLeader): Promise<LoadA
   const timer = createTimer('loadLeaderAttendance');
 
   // Tier 0: the synced attendee table (see attendance-table.ts). Two small
-  // indexed reads; no blob, no XML, no CCB. Falls through when the sync
-  // doesn't cover this leader yet.
+  // indexed reads; no blob, no XML, no CCB. Trusted only when the sync tracks
+  // every event on this leader's calendar (syncCoversCalendar) — otherwise a
+  // meeting the sync is blind to would silently age everyone's "last
+  // attended". The calendar comes from a calendar-only cache read: never the
+  // blob column.
   try {
-    const fromTable = await loadLastAttendedFromTable(supabase, leader.id, startStr, endStr);
+    const [fromTable, calRow] = await Promise.all([
+      loadLastAttendedFromTable(supabase, leader.id, startStr, endStr),
+      readEventsCacheRow(supabase, groupId, startStr, endStr, 'calendar_events'),
+    ]);
     timer.mark('tableRead');
     if (fromTable !== null) {
-      const merged = await mergeSubmittedSummaryAttendance(
-        supabase, leader.id, groupId, startStr, endStr, fromTable
-      );
-      timer.end({ source: 'table', groupId });
-      return { lastAttended: merged, source: 'table' };
+      const calendar = Array.isArray(calRow?.calendar_events)
+        ? (calRow!.calendar_events as Array<{ eventId: string; startDate: string }>)
+        : [];
+      const cover = syncCoversCalendar(calendar, leader.ccb_event_ids);
+      if (cover.covered) {
+        const merged = await mergeSubmittedSummaryAttendance(
+          supabase, leader.id, groupId, startStr, endStr, fromTable
+        );
+        timer.end({ source: 'table', groupId });
+        return { lastAttended: merged, source: 'table' };
+      }
+      timer.mark(`tableSkip:${cover.reason}`);
     }
   } catch (e) {
     console.warn('[roster/attendance] table path failed:', e);

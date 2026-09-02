@@ -29,17 +29,24 @@
  *     generated from RADIUS's weekly `day` config — NOT from the CCB calendar,
  *     and ignoring bi-weekly cadence. The toolkit keeps its own calendar as the
  *     source of WHICH events exist and reads this table only for the STATUS of
- *     those events, so `no_record` rows are ignored here and absence simply
- *     reads as pending. That also sidesteps the sync keying on (leader, date)
- *     while the toolkit keys on (event, date): a `met` row carries its
- *     `ccb_event_id`, and that is the key used.
+ *     those events, so `no_record` rows are ignored here and absence reads as
+ *     pending — BUT ONLY when the sync was actually looking at that event.
+ *
+ *  3. The sync sees only the ids in `circle_leaders.ccb_event_ids`, and keys
+ *     rows on (leader, date). A calendar event outside that list is invisible
+ *     to it, and a second event on the same date is overwritten. Either way a
+ *     missing row means "not tracked", not "not submitted". The first version
+ *     of this module got that wrong and rendered a Lead-app submission as
+ *     PENDING; `syncCoversCalendar` is the guard, and callers must apply it
+ *     before trusting a loader's answer as complete.
  *
  * Strangler-fig by design: each loader returns `null` when it finds no usable
- * rows for the leader, and the caller falls through to the existing blob/CCB
- * path. The sync skips leaders with no `ccb_event_ids` and a different status
- * filter than the toolkit, so some leaders won't be covered on day one — they
- * keep today's behavior, and cover as the sync's population grows. Nobody gets
- * worse; covered leaders get fast.
+ * rows for the leader, and callers ALSO refuse the table unless the sync's
+ * event list covers the calendar. In both cases the existing blob/CCB path
+ * runs unchanged. The sync skips leaders with no `ccb_event_ids`, uses a
+ * different status filter than the toolkit, and a leader's list can lag a
+ * renamed or re-created CCB event — so coverage is partial today and grows as
+ * that data is fixed. The timing log names the reason a leader was refused.
  *
  * The DDL for these tables is not in the repo (only ALTERs are), so the
  * authoritative shape is the sync's own upsert — mirrored in the row types
@@ -50,6 +57,47 @@ import { createServiceSupabaseClient } from '../server-supabase';
 import { isDidNotMeetEvent } from './did-not-meet-reasons';
 
 export type OccurrenceStatus = { has: boolean; dnm: boolean; headCount: number | null };
+
+/**
+ * Whether the synced table can be trusted as the WHOLE answer for a leader.
+ *
+ * The table can always confirm "received" — a `met` row is real. It can only
+ * confirm "pending" if the sync was actually looking at the event in question,
+ * and the sync looks only at the ids in `circle_leaders.ccb_event_ids`. A
+ * calendar event outside that list is invisible to the sync, so its missing
+ * row means "not tracked", not "not submitted" — and rendering it as pending
+ * is exactly the regression this guards against (a leader who submitted via
+ * the Lead app under an event the sync doesn't list read as PENDING).
+ *
+ * Also refuses when two calendar events share a date: the sync keys on
+ * (leader, date) and keeps one row, so the other event's status is lost.
+ *
+ * Returns the reason on refusal so the timing log can say which leaders need
+ * their `ccb_event_ids` fixed — that is the data problem to solve upstream.
+ */
+export function syncCoversCalendar(
+  calendarEvents: Array<{ eventId: string; startDate: string }>,
+  ccbEventIds: string[] | null | undefined
+): { covered: true } | { covered: false; reason: string } {
+  const tracked = new Set((ccbEventIds ?? []).map((id) => String(id).trim()).filter(Boolean));
+  if (tracked.size === 0) return { covered: false, reason: 'no-ccb-event-ids' };
+
+  const untracked = new Set<string>();
+  const seenDates = new Map<string, string>();
+  for (const e of calendarEvents) {
+    const id = String(e.eventId ?? '').trim();
+    const date = String(e.startDate ?? '').slice(0, 10);
+    if (!id) continue;
+    if (!tracked.has(id)) untracked.add(id);
+    const prior = seenDates.get(date);
+    if (prior && prior !== id) return { covered: false, reason: `two-events-on-${date}` };
+    seenDates.set(date, id);
+  }
+  if (untracked.size > 0) {
+    return { covered: false, reason: `untracked-event-ids:${Array.from(untracked).join(',')}` };
+  }
+  return { covered: true };
+}
 
 /** Exactly what `/api/ccb/sync-attendance` stores in `raw_payload`. */
 type OccurrenceRawPayload = {

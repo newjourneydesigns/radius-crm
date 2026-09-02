@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-09-02",
+    "date_display": "September 2, 2026",
+    "date_iso": "2026-09-02",
+    "id": "toolkit-synced-attendance-coverage-guard",
+    "type": "fix",
+    "category": "Circle Leader Toolkit",
+    "description": "A meeting you reported through the Lead app could show as Pending in the toolkit even though CCB had it. Yesterday's change made the toolkit read attendance from the synced records instead of CCB directly, but those records only track the CCB events listed on your leader profile — if your Circle's event was renamed or re-created in CCB and the list wasn't updated, the sync never saw the meeting and the toolkit read the gap as not submitted. The toolkit now checks that the sync is tracking every event on your calendar before trusting it, and goes back to reading CCB directly for anyone it isn't. Nothing you submitted was lost.",
+    "page": "/circle-leader-toolkit"
+  },
+  {
     "date": "2026-08-31",
     "date_display": "August 31, 2026",
     "date_iso": "2026-08-31",
