@@ -59,6 +59,10 @@ export async function POST(request: Request) {
     // Parse request body
     const body = await request.json();
     const { date, endDate, groupName } = body;
+    // Read-only callers (the Event Summary Tracker's attendee list) opt out of
+    // the write-through below: a lookup done purely to render names should not
+    // rewrite the attendance rows the same screen is reading.
+    const writeThrough = body?.writeThrough !== false;
 
     // Validate required fields
     if (!date || !groupName) {
@@ -138,7 +142,7 @@ export async function POST(request: Request) {
     });
 
     // ── Write-through: upsert attendance into circle_meeting_occurrences ──
-    if (formattedEvents.length > 0) {
+    if (writeThrough && formattedEvents.length > 0) {
       recordAttendance(formattedEvents).catch((err) => {
         console.warn('⚠️ Attendance write-through failed (non-blocking):', err);
       });
@@ -310,6 +314,18 @@ interface FormattedEvent {
   prayerRequests: string | null;
 }
 
+/** Did a leader actually fill this occurrence in, or is it an empty CCB stub? */
+function hasReportedContent(event: FormattedEvent): boolean {
+  return (
+    event.didNotMeet ||
+    event.attendees.length > 0 ||
+    (event.headCount ?? 0) > 0 ||
+    !!event.topic ||
+    !!event.notes ||
+    !!event.prayerRequests
+  );
+}
+
 async function recordAttendance(
   events: FormattedEvent[]
 ): Promise<void> {
@@ -326,6 +342,11 @@ async function recordAttendance(
 
   if (!allLeaders || allLeaders.length === 0) return;
 
+  // One row per (leader, date) — that's the upsert key, so without collapsing
+  // first the last event in the list wins. CCB pre-creates an empty attendance
+  // record ahead of a meeting, and an empty record arriving after the real one
+  // would blank out a headcount the leader had already reported.
+  const bestPerOccurrence = new Map<string, { leaderId: number; event: FormattedEvent }>();
   for (const event of events) {
     // Match leader from the CCB event title, e.g. "LVT | S1 | Trip Ochenski".
     // Circle leaders in the DB are stored as just "Trip Ochenski".
@@ -337,6 +358,14 @@ async function recordAttendance(
     }
     if (!event.date) continue;
 
+    const key = `${leaderId}|${event.date}`;
+    const current = bestPerOccurrence.get(key);
+    if (!current || (!hasReportedContent(current.event) && hasReportedContent(event))) {
+      bestPerOccurrence.set(key, { leaderId, event });
+    }
+  }
+
+  for (const { leaderId, event } of Array.from(bestPerOccurrence.values())) {
     // Keep circle_name in sync with the CCB event title (e.g. "FMT | S3 | Casey and Ashley Bates")
     if (event.title) {
       await supabase
@@ -404,7 +433,7 @@ async function recordAttendance(
   }
 
   console.log(
-    `✅ Attendance write-through complete: ${events.length} event(s) processed`
+    `✅ Attendance write-through complete: ${bestPerOccurrence.size} occurrence(s) from ${events.length} event(s)`
   );
 }
 

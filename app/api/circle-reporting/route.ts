@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import { APP_TIME_ZONE } from '../../../lib/dateUtils';
 import { getUserFromAuthHeader } from '../../../lib/server-supabase';
 import { categorizeDidNotMeetReason } from '../../../lib/circle-leader-toolkit/did-not-meet-reasons';
+import { submittedAttendanceCount, weekAttendanceCount } from '../../../lib/circleAttendance';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -241,10 +242,6 @@ function isExpectedThisWeek(leader: LeaderRow, weekStart: string, statusOverride
   return true;
 }
 
-function manualAttendeeCount(value: unknown): number {
-  return Array.isArray(value) ? value.length : 0;
-}
-
 function dateFromTimestamp(value: string): string {
   return value.slice(0, 10);
 }
@@ -344,10 +341,8 @@ function buildWeeklyEvent(
   const occurrence = indexes.occurrencesByLeaderWeek.get(key);
   const snapshot = indexes.snapshotsByLeaderWeek.get(key);
 
-  const submittedAttendance =
-    (submission?.attendee_ccb_ids?.length ?? 0) + manualAttendeeCount(submission?.manual_attendees);
-  const occurrenceAttendance = occurrence?.headcount ?? null;
-  const attendance = submittedAttendance > 0 ? submittedAttendance : occurrenceAttendance;
+  const submittedAttendance = submittedAttendanceCount(submission);
+  const attendance = weekAttendanceCount(submission, occurrence?.headcount);
 
   let status: EventStatus = 'no_summary';
   let source: WeeklyEvent['source'] = 'none';
