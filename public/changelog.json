@@ -1,5 +1,35 @@
 [
   {
+    "date": "2026-09-03",
+    "date_display": "September 3, 2026",
+    "date_iso": "2026-09-03",
+    "id": "tracker-toolkit-attendance-count",
+    "type": "fix",
+    "category": "Event Summary Tracker",
+    "description": "Circles that reported through the Lead app showed no attendance number — blank next to the name in the list, and no Attended / Roster / Guests tiles when you opened them, even though the attendee names were right there underneath. The tracker was reading attendance only from the head count CCB sends back, and an app-submitted summary doesn't have one: its attendance is the people the leader checked off. Those people are now counted, so every Circle that met shows a number and the week's total includes them.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-09-03",
+    "date_display": "September 3, 2026",
+    "date_iso": "2026-09-03",
+    "id": "tracker-attended-total-independent-of-review",
+    "type": "fix",
+    "category": "Event Summary Tracker",
+    "description": "The ATTENDED total moved as you worked. It only counted Circles you had already marked reviewed, so the number climbed while you cleared the queue and dropped again on Mark as Unreviewed. It now counts everyone who met this week whatever their review state, and AVG SIZE is averaged over the Circles that actually reported a number instead of being pulled down by the ones still waiting on one.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-09-03",
+    "date_display": "September 3, 2026",
+    "date_iso": "2026-09-03",
+    "id": "tracker-attendee-lookup-read-only",
+    "type": "fix",
+    "category": "Event Summary Tracker",
+    "description": "Opening a summary to read it could change the numbers behind it. The attendee-name lookup also wrote what it found back into the attendance records, and CCB creates an empty record ahead of each meeting — so an empty one could land on top of a head count a leader had already reported and blank it out. The lookup is now read-only, and everywhere it still does write, an empty record can no longer overwrite a real one.",
+    "page": "/event-summary-tracker"
+  },
+  {
     "date": "2026-09-02",
     "date_display": "September 2, 2026",
     "date_iso": "2026-09-02",
