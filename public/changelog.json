@@ -3,6 +3,16 @@
     "date": "2026-09-03",
     "date_display": "September 3, 2026",
     "date_iso": "2026-09-03",
+    "id": "hourly-sync-headcount-dropping-attendees",
+    "type": "fix",
+    "category": "Event Summary Tracker",
+    "description": "Attendance numbers kept drifting down through the day, and Circles that had clearly met showed no number at all. The hourly CCB attendance sync was reading a meeting's head count wrong: CCB keeps the people checked off the roster in one place and any extra guests in another, and the sync was taking the guest number *instead of* the roster instead of adding them together. For a Circle with no extra guests that number is zero, so a meeting with nine people checked off was stored as zero — the number vanished from the list and dropped out of the week's total. Because the sync runs every hour over a two-week window, it kept overwriting the correct counts that Sync Now had just written, which is why the total kept falling and why re-syncing only fixed it until the next hour. Counts are now the sum, matching everywhere else in Radius. The next hourly sync repairs the affected weeks on its own.",
+    "page": "/event-summary-tracker"
+  },
+  {
+    "date": "2026-09-03",
+    "date_display": "September 3, 2026",
+    "date_iso": "2026-09-03",
     "id": "circle-dashboard-toolkit-attendance",
     "type": "fix",
     "category": "Circle Dashboard",
