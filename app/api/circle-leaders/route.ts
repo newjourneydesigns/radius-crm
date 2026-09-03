@@ -5,8 +5,9 @@ import { verifyAdminAccessDemo } from '../../../lib/auth-middleware';
 import { extractCcbGroupId } from '../../../lib/ccbGroupId';
 import { createCCBClient } from '../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../lib/ccb/ccb-api-gateway';
+import { ASSIGNABLE_CIRCLE_LEADER_STATUSES, CIRCLE_LEADER_STATUSES } from '../../../lib/statuses';
 
-const VALID_STATUSES = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding'] as const;
+const VALID_STATUSES = ASSIGNABLE_CIRCLE_LEADER_STATUSES;
 
 function normalizeString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -243,7 +244,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (field === 'status' && typeof value === 'string') {
-      const validStatuses = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding', 'archived'];
+      const validStatuses = CIRCLE_LEADER_STATUSES as readonly string[];
       if (!validStatuses.includes(value.trim().toLowerCase())) {
         return NextResponse.json(
           { error: `status must be one of: ${validStatuses.join(', ')}` },

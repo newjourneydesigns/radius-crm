@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { rememberMeStorage } from './rememberMeStorage';
 import type { CoachingConfigOverride } from './circle-leader-toolkit/coaching/config';
+import type { CircleLeaderStatus } from './statuses';
 
 export type { CoachingConfig, CoachingConfigOverride } from './circle-leader-toolkit/coaching/config';
+export type { CircleLeaderStatus } from './statuses';
 
 // Debug environment variables only in development (avoid leaking details in build logs)
 if (process.env.NODE_ENV === 'development') {
@@ -85,7 +87,7 @@ export interface CircleLeader {
   phone?: string;
   campus?: string;
   acpd?: string;
-  status?: 'invited' | 'on-boarding' | 'pipeline' | 'active' | 'paused' | 'off-boarding' | 'archived';
+  status?: CircleLeaderStatus;
   day?: string;
   time?: string;
   frequency?: string;

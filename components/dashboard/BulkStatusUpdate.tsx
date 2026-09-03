@@ -32,6 +32,7 @@ export default function BulkStatusUpdate({ totalLeaders, onBulkUpdateStatus }: B
   const statusOptions = [
     { value: 'invited', label: 'Invited', color: 'text-blue-700' },
     { value: 'pipeline', label: 'Pipeline', color: 'text-vc-700' },
+    { value: 'on-boarding', label: 'On-Boarding', color: 'text-blue-700' },
     { value: 'active', label: 'Active', color: 'text-green-700' },
     { value: 'paused', label: 'Paused', color: 'text-yellow-700' },
     { value: 'off-boarding', label: 'Off-boarding', color: 'text-red-700' }

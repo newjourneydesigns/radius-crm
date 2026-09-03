@@ -3,6 +3,16 @@
     "date": "2026-09-03",
     "date_display": "September 3, 2026",
     "date_iso": "2026-09-03",
+    "id": "circle-leader-on-boarding-status-save",
+    "type": "fix",
+    "category": "Circle Leaders",
+    "description": "Setting a Circle Leader's status to On-Boarding and saving failed every time with a database error. On-Boarding was offered everywhere — the status dropdown on a leader's page, the dashboard filters, the card menus, the CSV importers — but the database itself had never been told it was a valid status, so it rejected the save. It now accepts On-Boarding, and the status list is defined in one place so the app and the database can't drift apart like this again. Two related cleanups came with it: Bulk Status Update was missing On-Boarding as an option and now offers it, and the leftover \"Follow-up\" entry in the status list is gone — follow-up has been a separate checkbox since August 2025, so picking it as a status would have failed the same way.",
+    "page": "/dashboard"
+  },
+  {
+    "date": "2026-09-03",
+    "date_display": "September 3, 2026",
+    "date_iso": "2026-09-03",
     "id": "hourly-sync-headcount-dropping-attendees",
     "type": "fix",
     "category": "Event Summary Tracker",
