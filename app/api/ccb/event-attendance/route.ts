@@ -12,7 +12,9 @@ const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX = 30; // 30 requests per minute per user
 
 // Response cache to minimize CCB API calls
-const responseCache = new Map<string, { data: any; expiresAt: number }>();
+// `writtenThrough` tracks whether this payload has already been persisted, so a
+// replay for a later caller (see the cache hit below) runs at most once.
+const responseCache = new Map<string, { data: any; expiresAt: number; writtenThrough: boolean }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function checkRateLimit(userId: string): boolean {
@@ -42,11 +44,24 @@ function getCachedResponse(cacheKey: string): any | null {
   return null;
 }
 
-function setCachedResponse(cacheKey: string, data: any): void {
+function setCachedResponse(cacheKey: string, data: any, writtenThrough: boolean): void {
   responseCache.set(cacheKey, {
     data,
     expiresAt: Date.now() + CACHE_TTL,
+    writtenThrough,
   });
+}
+
+/**
+ * Claims the one write-through owed on a cached payload, if it is still owed.
+ * Returns true at most once per cache entry, so a caller that wanted the
+ * persistence gets it without every later cache hit rewriting the same rows.
+ */
+function claimWriteThrough(cacheKey: string): boolean {
+  const cached = responseCache.get(cacheKey);
+  if (!cached || cached.writtenThrough) return false;
+  cached.writtenThrough = true;
+  return true;
 }
 
 export async function POST(request: Request) {
@@ -59,6 +74,10 @@ export async function POST(request: Request) {
     // Parse request body
     const body = await request.json();
     const { date, endDate, groupName } = body;
+    // Read-only callers (the Event Summary Tracker's attendee list) opt out of
+    // the write-through below: a lookup done purely to render names should not
+    // rewrite the attendance rows the same screen is reading.
+    const writeThrough = body?.writeThrough !== false;
 
     // Validate required fields
     if (!date || !groupName) {
@@ -87,6 +106,16 @@ export async function POST(request: Request) {
     const cached = getCachedResponse(cacheKey);
     if (cached) {
       console.log(`📦 Returning cached response for ${cacheKey}`);
+      // The cache key covers the group and date range, not the mode, so a
+      // read-only tracker lookup primes the same entry a writing caller would
+      // hit. Without this that caller silently loses the persistence it asked
+      // for until the entry expires. Replaying from the cached payload keeps
+      // the write-through while still saving the CCB round trip.
+      if (writeThrough && cached.data?.length > 0 && claimWriteThrough(cacheKey)) {
+        recordAttendance(cached.data).catch((err) => {
+          console.warn('⚠️ Attendance write-through failed (non-blocking):', err);
+        });
+      }
       return NextResponse.json({ ...cached, cached: true });
     }
 
@@ -138,7 +167,7 @@ export async function POST(request: Request) {
     });
 
     // ── Write-through: upsert attendance into circle_meeting_occurrences ──
-    if (formattedEvents.length > 0) {
+    if (writeThrough && formattedEvents.length > 0) {
       recordAttendance(formattedEvents).catch((err) => {
         console.warn('⚠️ Attendance write-through failed (non-blocking):', err);
       });
@@ -151,7 +180,9 @@ export async function POST(request: Request) {
     };
 
     // Cache the response
-    setCachedResponse(cacheKey, response);
+    // The fresh path above already ran the write-through when asked, so the
+    // entry starts already-settled for a writer and still owed for a reader.
+    setCachedResponse(cacheKey, response, writeThrough && formattedEvents.length > 0);
 
     return NextResponse.json(response);
 
@@ -310,6 +341,18 @@ interface FormattedEvent {
   prayerRequests: string | null;
 }
 
+/** Did a leader actually fill this occurrence in, or is it an empty CCB stub? */
+function hasReportedContent(event: FormattedEvent): boolean {
+  return (
+    event.didNotMeet ||
+    event.attendees.length > 0 ||
+    (event.headCount ?? 0) > 0 ||
+    !!event.topic ||
+    !!event.notes ||
+    !!event.prayerRequests
+  );
+}
+
 async function recordAttendance(
   events: FormattedEvent[]
 ): Promise<void> {
@@ -326,6 +369,11 @@ async function recordAttendance(
 
   if (!allLeaders || allLeaders.length === 0) return;
 
+  // One row per (leader, date) — that's the upsert key, so without collapsing
+  // first the last event in the list wins. CCB pre-creates an empty attendance
+  // record ahead of a meeting, and an empty record arriving after the real one
+  // would blank out a headcount the leader had already reported.
+  const bestPerOccurrence = new Map<string, { leaderId: number; event: FormattedEvent }>();
   for (const event of events) {
     // Match leader from the CCB event title, e.g. "LVT | S1 | Trip Ochenski".
     // Circle leaders in the DB are stored as just "Trip Ochenski".
@@ -337,6 +385,14 @@ async function recordAttendance(
     }
     if (!event.date) continue;
 
+    const key = `${leaderId}|${event.date}`;
+    const current = bestPerOccurrence.get(key);
+    if (!current || (!hasReportedContent(current.event) && hasReportedContent(event))) {
+      bestPerOccurrence.set(key, { leaderId, event });
+    }
+  }
+
+  for (const { leaderId, event } of Array.from(bestPerOccurrence.values())) {
     // Keep circle_name in sync with the CCB event title (e.g. "FMT | S3 | Casey and Ashley Bates")
     if (event.title) {
       await supabase
@@ -404,7 +460,7 @@ async function recordAttendance(
   }
 
   console.log(
-    `✅ Attendance write-through complete: ${events.length} event(s) processed`
+    `✅ Attendance write-through complete: ${bestPerOccurrence.size} occurrence(s) from ${events.length} event(s)`
   );
 }
 

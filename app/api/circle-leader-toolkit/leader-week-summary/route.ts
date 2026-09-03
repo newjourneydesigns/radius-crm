@@ -5,6 +5,7 @@ import { createCCBClient, CCBCircuitBreakerError } from '../../../../lib/ccb/ccb
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
 import { composeSubmittedNotes } from '../../../../lib/circleNotes';
+import { submittedAttendanceCount } from '../../../../lib/circleAttendance';
 import { diffInfoUpdate, manualAttendeeKey } from '../../../../lib/circle-leader-toolkit/notes-formatter';
 import type { InfoUpdate, InfoUpdateRequest, ManualAttendee } from '../../../../lib/circle-leader-toolkit/notes-formatter';
 import type { EventSummaryState } from '../../../../lib/supabase';
@@ -192,7 +193,7 @@ async function resolveLeaderWeek(
   const { data: sub } = await supabase
     .from('circle_event_summaries')
     .select(
-      'id, occurrence, did_not_meet, topic, notes, prayer_requests, info, dynamic_responses, did_not_meet_reason, ccb_submitted_at, created_at, reviewed_at, reviewed_by, manual_attendees, info_update_requested'
+      'id, occurrence, did_not_meet, topic, notes, prayer_requests, info, dynamic_responses, did_not_meet_reason, ccb_submitted_at, created_at, reviewed_at, reviewed_by, attendee_ccb_ids, manual_attendees, info_update_requested'
     )
     .eq('leader_id', leaderId)
     // `occurrence` is a TIMESTAMPTZ parsed in Central time on submit, so match
@@ -231,7 +232,10 @@ async function resolveLeaderWeek(
       ),
       prayer_requests: sub.prayer_requests ?? null,
       info: sub.info ?? null,
-      headcount: null,
+      // A toolkit submission has no headcount column — attendance is the people
+      // the leader checked off plus any manual adds. Returning null here left
+      // every app-submitted circle reading as zero attendees downstream.
+      headcount: submittedAttendanceCount(sub) || null,
       submitted_at: sub.ccb_submitted_at ?? sub.created_at,
       reviewed_at: sub.reviewed_at ?? null,
       reviewed_by: sub.reviewed_by ?? null,

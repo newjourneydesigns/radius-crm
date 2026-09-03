@@ -9,6 +9,7 @@ import type { CircleLeader, EventSummaryState } from '../../lib/supabase';
 import { apiFetch } from '../../lib/apiClient';
 import { useToast } from '../../components/ui/ToastProvider';
 import { doesMeetingFrequencyIncludeDate, isBiWeeklyFrequency } from '../../lib/meetingFrequency';
+import { weekAttendanceCount } from '../../lib/circleAttendance';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/ui/Modal';
 import CopyTextButton from '../../components/ui/CopyTextButton';
@@ -50,6 +51,10 @@ type SubmissionRow = {
   topic: string | null;
   notes: string | null;
   prayer_requests: string | null;
+  // Attendance on a toolkit submission lives in these two columns — there is no
+  // headcount column. See lib/circleAttendance.ts.
+  attendee_ccb_ids: string[] | null;
+  manual_attendees: unknown;
   reviewed_at: string | null;
   reviewed_by: string | null;
 };
@@ -134,6 +139,7 @@ type Row = {
   notes: string | null;
   topic: string | null;
   reviewer: TrackerData['reviewers'][number] | null;
+  didNotMeet: boolean;
   occurrence: OccurrenceRow | null;
   submission: SubmissionRow | null;
   missedTwoPlus: boolean;
@@ -556,7 +562,12 @@ export default function EventSummaryTrackerPage() {
 
       const submissionsPromise = supabase
         .from('circle_event_summaries')
-        .select('id, leader_id, occurrence, did_not_meet, topic, notes, prayer_requests, reviewed_at, reviewed_by')
+        .select('id, leader_id, occurrence, did_not_meet, topic, notes, prayer_requests, attendee_ccb_ids, manual_attendees, reviewed_at, reviewed_by')
+        // 'failed' and 'retrying' rows are audit records of a submission whose
+        // CCB write did not land. Counting one as a report would put it in
+        // Needs Review with nothing behind it and fold its attendees into the
+        // week's total. /api/circle-reporting skips them for the same reason.
+        .eq('status', 'submitted')
         .gte('occurrence', `${weekStart}T00:00:00Z`)
         .lte('occurrence', `${weekEnd}T23:59:59Z`);
 
@@ -733,7 +744,10 @@ export default function EventSummaryTrackerPage() {
         const res = await fetch('/api/ccb/event-attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-          body: JSON.stringify({ date: weekStart, endDate: weekEnd, groupName }),
+          // Display only — `writeThrough: false` stops the lookup from
+          // re-writing circle_meeting_occurrences (and circle_leaders.circle_name)
+          // underneath the counts this page has already rendered.
+          body: JSON.stringify({ date: weekStart, endDate: weekEnd, groupName, writeThrough: false }),
         });
         const json = await res.json();
         if (cancelled) return;
@@ -876,7 +890,11 @@ export default function EventSummaryTrackerPage() {
         status = 'needs_review';
       }
 
-      const headcount = occ?.headcount ?? null;
+      // A circle that reported through the toolkit has no occurrence headcount —
+      // its attendance is the people the leader checked off. Reading only the
+      // occurrence row made those circles show a blank count and contribute
+      // nothing to the week's total.
+      const headcount = weekAttendanceCount(sub, occ?.headcount);
       const guestCount = occ?.guest_count ?? 0;
       const attendees = headcount && guestCount ? Math.max(0, headcount - guestCount) : (headcount ?? 0);
 
@@ -910,6 +928,7 @@ export default function EventSummaryTrackerPage() {
         notes: occ?.notes ?? sub?.notes ?? null,
         topic: occ?.topic ?? sub?.topic ?? null,
         reviewer,
+        didNotMeet,
         occurrence: occ,
         submission: sub,
         missedTwoPlus: missedSet.has(l.id),
@@ -951,15 +970,21 @@ export default function EventSummaryTrackerPage() {
     const review     = needsReview.length;
     const notReport  = awaiting.length;
     const inCcb      = received + dnm + review;
+
+    // Attendance is a fact about the week, not about the reviewer's progress
+    // through it. Counting only reviewed rows made the total climb as an ACPD
+    // worked the queue and drop again on "Mark as Unreviewed".
+    const metRows = rows.filter(r => !r.didNotMeet && (r.status === 'received' || r.status === 'needs_review'));
     let totalAtt = 0, totalGuest = 0;
-    for (const r of rows) {
-      if (r.status === 'received') {
-        totalAtt += r.attendees ?? 0;
-        totalGuest += r.guestCount ?? 0;
-      }
+    for (const r of metRows) {
+      totalAtt += r.attendees ?? 0;
+      totalGuest += r.guestCount ?? 0;
     }
     const totalAttended = totalAtt + totalGuest;
-    const avgSize = received > 0 ? Math.round((totalAttended / received) * 10) / 10 : null;
+    // Average over the circles that actually reported a number — circles still
+    // waiting on a headcount would otherwise drag it down.
+    const reportedCount = metRows.filter(r => (r.headcount ?? 0) > 0).length;
+    const avgSize = reportedCount > 0 ? Math.round((totalAttended / reportedCount) * 10) / 10 : null;
     const missedCount = rows.filter(r => r.missedTwoPlus).length;
     return { received, dnm, review, notReport, inCcb, totalAttended, avgSize, missedCount };
   }, [rows, needsReview.length, awaiting.length]);
