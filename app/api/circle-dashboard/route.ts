@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getUserFromAuthHeader } from '../../../lib/server-supabase';
+import { submittedAttendanceCount, weekAttendanceCount } from '../../../lib/circleAttendance';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -85,8 +86,73 @@ export async function GET(request: Request) {
 
     if (occError) throw occError;
 
+    // 2b. Circles that report through the Circle Leader Toolkit write
+    // circle_event_summaries, which has no headcount column — their attendance
+    // is the people the leader checked off plus any manual adds. Every metric
+    // below is derived from the occurrence list, so reading it alone dropped
+    // app-submitted meetings out of the totals, the averages, the weekly trend
+    // and the breakdowns, and left those leaders looking like they had never
+    // reported at all. Reconcile the two shapes into one list here, so the
+    // aggregations downstream stay untouched. See lib/circleAttendance.ts.
+    const { data: submissions, error: subError } = await supabase
+      .from('circle_event_summaries')
+      .select('leader_id, occurrence, did_not_meet, attendee_ccb_ids, manual_attendees')
+      .in('leader_id', leaderIds)
+      .gte('occurrence', `${startStr}T00:00:00.000Z`)
+      .limit(20000);
+
+    if (subError) throw subError;
+
+    type OccurrenceRow = NonNullable<typeof occurrences>[number];
+    const occByLeaderDate = new Map<string, OccurrenceRow>();
+    for (const occ of occurrences || []) {
+      occByLeaderDate.set(`${occ.leader_id}|${occ.meeting_date}`, occ);
+    }
+
+    for (const sub of submissions || []) {
+      const meetingDate = (sub.occurrence || '').slice(0, 10);
+      if (!meetingDate) continue;
+      const key = `${sub.leader_id}|${meetingDate}`;
+      const occ = occByLeaderDate.get(key);
+      const submitted = submittedAttendanceCount(sub);
+      // A row carrying neither a "did not meet" nor a single attendee reports
+      // nothing. It must not conjure a meeting where CCB has no occurrence —
+      // that would suppress the leader's "no report" alert on the strength of
+      // an empty record. /api/circle-reporting leaves the same row as
+      // 'no_summary' for the same reason.
+      if (!sub.did_not_meet && submitted === 0 && !occ) continue;
+
+      // Precedence matches /api/circle-reporting's buildWeeklyEvent: the
+      // leader's own submission outranks the CCB row for both status and count.
+      // CCB's head_count can only be added to, never lowered (see
+      // lib/circle-leader-toolkit/ccb-attendance-push.ts), so when the two
+      // disagree the submission is the trustworthy number. An occurrence
+      // stuck at 'no_record' means "we looked and CCB had nothing", which a
+      // submission plainly disproves.
+      const status = sub.did_not_meet
+        ? 'did_not_meet'
+        : submitted > 0
+          ? 'met'
+          : occ?.status ?? 'no_record';
+
+      occByLeaderDate.set(key, {
+        ...(occ ?? {
+          id: `summary-${key}`,
+          leader_id: sub.leader_id,
+          meeting_date: meetingDate,
+          regular_count: null,
+          visitor_count: null,
+          source: 'circle_event_summaries',
+          synced_at: null,
+        }),
+        status,
+        headcount: sub.did_not_meet ? null : weekAttendanceCount(sub, occ?.headcount),
+      } as OccurrenceRow);
+    }
+
     // 3. Compute aggregated metrics
-    const allOccurrences = occurrences || [];
+    const allOccurrences = Array.from(occByLeaderDate.values())
+      .sort((a, b) => a.meeting_date.localeCompare(b.meeting_date));
     const metOccurrences = allOccurrences.filter((o) => o.status === 'met' && o.headcount != null && o.headcount > 0);
     const totalHeadcount = metOccurrences.reduce((sum, o) => sum + (o.headcount || 0), 0);
 
@@ -127,7 +193,7 @@ export async function GET(request: Request) {
 
     // Weekly trend data (aggregate by week)
     const weekBuckets = new Map<string, { met: number; headcount: number; didNotMeet: number; noRecord: number }>();
-    for (const occ of occurrences || []) {
+    for (const occ of allOccurrences) {
       const weekKey = getWeekKey(occ.meeting_date);
       if (!weekBuckets.has(weekKey)) weekBuckets.set(weekKey, { met: 0, headcount: 0, didNotMeet: 0, noRecord: 0 });
       const bucket = weekBuckets.get(weekKey)!;

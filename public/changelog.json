@@ -3,6 +3,16 @@
     "date": "2026-09-03",
     "date_display": "September 3, 2026",
     "date_iso": "2026-09-03",
+    "id": "circle-dashboard-toolkit-attendance",
+    "type": "fix",
+    "category": "Circle Dashboard",
+    "description": "The dashboard was blind to Circles that reported through the Lead app. It read attendance only from the head count CCB sends back, and an app-submitted summary doesn't have one, so those meetings were missing from Total Headcount, Average Attendance, Average Circle Size, the weekly trend, and every campus, type, day and time breakdown. Leaders who report that way also looked like they had never reported at all, and were flagged \"No report in X weeks\" while their summaries sat in the app. All of it now counts the people the leader checked off, matching the Event Summary Tracker and Circle Reporting.",
+    "page": "/circle-dashboard"
+  },
+  {
+    "date": "2026-09-03",
+    "date_display": "September 3, 2026",
+    "date_iso": "2026-09-03",
     "id": "tracker-toolkit-attendance-count",
     "type": "fix",
     "category": "Event Summary Tracker",
