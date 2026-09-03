@@ -127,7 +127,25 @@ function buildOccurrenceRows(
       ccb_event_id: att.eventId || row.eventId || null,
       meeting_date: meetingDate,
       status: att.didNotMeet ? 'did_not_meet' : 'met',
-      headcount: att.headCount ?? (attendees.length || null),
+      // CCB splits a meeting's attendance across two fields: `attendees` are
+      // the people named on the roster, and `head_count` is only the extras
+      // nobody filed individually. The total is the sum — which is what
+      // getEventAttendanceBatch and the /api/ccb/event-attendance write-through
+      // both compute.
+      //
+      // This read used `??`, which takes head_count *instead of* the attendee
+      // list whenever head_count is present. `??` does not fall through on 0,
+      // and 0 is the normal head_count for a circle with no off-roster guests,
+      // so the usual case — nine people checked off, no extras — was stored as
+      // 0 and every one of those attendees was dropped. The row then rendered
+      // blank (the list hides a non-positive count) and contributed nothing to
+      // the week's total.
+      //
+      // This runs hourly over a 14-day window and upserts on
+      // (leader_id, meeting_date), so it silently overwrote the correct counts
+      // that Sync Now and the daily pass had already written. That is the
+      // "attendance keeps drifting down" symptom.
+      headcount: ((att.headCount ?? 0) + attendees.length) || null,
       regular_count: regularCount || null,
       visitor_count: visitorCount || null,
       source: 'ccb',
