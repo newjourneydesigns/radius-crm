@@ -97,6 +97,11 @@ export async function GET(request: Request) {
     const { data: submissions, error: subError } = await supabase
       .from('circle_event_summaries')
       .select('leader_id, occurrence, did_not_meet, attendee_ccb_ids, manual_attendees')
+      // Only completed submissions count. A 'failed' or 'retrying' row means
+      // the CCB write did not land; treating it as a report would overwrite a
+      // real CCB count and suppress the leader's "no report" alert on the
+      // strength of a save that never finished.
+      .eq('status', 'submitted')
       .in('leader_id', leaderIds)
       .gte('occurrence', `${startStr}T00:00:00.000Z`)
       .limit(20000);

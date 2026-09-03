@@ -563,6 +563,11 @@ export default function EventSummaryTrackerPage() {
       const submissionsPromise = supabase
         .from('circle_event_summaries')
         .select('id, leader_id, occurrence, did_not_meet, topic, notes, prayer_requests, attendee_ccb_ids, manual_attendees, reviewed_at, reviewed_by')
+        // 'failed' and 'retrying' rows are audit records of a submission whose
+        // CCB write did not land. Counting one as a report would put it in
+        // Needs Review with nothing behind it and fold its attendees into the
+        // week's total. /api/circle-reporting skips them for the same reason.
+        .eq('status', 'submitted')
         .gte('occurrence', `${weekStart}T00:00:00Z`)
         .lte('occurrence', `${weekEnd}T23:59:59Z`);
 
