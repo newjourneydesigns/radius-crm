@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
 import { supabase } from '../../lib/supabase';
 import { formatDateOnlyForDisplay } from '../../lib/dateUtils';
+import { ASSIGNABLE_CIRCLE_LEADER_STATUSES } from '../../lib/statuses';
 
 const PREFS_KEY = 'touchpoint-tracker-prefs';
 const PREFS_VERSION = 3;
@@ -12,7 +13,7 @@ const PREFS_VERSION = 3;
 // than derived from the loaded leaders so the filter still offers, say,
 // "Active" during a season when every leader happens to be paused. Archived
 // leaders never reach the tracker, so Archived is intentionally absent.
-const STATUS_OPTIONS = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding'];
+const STATUS_OPTIONS = ASSIGNABLE_CIRCLE_LEADER_STATUSES;
 
 type TypeStat = { count: number; last: string | null };
 type LeaderType = 'circle' | 'host_team';
@@ -338,7 +339,7 @@ export default function TouchpointTrackerPage() {
     [data],
   );
   const statuses = useMemo(() => {
-    const known = new Set(STATUS_OPTIONS);
+    const known = new Set<string>(STATUS_OPTIONS);
     // Anything unexpected in the data still gets an option so it stays filterable.
     const extras = Array.from(
       new Set(

@@ -6,6 +6,7 @@
 // =============================================================
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { ASSIGNABLE_CIRCLE_LEADER_STATUSES } from './statuses';
 
 // ---- Types ----
 
@@ -55,7 +56,7 @@ export const AI_TOOLS: ToolDefinition[] = [
         status: {
           type: 'string',
           description: 'Filter by leader status',
-          enum: ['invited', 'on-boarding', 'pipeline', 'active', 'paused', 'off-boarding'],
+          enum: [...ASSIGNABLE_CIRCLE_LEADER_STATUSES],
         },
         acpd: {
           type: 'string',
@@ -374,7 +375,7 @@ export const AI_TOOLS: ToolDefinition[] = [
         status: {
           type: 'string',
           description: 'The new status to set',
-          enum: ['invited', 'on-boarding', 'pipeline', 'active', 'paused', 'off-boarding'],
+          enum: [...ASSIGNABLE_CIRCLE_LEADER_STATUSES],
         },
       },
       required: ['leader_name', 'status'],

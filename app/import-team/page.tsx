@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
+import { ASSIGNABLE_CIRCLE_LEADER_STATUSES } from '../../lib/statuses';
 
 interface CCBPosition {
   id: number;
@@ -47,7 +48,7 @@ interface SettingsItem {
   value: string;
 }
 
-const VALID_STATUS_VALUES = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding'] as const;
+const VALID_STATUS_VALUES = ASSIGNABLE_CIRCLE_LEADER_STATUSES;
 
 const dedupeDirectorsByName = (items: DirectorEntry[] = []): DirectorEntry[] => {
   const seen = new Set<string>();

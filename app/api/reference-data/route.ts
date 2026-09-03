@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { ensureDefaultFrequencies } from '../../../lib/frequencyUtils';
+import { CIRCLE_LEADER_STATUSES } from '../../../lib/statuses';
 
 export const dynamic = 'force-dynamic';
 
@@ -143,7 +144,7 @@ export async function GET() {
     });
 
     // Filter statuses to only include valid database constraint values
-    const validStatuses = ['invited', 'pipeline', 'on-boarding', 'active', 'paused', 'off-boarding', 'archived'];
+    const validStatuses = CIRCLE_LEADER_STATUSES as readonly string[];
     const filteredStatuses = (statusesRes.data || []).filter((s: any) => 
       validStatuses.includes(s?.value?.toLowerCase())
     );
