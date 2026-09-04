@@ -145,8 +145,14 @@ order by attendee_entries desc;
 -- Q5. Independent proof of the overwrite, from a second source.
 --
 --     A 'no_record' occurrence on a date the leader ALSO submitted a summary
---     for cannot be right — they told us the circle met. Every row here is a
---     stub that overwrote a real meeting.
+--     for cannot be right — they told us the circle met.
+--
+--     Read it precisely: this proves the stub is CONTRADICTED, not that it
+--     overwrote stored attendance. Two readings fit — a real 'met' row was
+--     flattened, or CCB never had a record and the stub is merely wrong. Q1 is
+--     what separates them. Either way these rows are broken for the tracker,
+--     and either way they mean a submitted summary is not reaching CCB (or not
+--     under an event id the sync can see).
 --
 --     The date cast is UTC on purpose: /circle-leader-toolkit/submit writes
 --     the meeting's local wall-clock time as a naive string, which Postgres
