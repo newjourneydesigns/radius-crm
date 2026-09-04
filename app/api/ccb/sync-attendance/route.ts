@@ -388,11 +388,51 @@ export async function POST(request: NextRequest) {
           attendees: [],
         }));
 
-      results.noRecordFilled += missingRecords.length;
-      const allRecords = [...ccbRecords, ...missingRecords];
+      // A stub says "we looked and CCB had nothing", so it may only ever ADD a
+      // placeholder — never overwrite a meeting we already recorded. It used to
+      // go through the same upsert as a real record, which meant any date CCB
+      // omitted this run (a stale entry in ccb_event_ids, a partial payload, a
+      // record deleted in CCB) had its `met` row flattened to `no_record` with
+      // a null headcount and a null raw_payload. Its `circle_meeting_attendees`
+      // rows survived, orphaned under a status every reader filters out. This
+      // runs hourly over 14 days and again daily over the whole semester, so a
+      // single omission erased that meeting until someone re-synced by hand.
+      //
+      // ON CONFLICT DO NOTHING keeps the placeholder's real job — marking a
+      // meeting date CCB has no record for — and makes it incapable of
+      // destroying one that it does.
+      if (missingRecords.length > 0) {
+        const { data: stubRows, error: stubError } = await supabase
+          .from('circle_meeting_occurrences')
+          .upsert(
+            missingRecords.map((record) => ({
+              leader_id: record.leader_id,
+              ccb_event_id: null,
+              meeting_date: record.meeting_date,
+              status: record.status,
+              headcount: null,
+              regular_count: null,
+              visitor_count: null,
+              source: record.source,
+              raw_payload: null,
+              synced_at: new Date().toISOString(),
+            })),
+            { onConflict: 'leader_id,meeting_date', ignoreDuplicates: true }
+          )
+          .select('id');
 
-      // 4. Upsert each occurrence
-      for (const record of allRecords) {
+        if (stubError) {
+          console.error(`Stub upsert error for leader ${leader.id}:`, stubError);
+          results.errors++;
+        } else {
+          // With ignoreDuplicates the select returns only the rows actually
+          // inserted, so this counts new placeholders rather than attempts.
+          results.noRecordFilled += stubRows?.length ?? 0;
+        }
+      }
+
+      // 4. Upsert each occurrence CCB actually reported
+      for (const record of ccbRecords) {
         const { error: occError, data: occ } = await supabase
           .from('circle_meeting_occurrences')
           .upsert(

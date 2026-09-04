@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-09-04",
+    "date_display": "September 4, 2026",
+    "date_iso": "2026-09-04",
+    "id": "roster-last-attended-source-fix",
+    "type": "fix",
+    "category": "Circle Leader Toolkit",
+    "page": "/circle-leader-toolkit",
+    "description": "The \"last attended\" date beside each person on a leader's roster was wrong. On September 2 that date was rewired to read from the Event Summary Tracker's tables instead of from CCB. Those tables were built to answer a different question — was this week's summary turned in? — and they cannot carry attendance faithfully: they store everyone CCB names on a meeting without recording who was marked absent, and a placeholder row for a week CCB had no record for could overwrite a real meeting, leaving that meeting's attendees attached to a row nothing reads. Roster dates now come from CCB again, which is where attendance actually lives, and the placeholder rows can no longer overwrite a meeting that was already recorded — a fault that was also quietly wiping head counts on the Event Summary Tracker. Dates a leader submits through the toolkit still appear immediately; attendance taken directly in CCB refreshes on the daily sync."
+  },
+  {
     "date": "2026-09-03",
     "date_display": "September 3, 2026",
     "date_iso": "2026-09-03",

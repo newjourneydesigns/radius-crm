@@ -7,10 +7,20 @@
  *   - loadLeaderRoster: CCB group participants merged with cached profile data.
  *   - loadLeaderAttendance: per-person "last attended" map for the group.
  *
- * Tier 3: loadLeaderAttendance prefers a small precomputed `last_attended` map
- * stored on the cache row over re-parsing the large global attendance XML on
- * every request. `computeLastAttended` is exported so the prewarm job can
- * populate that column proactively.
+ * loadLeaderAttendance prefers a small precomputed `last_attended` map stored
+ * on the cache row over re-parsing the large global attendance XML on every
+ * request. `computeLastAttended` is exported so the prewarm job can populate
+ * that column proactively.
+ *
+ * It deliberately does NOT read `circle_meeting_attendees`, even though that
+ * table is fresher (hourly) than this cache (daily). That table is the event
+ * summary tracker's cache, not an attendance record: eleven jobs upsert it on
+ * (leader_id, meeting_date), the sync stores every attendee CCB names without
+ * their status — so someone marked absent reads as present — and a `no_record`
+ * stub can overwrite a real meeting while leaving its attendee rows orphaned
+ * under it. Wiring "last attended" to it on 2026-09-02 is what put wrong dates
+ * on leaders' rosters. Correct and a day old beats fresh and wrong; the fix for
+ * the freshness is a real per-person attendance table, not this one.
  */
 
 import { DateTime } from 'luxon';
@@ -19,7 +29,6 @@ import { createCCBClient } from '../ccb/ccb-client';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { createTimer } from './timing';
 import { isDidNotMeetEvent } from './did-not-meet-reasons';
-import { loadLastAttendedFromTable, syncCoversCalendar } from './attendance-table';
 
 // ---------------------------------------------------------------------------
 // Roster
@@ -347,7 +356,7 @@ const SHARED_CACHE_FRESH_MS = 24 * 60 * 60_000;
 
 export type LoadAttendanceResult = {
   lastAttended: Record<string, string>;
-  source: 'table' | 'cache' | 'cache-derived' | 'ccb';
+  source: 'cache' | 'cache-derived' | 'ccb';
   error?: string;
 };
 
@@ -573,36 +582,6 @@ export async function loadLeaderAttendance(leader: SessionLeader): Promise<LoadA
 
   const supabase = createServiceSupabaseClient();
   const timer = createTimer('loadLeaderAttendance');
-
-  // Tier 0: the synced attendee table (see attendance-table.ts). Two small
-  // indexed reads; no blob, no XML, no CCB. Trusted only when the sync tracks
-  // every event on this leader's calendar (syncCoversCalendar) — otherwise a
-  // meeting the sync is blind to would silently age everyone's "last
-  // attended". The calendar comes from a calendar-only cache read: never the
-  // blob column.
-  try {
-    const [fromTable, calRow] = await Promise.all([
-      loadLastAttendedFromTable(supabase, leader.id, startStr, endStr),
-      readEventsCacheRow(supabase, groupId, startStr, endStr, 'calendar_events'),
-    ]);
-    timer.mark('tableRead');
-    if (fromTable !== null) {
-      const calendar = Array.isArray(calRow?.calendar_events)
-        ? (calRow!.calendar_events as Array<{ eventId: string; startDate: string }>)
-        : [];
-      const cover = syncCoversCalendar(calendar, leader.ccb_event_ids);
-      if (cover.covered) {
-        const merged = await mergeSubmittedSummaryAttendance(
-          supabase, leader.id, groupId, startStr, endStr, fromTable
-        );
-        timer.end({ source: 'table', groupId });
-        return { lastAttended: merged, source: 'table' };
-      }
-      timer.mark(`tableSkip:${cover.reason}`);
-    }
-  } catch (e) {
-    console.warn('[roster/attendance] table path failed:', e);
-  }
 
   // Shared cache first. Most hits are served entirely from Supabase, and the
   // common one — a warm row with a precomputed map — reads only two small

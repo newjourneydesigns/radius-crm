@@ -1,5 +1,13 @@
 /**
- * Table-backed attendance for the Circle Leader Toolkit.
+ * Table-backed meeting STATUS for the Circle Leader Toolkit's events list.
+ *
+ * Scope note: this answers "was this meeting's summary received?" and nothing
+ * else. It used to also answer "when did each person last attend?", and that
+ * was a mistake — see the header of roster-data.ts. Per-person attendance now
+ * comes from CCB, because these rows cannot carry it faithfully: they record no
+ * attendance status (someone marked absent is stored the same as someone
+ * present) and a `no_record` stub can overwrite a real meeting. Neither hurts a
+ * received/pending answer, and both corrupt a last-attended date.
  *
  * The toolkit's read path used to answer "was this meeting's summary received?"
  * by downloading CCB's GLOBAL 12-week `attendance_profiles` payload (every
@@ -10,10 +18,9 @@
  * Meanwhile the event-summary tracker's sync (`/api/ccb/sync-attendance`,
  * hourly for the last 14 days and nightly for the semester) already normalizes
  * that same payload into `circle_meeting_occurrences` (one small row per leader
- * per meeting date) and `circle_meeting_attendees` (one row per person per
- * occurrence). This module reads THOSE, so the first paint is a couple of
- * indexed Supabase queries instead of a blob fetch, an XML parse, and a live
- * CCB round trip.
+ * per meeting date). This module reads THAT, so the first paint is one indexed
+ * Supabase query instead of a blob fetch, an XML parse, and a live CCB round
+ * trip.
  *
  * Two facts about the sync shape this code has to respect:
  *
@@ -122,11 +129,6 @@ type OccurrenceRow = {
   raw_payload: OccurrenceRawPayload | null;
 };
 
-type AttendeeRow = {
-  occurrence_id: number | string;
-  ccb_individual_id: string | number | null;
-};
-
 type Supabase = ReturnType<typeof createServiceSupabaseClient>;
 
 function textOf(value: unknown): string {
@@ -232,77 +234,4 @@ export async function loadOccurrenceStatuses(
     map.set(eventId ? `${eventId}|${date}` : dateOnlyStatusKey(date), status);
   }
   return map.size > 0 ? map : null;
-}
-
-/**
- * Per-person "last attended" for one leader over a window, from the synced
- * attendee rows. Same output shape as `computeLastAttended` in roster-data.ts:
- * `{ ccb_individual_id → latest YYYY-MM-DD attended }`.
- *
- * Did-not-meet occurrences are excluded (they carry no attendees anyway, but
- * the guard matches the blob path so the two can never diverge). The sync
- * only writes attendee rows when CCB listed attendees, so a head-count-only
- * meeting contributes nothing per person — identical to the blob path, which
- * also iterates attendees.
- *
- * Two plain queries rather than a PostgREST embed: the FK constraint name is
- * not in the repo, and guessing it would fail silently at runtime.
- *
- * Returns `null` when there are no covered occurrences for the leader — the
- * caller must fall back. A covered leader whose members simply have no
- * attendance in the window gets an empty map, which is a real answer.
- */
-export async function loadLastAttendedFromTable(
-  supabase: Supabase,
-  leaderId: number | string,
-  startStr: string,
-  endStr: string
-): Promise<Record<string, string> | null> {
-  const { data: occData, error: occError } = await supabase
-    .from('circle_meeting_occurrences')
-    .select('id, meeting_date, status, raw_payload')
-    .eq('leader_id', leaderId)
-    .in('status', ['met', 'did_not_meet'])
-    .gte('meeting_date', startStr)
-    .lte('meeting_date', endStr);
-
-  if (occError) {
-    console.warn('[toolkit/attendance-table] occurrence read failed:', occError.message);
-    return null;
-  }
-
-  const occurrences = (occData ?? []) as Array<Pick<OccurrenceRow, 'id' | 'meeting_date' | 'status' | 'raw_payload'>>;
-  if (occurrences.length === 0) return null;
-
-  // Date per occurrence id, skipping did-not-meet weeks (same rule as the
-  // blob path's computeLastAttended).
-  const dateById = new Map<string, string>();
-  for (const occ of occurrences) {
-    const notes = textOf(occ.raw_payload?.notes);
-    if (isDidNotMeetEvent({ didNotMeet: occ.raw_payload?.didNotMeet ?? occ.status === 'did_not_meet', notes })) {
-      continue;
-    }
-    const date = textOf(occ.meeting_date).slice(0, 10);
-    if (date) dateById.set(String(occ.id), date);
-  }
-  if (dateById.size === 0) return {};
-
-  const { data: attData, error: attError } = await supabase
-    .from('circle_meeting_attendees')
-    .select('occurrence_id, ccb_individual_id')
-    .in('occurrence_id', Array.from(dateById.keys()));
-
-  if (attError) {
-    console.warn('[toolkit/attendance-table] attendee read failed:', attError.message);
-    return null;
-  }
-
-  const lastAttended: Record<string, string> = {};
-  for (const row of (attData ?? []) as AttendeeRow[]) {
-    const id = textOf(row.ccb_individual_id);
-    const date = dateById.get(String(row.occurrence_id));
-    if (!id || !date) continue;
-    if (!lastAttended[id] || date > lastAttended[id]) lastAttended[id] = date;
-  }
-  return lastAttended;
 }
