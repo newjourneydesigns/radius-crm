@@ -3,6 +3,16 @@
     "date": "2026-09-04",
     "date_display": "September 4, 2026",
     "date_iso": "2026-09-04",
+    "id": "attendance-history-durable",
+    "type": "improvement",
+    "category": "Circle Leader Toolkit",
+    "page": "/circle-leader-toolkit",
+    "description": "Attendance is now kept permanently, straight from CCB, so a leader's roster can always say when each person last came. Two things change for leaders. Dates no longer stop at twelve weeks — someone who has been away five months now shows the date they last attended instead of showing nothing, which is exactly when a leader most needs to know. And attendance can no longer be lost: it is stored under CCB's own record of the meeting rather than being rebuilt each day from a rolling window, so a meeting stays on file even if a later sync cannot see it. This costs no extra calls to CCB — it saves the attendance we were already pulling every hour instead of discarding it."
+  },
+  {
+    "date": "2026-09-04",
+    "date_display": "September 4, 2026",
+    "date_iso": "2026-09-04",
     "id": "attendance-history-restored",
     "type": "fix",
     "category": "Event Summary Tracker",

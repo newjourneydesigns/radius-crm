@@ -41,6 +41,7 @@ import { createCCBClient, CCBCircuitBreakerError } from '../../../../lib/ccb/ccb
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { computeLastAttended, storeDerivedLastAttended } from '../../../../lib/circle-leader-toolkit/roster-data';
 import { syncRosterCacheForLeader } from '../../../../lib/ccb/roster-cache';
+import { recordEventGroupMap } from '../../../../lib/ccb/attendance-facts';
 import { verifyAdminAccess } from '../../../../lib/auth-middleware';
 
 export const dynamic = 'force-dynamic';
@@ -218,6 +219,19 @@ export async function POST(req: Request) {
     try {
       await paceCcbCall();
       const calEvents = await ccb.getGroupCalendarEvents(groupId, startStr, endStr);
+
+      // This is the only place in the app that learns, straight from CCB,
+      // which events belong to a group. The calendar is a sliding 12-week
+      // window, so what it tells us today it forgets in three months — union
+      // it into the permanent map now. That map is what lets an attendance
+      // fact from February still be attributed to this circle in September.
+      if (Array.isArray(calEvents) && calEvents.length > 0) {
+        await recordEventGroupMap(
+          supabase,
+          calEvents.map((e) => ({ ccbEventId: String(e.eventId ?? ''), ccbGroupId: groupId })),
+          'calendar'
+        );
+      }
 
       // When the bulk attendance pull failed, leave attendance_xml OUT of the
       // payload: an upsert only touches the columns it carries, so the row

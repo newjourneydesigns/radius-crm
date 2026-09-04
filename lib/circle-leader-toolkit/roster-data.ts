@@ -7,20 +7,24 @@
  *   - loadLeaderRoster: CCB group participants merged with cached profile data.
  *   - loadLeaderAttendance: per-person "last attended" map for the group.
  *
- * loadLeaderAttendance prefers a small precomputed `last_attended` map stored
- * on the cache row over re-parsing the large global attendance XML on every
- * request. `computeLastAttended` is exported so the prewarm job can populate
- * that column proactively.
+ * loadLeaderAttendance answers "when did each person last attend?" from
+ * `ccb_attendance_facts` — CCB's own record, keyed on CCB's identifiers, kept
+ * indefinitely and never deleted for a date a sync failed to see. See
+ * supabase/migrations/20260904120000_ccb_attendance_facts.sql.
  *
- * It deliberately does NOT read `circle_meeting_attendees`, even though that
- * table is fresher (hourly) than this cache (daily). That table is the event
- * summary tracker's cache, not an attendance record: eleven jobs upsert it on
- * (leader_id, meeting_date), the sync stores every attendee CCB names without
- * their status — so someone marked absent reads as present — and a `no_record`
- * stub can overwrite a real meeting while leaving its attendee rows orphaned
- * under it. Wiring "last attended" to it on 2026-09-02 is what put wrong dates
- * on leaders' rosters. Correct and a day old beats fresh and wrong; the fix for
- * the freshness is a real per-person attendance table, not this one.
+ * Everything below the facts read is the older cache path, kept as a fallback
+ * until the facts table has covered a full sync cycle for every group: a
+ * precomputed `last_attended` map on the cache row, then the global attendance
+ * XML, then live CCB. `computeLastAttended` is exported so the prewarm job can
+ * populate that column proactively.
+ *
+ * What it deliberately does NOT read is `circle_meeting_attendees`, even
+ * though that table is refreshed hourly. That is the event summary tracker's
+ * cache, not an attendance record: eleven jobs upsert it on (leader_id,
+ * meeting_date), and a `no_record` placeholder could overwrite a real meeting
+ * while leaving its attendee rows orphaned under it. Wiring "last attended" to
+ * it on 2026-09-02 put wrong dates on 355 leaders' rosters and, by 09-04, had
+ * erased 404 meetings.
  */
 
 import { DateTime } from 'luxon';
@@ -29,6 +33,7 @@ import { createCCBClient } from '../ccb/ccb-client';
 import { createServiceSupabaseClient } from '../server-supabase';
 import { createTimer } from './timing';
 import { isDidNotMeetEvent } from './did-not-meet-reasons';
+import { loadLastAttendedFromFacts } from './attendance-facts-read';
 
 // ---------------------------------------------------------------------------
 // Roster
@@ -356,7 +361,7 @@ const SHARED_CACHE_FRESH_MS = 24 * 60 * 60_000;
 
 export type LoadAttendanceResult = {
   lastAttended: Record<string, string>;
-  source: 'cache' | 'cache-derived' | 'ccb';
+  source: 'facts' | 'cache' | 'cache-derived' | 'ccb';
   error?: string;
 };
 
@@ -582,6 +587,25 @@ export async function loadLeaderAttendance(leader: SessionLeader): Promise<LoadA
 
   const supabase = createServiceSupabaseClient();
   const timer = createTimer('loadLeaderAttendance');
+
+  // Facts first: CCB's own record, keyed on CCB's ids, kept indefinitely. Two
+  // small indexed reads, no blob, no XML, no CCB call — and no 12-week
+  // horizon, so a member who has been away five months gets a date instead of
+  // nothing. Everything below is the pre-facts path, kept as a fallback until
+  // the table has covered a full sync cycle for every group.
+  try {
+    const fromFacts = await loadLastAttendedFromFacts(supabase, groupId);
+    timer.mark('factsRead');
+    if (fromFacts) {
+      const merged = await mergeSubmittedSummaryAttendance(
+        supabase, leader.id, groupId, startStr, endStr, fromFacts
+      );
+      timer.end({ source: 'facts', groupId });
+      return { lastAttended: merged, source: 'facts' };
+    }
+  } catch (e) {
+    console.warn('[roster/attendance] facts path failed:', e);
+  }
 
   // Shared cache first. Most hits are served entirely from Supabase, and the
   // common one — a warm row with a precomputed map — reads only two small

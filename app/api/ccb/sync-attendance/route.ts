@@ -5,6 +5,7 @@ import { createCCBClient, type LinkRow } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 import { syncRosterCacheForLeader } from '../../../../lib/ccb/roster-cache';
+import { factsFromAttendanceRows, recordAttendanceFacts } from '../../../../lib/ccb/attendance-facts';
 
 export const dynamic = 'force-dynamic';
 
@@ -318,6 +319,26 @@ export async function POST(request: NextRequest) {
   let totalCCBEvents = 0;
   attendanceByEventId.forEach((rows) => { totalCCBEvents += rows.length; });
   console.log(`📦 Got ${totalCCBEvents} attendance records across ${attendanceByEventId.size} event IDs`);
+
+  // ── Durable per-person attendance ─────────────────────────────────
+  //
+  // Store the whole payload before it is narrowed to leaders and their cached
+  // event ids. That narrowing is where attendance used to be lost: an event
+  // absent from ccb_event_ids became invisible, then a placeholder erased the
+  // meeting it had recorded. These rows are keyed on CCB's own identifiers and
+  // are never deleted for a date this run did not cover, so they survive both.
+  //
+  // Runs on the payload we already fetched — no extra CCB call. The daily
+  // semester-wide pass therefore backfills the whole term on its first run.
+  const { facts, occurrenceKeys } = factsFromAttendanceRows(attendanceByEventId);
+  const factsResult = await recordAttendanceFacts(supabase, facts, occurrenceKeys);
+  if (factsResult.error) {
+    console.error(`📦 Attendance facts write failed: ${factsResult.error}`);
+  } else {
+    console.log(
+      `📦 Attendance facts: ${factsResult.written} rows across ${factsResult.occurrences} occurrences`
+    );
+  }
 
   // ── Cross-reference and upsert ────────────────────────────────────
   const results = {
