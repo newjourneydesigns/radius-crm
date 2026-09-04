@@ -3,6 +3,16 @@
     "date": "2026-09-04",
     "date_display": "September 4, 2026",
     "date_iso": "2026-09-04",
+    "id": "attendance-history-restored",
+    "type": "fix",
+    "category": "Event Summary Tracker",
+    "page": "/event-summary-tracker",
+    "description": "404 Circle meetings that had been recorded and then erased are back, along with 2,633 attendance records covering 124 leaders and 1,076 people, from January 18 through September 2. The attendance sync fills in a placeholder for any meeting date CCB has no record for, and that placeholder was overwriting meetings that had already been recorded — blanking the head count and leaving the attendees attached to a row nothing reads. It ran over the whole semester every morning, so the same meetings were erased again each day. Placeholders can no longer overwrite a recorded meeting, and the erased ones have been rebuilt from the attendance that survived underneath them. Each restored meeting shows the people who were named on it; guests who were only ever counted as a head count, along with those weeks' notes and topics, could not be recovered."
+  },
+  {
+    "date": "2026-09-04",
+    "date_display": "September 4, 2026",
+    "date_iso": "2026-09-04",
     "id": "roster-last-attended-source-fix",
     "type": "fix",
     "category": "Circle Leader Toolkit",
