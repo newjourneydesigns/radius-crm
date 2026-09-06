@@ -40,6 +40,7 @@ import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext, recordCCBAlert } from '../../../../lib/ccb/ccb-api-gateway';
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { pushCircleSummaryToCCB } from '../../../../lib/circle-leader-toolkit/ccb-attendance-push';
+import { recordLeaderEvent } from '../../../../lib/ccb/attendance-facts';
 import {
   flattenForCCB,
   cleanManualAttendees,
@@ -433,6 +434,14 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+
+  // leaderOwnsEvent just proved this event is on this leader's group calendar.
+  // Keep that: union it into the leader's tracked event ids and the durable
+  // event -> group map, so the attendance sync looks for this meeting on its
+  // next run instead of stubbing the date `no_record` because it only knew
+  // the ids a nightly calendar job had happened to see. Runs whether or not
+  // the CCB push succeeded — the ownership is true either way.
+  await recordLeaderEvent(supabase, leader, eventId);
 
   // Record manual roster + info update child rows. Because the summary row
   // is upserted by occurrence, clear old child rows before re-inserting.

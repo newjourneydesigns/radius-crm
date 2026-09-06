@@ -176,6 +176,63 @@ export async function recordAttendanceFacts(
 }
 
 /**
+ * Record that a leader submitted a summary under `eventId`.
+ *
+ * A toolkit submission is the one moment RADIUS knows, with certainty and
+ * for free, that an event belongs to a leader's group — `leaderOwnsEvent` has
+ * just checked it against the group's CCB calendar. Until now that knowledge
+ * was thrown away: the only writer of `circle_leaders.ccb_event_ids` was the
+ * nightly calendar job, so a leader could submit under an event the sync had
+ * never heard of, the push would land in CCB, and the sync — looking only at
+ * the ids it knew — would find nothing for that date and stub it `no_record`.
+ * That is the "17 toolkit submissions in two weeks never showed up as a CCB
+ * record" finding from 2026-09-04.
+ *
+ * Two unions, both additive, both idempotent:
+ *   - ccb_event_group_map, so the attendance facts for this event attribute
+ *     to this group forever;
+ *   - circle_leaders.ccb_event_ids, so the existing sync sees the event on
+ *     its very next run instead of waiting for a nightly job that may never
+ *     learn it (it reads a 12-week calendar window).
+ *
+ * Read-then-write on the array rather than an atomic append: supabase-js
+ * cannot express `array_append` without an RPC, the nightly job unions the
+ * same way, and a lost update here is repaired by the next submission or the
+ * next nightly run. Never throws — a bookkeeping failure must not fail the
+ * leader's submission.
+ */
+export async function recordLeaderEvent(
+  supabase: Supabase,
+  leader: { id: number | string; ccb_group_id?: string | number | null; ccb_event_ids?: string[] | null },
+  eventId: string
+): Promise<void> {
+  const cleanEventId = String(eventId ?? '').trim();
+  const groupId = leader.ccb_group_id != null ? String(leader.ccb_group_id) : '';
+  if (!cleanEventId || !groupId) return;
+
+  await recordEventGroupMap(
+    supabase,
+    [{ ccbEventId: cleanEventId, ccbGroupId: groupId }],
+    'toolkit_submission'
+  );
+
+  try {
+    const current = (leader.ccb_event_ids ?? []).map((id) => String(id).trim()).filter(Boolean);
+    if (current.includes(cleanEventId)) return;
+
+    const { error } = await supabase
+      .from('circle_leaders')
+      .update({ ccb_event_ids: [...current, cleanEventId] })
+      .eq('id', leader.id);
+    if (error) {
+      console.warn('[attendance-facts] ccb_event_ids union failed:', error.message);
+    }
+  } catch (e) {
+    console.warn('[attendance-facts] ccb_event_ids union threw:', e);
+  }
+}
+
+/**
  * Union event -> group pairs into the map. Never removes one: an id we stop
  * seeing is an id whose event has aged off a 12-week calendar, not an id that
  * became wrong, and forgetting it is what made old meetings unattributable.
