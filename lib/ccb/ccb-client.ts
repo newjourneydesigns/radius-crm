@@ -1820,30 +1820,45 @@ ${attendeesBlock}
       debug.eventSample = filteredEventData.slice(0, 50).map(e => ({ eventId: e.eventId, groupId: e.groupId, title: e.title, occurrenceDate: e.occurrenceDate }));
     }
 
-    // A submitted report (notes or a head count) outranks an empty record.
-    // CCB pre-creates attendance records ahead of meetings, and a group can
-    // have several rows inside one window — first-in-XML-order used to win,
-    // so an empty pre-created row could shadow the summary the leader
-    // actually filled in and read as "nothing received" for the week.
-    const hasEvidence = (e: EventEntry) => e.hasNotes || (e.headcount ?? 0) > 0;
+    // A submitted report outranks an empty record. CCB pre-creates attendance
+    // records ahead of meetings, and a group can have several rows inside one
+    // window — first-in-XML-order used to win, so an empty pre-created row
+    // could shadow the summary the leader actually filled in and read as
+    // "nothing received" for the week.
+    //
+    // Evidence is a rank, not a flag, because two rows in the same window can
+    // both be real: a bare attendance record on one day and the leader's
+    // write-up on another. Under the old boolean the first of those in XML
+    // order won and was never replaced, so an attendance-only record could
+    // shadow the actual summary — the week then resolved to a date with no
+    // notes and the tracker rendered "No notes recorded".
+    //   2 — the leader wrote something (topic / notes / prayer requests)
+    //   1 — an explicit submission with no text: did-not-meet, or a head count
+    //   0 — an empty record CCB pre-created for a scheduled occurrence
+    const evidenceRank = (e: EventEntry) =>
+      e.hasNotes ? 2 : (e.didNotMeet || (e.headcount ?? 0) > 0) ? 1 : 0;
+    const hasEvidence = (e: EventEntry) => evidenceRank(e) > 0;
 
     // Index by CCB group ID and event ID for O(1) exact lookup
     const byGroupId = new Map<string, EventEntry>();
     const byEventId = new Map<string, EventEntry>();
+    // Strictly-greater, so an equal-ranked later row can't displace the first
+    // one — ties keep XML order, as they always have.
     const keepBetter = (map: Map<string, EventEntry>, key: string, ev: EventEntry) => {
       const current = map.get(key);
-      if (!current || (!hasEvidence(current) && hasEvidence(ev))) map.set(key, ev);
+      if (!current || evidenceRank(ev) > evidenceRank(current)) map.set(key, ev);
     };
     for (const ev of filteredEventData) {
       if (ev.groupId) keepBetter(byGroupId, ev.groupId, ev);
       if (ev.eventId) keepBetter(byEventId, ev.eventId, ev);
     }
 
-    // Same preference for the substring fallbacks below: stable sort, real
-    // reports first, so `.find` can't land on an empty row when a filled one
-    // for the same circle is also in the window.
+    // Same preference for the substring fallbacks below: stable sort, richest
+    // reports first, so `.find` can't land on an empty row — or on an
+    // attendance-only one — when a filled summary for the same circle is also
+    // in the window.
     const matchPool = [...filteredEventData].sort(
-      (a, b) => Number(hasEvidence(b)) - Number(hasEvidence(a))
+      (a, b) => evidenceRank(b) - evidenceRank(a)
     );
 
     const result = new Map<number, { hasReport: boolean; didNotMeet: boolean; headcount: number | null; occurrenceDate: string | null; hasNotes: boolean; guestCount: number; topic: string | null; notes: string | null; prayerRequests: string | null }>();

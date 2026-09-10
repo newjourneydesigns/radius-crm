@@ -5,6 +5,13 @@ import { createCCBClient, CCBCircuitBreakerError } from '../../../../lib/ccb/ccb
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
 import { composeSubmittedNotes } from '../../../../lib/circleNotes';
+import {
+  occurrenceNotes,
+  occurrencePrayerRequests,
+  occurrenceTopic,
+  pickWeekOccurrence,
+} from '../../../../lib/circleOccurrences';
+import type { OccurrenceRawPayload } from '../../../../lib/circleOccurrences';
 import { submittedAttendanceCount } from '../../../../lib/circleAttendance';
 import { diffInfoUpdate, manualAttendeeKey } from '../../../../lib/circle-leader-toolkit/notes-formatter';
 import type { InfoUpdate, InfoUpdateRequest, ManualAttendee } from '../../../../lib/circle-leader-toolkit/notes-formatter';
@@ -244,16 +251,34 @@ async function resolveLeaderWeek(
     };
   }
 
-  // 2) CCB-derived occurrence.
-  const { data: occ } = await supabase
+  // 2) CCB-derived occurrence. A leader can have more than one row in a week
+  //    (the hourly sync and the week matcher key rows differently and can land
+  //    on different days), so rank them by what was actually reported instead
+  //    of taking the latest date — see lib/circleOccurrences.
+  const { data: occRows } = await supabase
     .from('circle_meeting_occurrences')
-    .select('id, meeting_date, status, headcount, has_notes, guest_count, topic, notes, prayer_requests, synced_at, reviewed_at, reviewed_by')
+    .select('id, meeting_date, status, headcount, has_notes, guest_count, topic, notes, prayer_requests, raw_payload, synced_at, reviewed_at, reviewed_by')
     .eq('leader_id', leaderId)
     .gte('meeting_date', weekStart)
-    .lte('meeting_date', weekEnd)
-    .order('meeting_date', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .lte('meeting_date', weekEnd);
+
+  type OccurrenceRow = {
+    id: string;
+    meeting_date: string;
+    status: string;
+    headcount: number | null;
+    has_notes: boolean | null;
+    guest_count: number | null;
+    topic: string | null;
+    notes: string | null;
+    prayer_requests: string | null;
+    raw_payload: OccurrenceRawPayload;
+    synced_at: string | null;
+    reviewed_at: string | null;
+    reviewed_by: string | null;
+  };
+
+  const occ = pickWeekOccurrence((occRows ?? []) as OccurrenceRow[]);
 
   if (occ) {
     if (occ.status === 'did_not_meet') {
@@ -275,9 +300,12 @@ async function resolveLeaderWeek(
         headcount: occ.headcount ?? null,
         has_notes: !!occ.has_notes,
         guest_count: occ.guest_count ?? null,
-        topic: (occ as any).topic ?? null,
-        notes: (occ as any).notes ?? null,
-        prayer_requests: (occ as any).prayer_requests ?? null,
+        // Read through `raw_payload` as well: the hourly CCB sync stores the
+        // leader's write-up only there, so the columns alone render a real
+        // summary as blank.
+        topic: occurrenceTopic(occ),
+        notes: occurrenceNotes(occ),
+        prayer_requests: occurrencePrayerRequests(occ),
         synced_at: occ.synced_at ?? null,
         reviewed_at: occ.reviewed_at ?? null,
         reviewed_by: occ.reviewed_by ?? null,

@@ -10,6 +10,13 @@ import { apiFetch } from '../../lib/apiClient';
 import { useToast } from '../../components/ui/ToastProvider';
 import { doesMeetingFrequencyIncludeDate, isBiWeeklyFrequency } from '../../lib/meetingFrequency';
 import { weekAttendanceCount } from '../../lib/circleAttendance';
+import {
+  occurrenceNotes,
+  occurrencePrayerRequests,
+  occurrenceTopic,
+  pickWeekOccurrence,
+  type OccurrenceRawPayload,
+} from '../../lib/circleOccurrences';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/ui/Modal';
 import CopyTextButton from '../../components/ui/CopyTextButton';
@@ -39,6 +46,9 @@ type OccurrenceRow = {
   topic: string | null;
   notes: string | null;
   prayer_requests: string | null;
+  // The hourly CCB sync writes the leader's write-up here and never into the
+  // columns above, so both the ranking and the display have to read it.
+  raw_payload: OccurrenceRawPayload;
   reviewed_at: string | null;
   reviewed_by: string | null;
 };
@@ -551,7 +561,7 @@ export default function EventSummaryTrackerPage() {
 
       const occurrencesPromise = supabase
         .from('circle_meeting_occurrences')
-        .select('id, leader_id, meeting_date, status, headcount, has_notes, guest_count, topic, notes, prayer_requests, reviewed_at, reviewed_by')
+        .select('id, leader_id, meeting_date, status, headcount, has_notes, guest_count, topic, notes, prayer_requests, raw_payload, reviewed_at, reviewed_by')
         // 'no_record' rows mean the CCB sync found nothing for that date. They are
         // not summaries, so they must not make a leader look like they submitted:
         // the row build treats any occurrence as a submission, which put circles
@@ -681,7 +691,7 @@ export default function EventSummaryTrackerPage() {
     setReviewLive({
       topic: reviewRow.topic,
       notes: reviewRow.notes,
-      prayer_requests: reviewRow.occurrence?.prayer_requests ?? reviewRow.submission?.prayer_requests ?? null,
+      prayer_requests: occurrencePrayerRequests(reviewRow.occurrence) ?? reviewRow.submission?.prayer_requests ?? null,
       headcount: reviewRow.headcount,
       guest_count: reviewRow.guestCount,
       roster_size: null,
@@ -705,7 +715,7 @@ export default function EventSummaryTrackerPage() {
         const next = {
           topic: json.topic || reviewRow.topic || null,
           notes: json.notes || reviewRow.notes || null,
-          prayer_requests: json.prayer_requests || reviewRow.occurrence?.prayer_requests || reviewRow.submission?.prayer_requests || null,
+          prayer_requests: json.prayer_requests || occurrencePrayerRequests(reviewRow.occurrence) || reviewRow.submission?.prayer_requests || null,
           headcount: json.headcount ?? reviewRow.headcount ?? null,
           guest_count: json.guest_count ?? reviewRow.guestCount ?? null,
           roster_size: json.roster_size ?? null,
@@ -804,19 +814,22 @@ export default function EventSummaryTrackerPage() {
 
   // Build rows
   const rows: Row[] = useMemo(() => {
-    // For each leader, pick the best occurrence row: reviewed first, then
-    // latest meeting_date. Prevents duplicate rows from one leader/week
-    // (e.g. an old stale row + a freshly backfilled one) from collapsing the
-    // reviewed marker.
-    const occByLeader = new Map<number, OccurrenceRow>();
+    // For each leader, pick the best occurrence row: reviewed first (so a
+    // duplicate can't collapse the reviewed marker), then the fuller report,
+    // then latest meeting_date. Ranking on the report rather than the date
+    // matters when a leader has two rows in one week — an attendance-only
+    // record on one day and the actual summary on another. See
+    // lib/circleOccurrences.
+    const occRowsByLeader = new Map<number, OccurrenceRow[]>();
     for (const o of occurrences) {
-      const existing = occByLeader.get(o.leader_id);
-      if (!existing) { occByLeader.set(o.leader_id, o); continue; }
-      const oRev = !!o.reviewed_at;
-      const eRev = !!existing.reviewed_at;
-      if (oRev && !eRev) { occByLeader.set(o.leader_id, o); continue; }
-      if (!oRev && eRev) continue;
-      if (o.meeting_date > existing.meeting_date) occByLeader.set(o.leader_id, o);
+      const bucket = occRowsByLeader.get(o.leader_id);
+      if (bucket) bucket.push(o);
+      else occRowsByLeader.set(o.leader_id, [o]);
+    }
+    const occByLeader = new Map<number, OccurrenceRow>();
+    for (const [leaderId, leaderRows] of Array.from(occRowsByLeader.entries())) {
+      const best = pickWeekOccurrence(leaderRows);
+      if (best) occByLeader.set(leaderId, best);
     }
     const subByLeader = new Map<number, SubmissionRow>();
     for (const s of submissions) {
@@ -925,8 +938,8 @@ export default function EventSummaryTrackerPage() {
         headcount,
         guestCount,
         attendees,
-        notes: occ?.notes ?? sub?.notes ?? null,
-        topic: occ?.topic ?? sub?.topic ?? null,
+        notes: occurrenceNotes(occ) ?? sub?.notes ?? null,
+        topic: occurrenceTopic(occ) ?? sub?.topic ?? null,
         reviewer,
         didNotMeet,
         occurrence: occ,
@@ -1592,7 +1605,7 @@ function ReviewModal({
   const totalAttended = (headcount ?? 0);
   const notes = live?.notes || row.notes || null;
   const topic = live?.topic || row.topic || null;
-  const prayerRequests = live?.prayer_requests || row.occurrence?.prayer_requests || row.submission?.prayer_requests || null;
+  const prayerRequests = live?.prayer_requests || occurrencePrayerRequests(row.occurrence) || row.submission?.prayer_requests || null;
   const liveLoading = live?.loading === true;
   const notesHtml = notes ? sanitizeNotesHtml(notes) : '';
   const prayerRequestsHtml = prayerRequests ? sanitizeNotesHtml(prayerRequests) : '';

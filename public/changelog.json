@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-09-10",
+    "date_display": "September 10, 2026",
+    "date_iso": "2026-09-10",
+    "id": "event-summary-picks-the-real-summary",
+    "type": "fix",
+    "category": "Event Summary Tracker",
+    "page": "/event-summary-tracker",
+    "description": "When a Circle has more than one meeting record from CCB in the same week, the tracker now opens the one the leader actually wrote on, instead of whichever fell on the later date. A Circle with a plain attendance record on one day and the leader's write-up on another was showing the attendance record — head count filled in, and \"No notes recorded — the leader submitted attendance only\" underneath, even though the notes were sitting on the other record. Notes are also read from both places CCB summaries are stored: the hourly sync files a leader's write-up in one spot and the weekly sync in another, and the tracker was only ever reading one of them, so a summary that arrived by the hourly sync alone showed up blank. This changes only which record is shown — nothing about a Circle's reviewed status or the week's attendance totals."
+  },
+  {
     "date": "2026-09-04",
     "date_display": "September 4, 2026",
     "date_iso": "2026-09-04",
