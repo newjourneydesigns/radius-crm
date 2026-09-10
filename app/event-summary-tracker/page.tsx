@@ -17,6 +17,7 @@ import {
   pickWeekOccurrence,
   type OccurrenceRawPayload,
 } from '../../lib/circleOccurrences';
+import { skipReason, type SkipReason } from '../../lib/eventSummarySkips';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/ui/Modal';
 import CopyTextButton from '../../components/ui/CopyTextButton';
@@ -26,7 +27,9 @@ import AiSummaryMarkdown from '../../components/ai/AiSummaryMarkdown';
 type SnapshotRow = {
   circle_leader_id: number;
   event_summary_state: EventSummaryState;
-  ccb_event_scheduled: boolean;
+  // null when the sync ran against a schema without the column — "unknown",
+  // not "no event". Never treat it as false.
+  ccb_event_scheduled: boolean | null;
   ccb_report_available: boolean;
   captured_at: string;
   week_start_date: string;
@@ -115,10 +118,19 @@ type Orphan = {
   category: 'inactive';
 };
 
+type WeekSkip = {
+  leader_id: number;
+  week_start_date: string;
+  note: string | null;
+  skipped_at: string;
+  skipped_by_name: string;
+};
+
 type TrackerData = {
   week_start_date: string;
   week_end_date: string;
   snapshots: SnapshotRow[];
+  skips?: WeekSkip[];
   // unknown_group orphans (CCB groups with no Radius circle) are deliberately
   // not returned/shown — those groups live in the Toolkit's group search.
   orphans: { inactive: Orphan[] };
@@ -137,7 +149,7 @@ type TrackerData = {
   } | null;
 };
 
-type RowStatus = 'no_ccb_event' | 'no_summary' | 'needs_review' | 'received' | 'did_not_meet';
+type RowStatus = 'no_ccb_event' | 'no_summary' | 'skipped' | 'needs_review' | 'received' | 'did_not_meet';
 
 type Row = {
   leader: CircleLeader;
@@ -155,6 +167,8 @@ type Row = {
   missedTwoPlus: boolean;
   overdue: boolean;
   hoursOverdue: number;
+  // Why this week was cleared, when it was. 'manual' carries who did it.
+  skip: { reason: SkipReason; by: string | null; note: string | null } | null;
 };
 
 type PagePayload = {
@@ -433,6 +447,9 @@ export default function EventSummaryTrackerPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  // Leader ids with a skip request in flight, so their row can show progress
+  // without freezing the rest of the list.
+  const [skipBusy, setSkipBusy] = useState<Set<number>>(new Set());
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [bannerExpanded, setBannerExpanded] = useState(false);
 
@@ -842,6 +859,10 @@ export default function EventSummaryTrackerPage() {
     const snapByLeader = new Map<number, SnapshotRow>();
     for (const s of snapshots) snapByLeader.set(s.circle_leader_id, s);
     const missedSet = new Set(tracker?.missed_two_plus_leader_ids ?? []);
+    const skipByLeader = new Map<number, WeekSkip>();
+    for (const s of tracker?.skips ?? []) {
+      if (s.week_start_date === weekStart) skipByLeader.set(s.leader_id, s);
+    }
 
     const filtered = leaders.filter(l => {
       if (!scheduledLeaderIds.has(l.id)) return false;
@@ -879,7 +900,23 @@ export default function EventSummaryTrackerPage() {
       const isReviewed = reviewer !== null || !!occ?.reviewed_at || !!sub?.reviewed_at;
       const didNotMeet = (occ?.status === 'did_not_meet') || (sub?.did_not_meet ?? false);
 
-      if (!hasSubmission) {
+      // A cleared week outranks "awaiting" but never a real report: if a
+      // summary or attendance arrived anyway, the meeting happened and the
+      // report is what matters.
+      const manualSkip = skipByLeader.get(l.id) ?? null;
+      const reason = skipReason({
+        manuallySkipped: !!manualSkip,
+        snapshot: snap ?? null,
+        hasCcbGroupId: !!l.ccb_group_id,
+        hasReport: hasSubmission || !!snap?.ccb_report_available,
+      });
+      const skip = reason
+        ? { reason, by: manualSkip?.skipped_by_name ?? null, note: manualSkip?.note ?? null }
+        : null;
+
+      if (!hasSubmission && skip) {
+        status = 'skipped';
+      } else if (!hasSubmission) {
         status = 'no_summary';
       } else if (!isReviewed) {
         status = 'needs_review';
@@ -893,7 +930,6 @@ export default function EventSummaryTrackerPage() {
       if (status === 'no_summary' && snap?.ccb_report_available) {
         status = 'needs_review';
       }
-
       // Optimistic overrides — keep the UI snappy when the user just clicked
       // Mark Reviewed / Unreview, before the next loadAll lands.
       if (justReviewed.has(l.id) && status === 'needs_review') {
@@ -947,6 +983,7 @@ export default function EventSummaryTrackerPage() {
         missedTwoPlus: missedSet.has(l.id),
         overdue,
         hoursOverdue,
+        skip,
       };
     });
   }, [leaders, occurrences, submissions, snapshots, scheduledLeaderIds, tracker, campusFilter, acpdFilter, circleStatusFilters, justReviewed, justUnreviewed, weekStart, nowTick]);
@@ -975,6 +1012,7 @@ export default function EventSummaryTrackerPage() {
     // Float overdue rows to the top so attention goes where it's needed first.
     return sorted.sort((a, b) => Number(b.overdue) - Number(a.overdue));
   }, [rows, sortRows]);
+  const skipped     = useMemo(() => sortRows(rows.filter(r => r.status === 'skipped')), [rows, sortRows]);
   const complete    = useMemo(() => sortRows(rows.filter(r => r.status === 'received' || r.status === 'did_not_meet')), [rows, sortRows]);
 
   const stats = useMemo(() => {
@@ -1062,6 +1100,29 @@ export default function EventSummaryTrackerPage() {
     }
     await loadAll({ preferCache: false });
   }, [weekStart, loadAll, authHeader]);
+
+  // Clear (or restore) a circle's week. Only ever writes to the skip table —
+  // never to a summary or an occurrence — so a cleared week can't be mistaken
+  // for a did-not-meet or an attendance record.
+  const setWeekSkip = useCallback(async (leaderId: number, action: 'skip' | 'unskip') => {
+    setSkipBusy(prev => { const n = new Set(prev); n.add(leaderId); return n; });
+    try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeader()) };
+      const res = await fetch('/api/event-summary-tracker/week-skip', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action, leader_id: leaderId, week_start_date: weekStart }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || 'Could not update the week');
+      await loadAll({ preferCache: false });
+      toast(action === 'skip' ? 'Skipped for this week.' : 'Back on the list.', 'success');
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    } finally {
+      setSkipBusy(prev => { const n = new Set(prev); n.delete(leaderId); return n; });
+    }
+  }, [weekStart, loadAll, authHeader, toast]);
 
   // Per-person "Added to CCB" checkbox in the review modal. Deliberately only
   // touches reviewLive (never reviewRow or loadAll), so the live-fetch effect
@@ -1423,7 +1484,10 @@ export default function EventSummaryTrackerPage() {
               { key: 'dnm',      label: "Didn't Meet",  value: stats.dnm,       color: '#3b82f6' },
               { key: 'no',       label: 'No Summary',   value: stats.notReport, color: '#ef4444' },
             ]}
-            total={rows.length}
+            // Skipped circles owed nothing this week, so they're out of the
+            // denominator — leaving them in would drag the submitted rate down
+            // for weeks the circles were never expected to report.
+            total={Math.max(0, rows.length - skipped.length)}
           />
           <div className="mt-5 pt-4 border-t border-zinc-700/60 flex flex-wrap items-center justify-between gap-3 text-sm">
             <div className="flex w-full justify-center gap-8 sm:w-auto sm:justify-start">
@@ -1530,8 +1594,26 @@ export default function EventSummaryTrackerPage() {
               rows={awaiting}
               overdueCount={awaiting.filter(r => r.overdue).length}
               renderRow={(r) => (
-                <RowItem row={r} onSendReminder={smsSupported ? () => openReminder(r.leader) : undefined} />
+                <RowItem
+                  row={r}
+                  onSendReminder={smsSupported ? () => openReminder(r.leader) : undefined}
+                  onSkipWeek={() => setWeekSkip(r.leader.id, 'skip')}
+                  skipBusy={skipBusy.has(r.leader.id)}
+                />
               )}
+            />
+            <Bucket
+              title="Skipped"
+              tone="slate"
+              rows={skipped}
+              renderRow={(r) => (
+                <RowItem
+                  row={r}
+                  onRestoreWeek={r.skip?.reason === 'manual' ? () => setWeekSkip(r.leader.id, 'unskip') : undefined}
+                  skipBusy={skipBusy.has(r.leader.id)}
+                />
+              )}
+              collapsedByDefault={skipped.length > 12}
             />
             <Bucket title="Complete" tone="green" rows={complete} renderRow={(r) => (
               <RowItem row={r} onReview={() => setReviewRow(r)} reviewLabel="View Summary" />
@@ -2080,15 +2162,25 @@ function Bucket({
   overdueCount,
 }: {
   title: string;
-  tone: 'amber' | 'red' | 'green';
+  tone: 'amber' | 'red' | 'green' | 'slate';
   rows: Row[];
   renderRow: (r: Row) => React.ReactNode;
   collapsedByDefault?: boolean;
   overdueCount?: number;
 }) {
   const [open, setOpen] = useState(!collapsedByDefault);
-  const toneClass = tone === 'amber' ? 'border-amber-500/30' : tone === 'red' ? 'border-red-500/30' : 'border-green-500/30';
-  const dot = tone === 'amber' ? 'bg-amber-400' : tone === 'red' ? 'bg-red-400' : 'bg-green-400';
+  // Skipped is neither a problem nor an achievement, so it gets the neutral
+  // tone rather than borrowing red, amber or green.
+  const toneClass =
+    tone === 'amber' ? 'border-amber-500/30'
+    : tone === 'red' ? 'border-red-500/30'
+    : tone === 'slate' ? 'border-zinc-600/40'
+    : 'border-green-500/30';
+  const dot =
+    tone === 'amber' ? 'bg-amber-400'
+    : tone === 'red' ? 'bg-red-400'
+    : tone === 'slate' ? 'bg-slate-500'
+    : 'bg-green-400';
   return (
     <div className={`mb-4 rounded-xl border ${toneClass} bg-zinc-800/40`}>
       <button
@@ -2137,11 +2229,17 @@ function RowItem({
   onReview,
   reviewLabel,
   onSendReminder,
+  onSkipWeek,
+  onRestoreWeek,
+  skipBusy,
 }: {
   row: Row;
   onReview?: () => void;
   reviewLabel?: string;
   onSendReminder?: () => void;
+  onSkipWeek?: () => void;
+  onRestoreWeek?: () => void;
+  skipBusy?: boolean;
 }) {
   const r = row;
   const overdue = r.overdue;
@@ -2184,7 +2282,14 @@ function RowItem({
         </div>
         <div className="mt-1 flex items-center gap-3 text-xs text-slate-400 flex-wrap">
           {r.leader.day && <span>{r.leader.day}{r.leader.time ? ` · ${formatMeetingTime(r.leader.time)}` : ''}</span>}
-          {r.status === 'did_not_meet' ? (
+          {r.skip ? (
+            <span>
+              {r.skip.reason === 'no_calendar_event'
+                ? 'No meeting on the CCB calendar'
+                : `Skipped by ${r.skip.by ?? 'an ACPD'}`}
+              {r.skip.note ? ` · ${r.skip.note}` : ''}
+            </span>
+          ) : r.status === 'did_not_meet' ? (
             <span>Did Not Meet</span>
           ) : r.headcount != null && r.headcount > 0 && (
             <span>
@@ -2207,6 +2312,27 @@ function RowItem({
             }`}
           >
             Send Reminder
+          </button>
+        )}
+        {onSkipWeek && (
+          <button
+            onClick={onSkipWeek}
+            disabled={skipBusy}
+            title="Clear this week — the circle wasn't expected to report"
+            className="inline-flex items-center gap-1.5 bg-zinc-700 hover:bg-zinc-600 text-slate-200 text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap disabled:opacity-50"
+          >
+            {skipBusy && <Spinner className="w-3 h-3" />}
+            Skip Week
+          </button>
+        )}
+        {onRestoreWeek && (
+          <button
+            onClick={onRestoreWeek}
+            disabled={skipBusy}
+            className="inline-flex items-center gap-1.5 bg-zinc-700 hover:bg-zinc-600 text-slate-200 text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap disabled:opacity-50"
+          >
+            {skipBusy && <Spinner className="w-3 h-3" />}
+            Undo
           </button>
         )}
         {onReview && (

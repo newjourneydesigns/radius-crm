@@ -5,6 +5,7 @@ import { APP_TIME_ZONE } from '../../../lib/dateUtils';
 import { getUserFromAuthHeader } from '../../../lib/server-supabase';
 import { categorizeDidNotMeetReason } from '../../../lib/circle-leader-toolkit/did-not-meet-reasons';
 import { submittedAttendanceCount, weekAttendanceCount } from '../../../lib/circleAttendance';
+import { skipReason, weekSkipKey } from '../../../lib/eventSummarySkips';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -591,7 +592,7 @@ export async function GET(request: Request) {
 
     let leadersQuery = db
       .from('circle_leaders')
-      .select('id, name, circle_name, ccb_group_name, campus, circle_type, acpd, day, time, frequency, meeting_start_date, status, leader_type')
+      .select('id, name, circle_name, ccb_group_name, ccb_group_id, campus, circle_type, acpd, day, time, frequency, meeting_start_date, status, leader_type')
       .order('name')
       .limit(5000);
 
@@ -668,7 +669,10 @@ export async function GET(request: Request) {
       if (fallback.error) throw fallback.error;
       snapshotRows = (fallback.data ?? []).map((row: any) => ({
         ...row,
-        ccb_event_scheduled: false,
+        // null, not false: "no CCB event this week" drops the week from what a
+        // circle owed, and a hard false on a schema without the column would
+        // excuse every circle for every week.
+        ccb_event_scheduled: null,
         ccb_report_available: false,
         leader_status: null,
         campus: null,
@@ -688,6 +692,25 @@ export async function GET(request: Request) {
       (occurrencesRes.data ?? []) as OccurrenceRow[],
       snapshotRows
     );
+
+    // Weeks an ACPD cleared. Read after the main queries because it's a small
+    // table and a failure here must not take the whole report down — an empty
+    // set just means nothing is excluded.
+    const manualSkipKeys = new Set<string>();
+    const skipsRes = await db
+      .from('event_summary_week_skips')
+      .select('leader_id, week_start_date')
+      .in('leader_id', leaderIds)
+      .gte('week_start_date', queryStart)
+      .lte('week_start_date', startOfWeekSunday(queryEnd))
+      .limit(20000);
+    if (skipsRes.error) {
+      console.warn('[circle-reporting] week skips read failed:', skipsRes.error.message);
+    } else {
+      for (const row of skipsRes.data ?? []) {
+        manualSkipKeys.add(weekSkipKey(row.leader_id, row.week_start_date));
+      }
+    }
 
     const allExpectedByKey = new Map<string, ExpectedEvent>();
     const leadersById = new Map(leaderRows.map((leader) => [leader.id, leader]));
@@ -713,6 +736,17 @@ export async function GET(request: Request) {
         const snap = indexes.snapshotsByLeaderWeek.get(`${leader.id}|${week}`);
         const effLeader = applySnapshotCadence(leader, snap);
         if (!isExpectedThisWeek(effLeader, week, snap?.leader_status)) continue;
+        // A week an ACPD cleared, or one CCB had no event for, is a week the
+        // circle owed nothing — it never enters the expected set, so it can't
+        // read as a missing summary or drag compliance down. A week that was
+        // actually reported still gets added by the loops below, which key off
+        // real submissions and occurrences, so a skip can never erase a report.
+        if (skipReason({
+          manuallySkipped: manualSkipKeys.has(weekSkipKey(leader.id, week)),
+          snapshot: snap ?? null,
+          hasCcbGroupId: !!(leader as any).ccb_group_id,
+          hasReport: false,
+        })) continue;
         const expectedDate = expectedDateForWeek(week, effLeader);
         addExpected(leader.id, week, expectedDate);
       }

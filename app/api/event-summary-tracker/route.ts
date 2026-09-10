@@ -34,6 +34,8 @@ function getDB() {
  *                          circle_meeting_occurrences (CCB); app wins on tie
  *   - last_sync:         from ccb_week_sync_log for this week
  *   - snapshots:         current-week event_summary_snapshots rows
+ *   - skips:             weeks an ACPD cleared for a circle — the circle owed
+ *                        nothing, so it is neither awaiting nor a did-not-meet
  *
  * The page pulls leaders / occurrences / submissions directly from Supabase for filtering.
  */
@@ -89,6 +91,14 @@ export async function GET(request: NextRequest) {
       .lte('meeting_date', weekEnd)
       .not('reviewed_at', 'is', null);
 
+    // Weeks an ACPD cleared. Both weeks, because a skipped week must not count
+    // toward missed-2+ either.
+    const skipsPromise = db
+      .from('event_summary_week_skips')
+      .select('leader_id, week_start_date, note, skipped_at, skipped_by')
+      .gte('week_start_date', priorWeekStart)
+      .lte('week_start_date', weekStart);
+
     const syncPromise = db
       .from('ccb_week_sync_log')
       .select('last_synced_at, last_synced_by, last_sync_summary')
@@ -102,11 +112,12 @@ export async function GET(request: NextRequest) {
       .from('users')
       .select('id, name, email');
 
-    const [orphansRes, snapshotsRes, submissionsRes, occurrencesRes, syncRes, usersRes] = await Promise.all([
+    const [orphansRes, snapshotsRes, submissionsRes, occurrencesRes, skipsRes, syncRes, usersRes] = await Promise.all([
       orphansPromise,
       snapshotsPromise,
       submissionsPromise,
       occurrencesPromise,
+      skipsPromise,
       syncPromise,
       usersPromise,
     ]);
@@ -124,9 +135,12 @@ export async function GET(request: NextRequest) {
         snapshotsError = fallbackSnapshotsRes.error;
       } else {
         snapshotsError = null;
+        // null, not false: the page derives "no CCB event this week" from this
+        // flag, and a hard false here would read as an empty calendar for every
+        // leader and silently clear the whole Awaiting list. null means unknown.
         snapshotRows = (fallbackSnapshotsRes.data ?? []).map((row) => ({
           ...row,
-          ccb_event_scheduled: false,
+          ccb_event_scheduled: null,
           ccb_report_available: false,
         }));
       }
@@ -137,6 +151,7 @@ export async function GET(request: NextRequest) {
       snapshotsRes: snapshotsError,
       submissionsRes: submissionsRes.error,
       occurrencesRes: occurrencesRes.error,
+      skipsRes: skipsRes.error,
       syncRes: syncRes.error,
     };
     for (const [label, error] of Object.entries(responseErrors)) {
@@ -149,10 +164,22 @@ export async function GET(request: NextRequest) {
     for (const row of snapshotRows) {
       stateByLeaderWeek.set(`${row.circle_leader_id}|${row.week_start_date}`, row.event_summary_state);
     }
+    // A week an ACPD cleared is a week the circle owed nothing, so it can't be
+    // half of a missed-2+ streak.
+    const skipRows = (skipsRes.data ?? []) as Array<{
+      leader_id: number;
+      week_start_date: string;
+      note: string | null;
+      skipped_at: string;
+      skipped_by: string | null;
+    }>;
+    const skippedKeys = new Set(skipRows.map((r) => `${r.leader_id}|${r.week_start_date}`));
+
     const missedSet = new Set<number>();
     const allLeaderIds = new Set<number>();
     for (const row of snapshotRows) allLeaderIds.add(row.circle_leader_id);
     for (const lid of Array.from(allLeaderIds)) {
+      if (skippedKeys.has(`${lid}|${weekStart}`) || skippedKeys.has(`${lid}|${priorWeekStart}`)) continue;
       const thisWk = stateByLeaderWeek.get(`${lid}|${weekStart}`);
       const lastWk = stateByLeaderWeek.get(`${lid}|${priorWeekStart}`);
       const missThis = thisWk === 'not_received' || thisWk === 'did_not_meet';
@@ -207,6 +234,15 @@ export async function GET(request: NextRequest) {
         reviewers,
         last_sync: syncRes.data ?? null,
         snapshots: snapshotRows.filter((row) => row.week_start_date === weekStart),
+        skips: skipRows
+          .filter((row) => row.week_start_date === weekStart)
+          .map((row) => ({
+            leader_id: row.leader_id,
+            week_start_date: row.week_start_date,
+            note: row.note,
+            skipped_at: row.skipped_at,
+            skipped_by_name: row.skipped_by ? (nameById.get(row.skipped_by) || 'Someone') : 'Someone',
+          })),
       },
       { headers: { 'Cache-Control': 'no-store' } }
     );

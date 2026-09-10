@@ -3,6 +3,16 @@
     "date": "2026-09-10",
     "date_display": "September 10, 2026",
     "date_iso": "2026-09-10",
+    "id": "event-summary-skip-week",
+    "type": "feature",
+    "category": "Event Summary Tracker",
+    "page": "/event-summary-tracker",
+    "description": "Circles that were never going to meet can now be cleared for the week. Every circle with no meeting on the CCB calendar that week — a holiday, a week the events were taken down — now moves to a new Skipped section on its own, instead of sitting in Awaiting Submission turning red. For anything the calendar doesn't cover, each waiting circle has a Skip Week button, and a skipped circle can be put back with Undo. A skipped week is not a did-not-meet and not a missing summary: it is simply a week the circle owed nothing, so it stays out of the submitted percentage, out of the Missed 2+ flag, and out of reporting and compliance. If a leader turns in a summary anyway, the summary wins and the circle moves back to the normal list. Only ACPDs can skip or restore a week."
+  },
+  {
+    "date": "2026-09-10",
+    "date_display": "September 10, 2026",
+    "date_iso": "2026-09-10",
     "id": "summary-notes-no-longer-dropped-on-save",
     "type": "fix",
     "category": "Event Summary Tracker",
