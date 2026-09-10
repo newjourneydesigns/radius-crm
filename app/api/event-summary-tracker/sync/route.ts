@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import type { EventSummaryState } from '../../../../lib/supabase';
+import { describePostgrestError, isMissingColumnError } from '../../../../lib/postgrestErrors';
 
 export const dynamic = 'force-dynamic';
 
@@ -163,16 +164,28 @@ export async function POST(request: NextRequest) {
       .filter((r): r is NonNullable<typeof r> => r !== null);
 
     if (occurrenceRows.length > 0) {
-      // Try with full columns first; if topic/notes columns are missing in
-      // some envs, retry with the minimal row.
+      // Try with full columns first. Drop back to the minimal row ONLY when the
+      // note-text columns are genuinely absent from the schema — this is one
+      // batch covering every leader in the week, so retrying blind on any error
+      // stripped the notes off all of them because of a single bad row.
       const fullRes = await supabase
         .from('circle_meeting_occurrences')
         .upsert(occurrenceRows, { onConflict: 'leader_id,meeting_date' });
-      if (fullRes.error) {
+
+      if (fullRes.error && isMissingColumnError(fullRes.error)) {
+        console.warn(
+          '[sync] occurrence upsert: note columns missing from schema, retrying without them —',
+          describePostgrestError(fullRes.error)
+        );
         const minimal = occurrenceRows.map(({ topic, notes, prayer_requests, ...rest }) => rest);
-        await supabase
+        const retryRes = await supabase
           .from('circle_meeting_occurrences')
           .upsert(minimal, { onConflict: 'leader_id,meeting_date' });
+        if (retryRes.error) {
+          console.error('[sync] occurrence upsert failed (minimal row):', describePostgrestError(retryRes.error));
+        }
+      } else if (fullRes.error) {
+        console.error('[sync] occurrence upsert failed:', describePostgrestError(fullRes.error));
       }
     }
 

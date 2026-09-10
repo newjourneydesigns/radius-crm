@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { DateTime } from 'luxon';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
+import { describePostgrestError, isMissingColumnError } from '../../../../lib/postgrestErrors';
 
 export const dynamic = 'force-dynamic';
 
@@ -168,14 +169,26 @@ export async function POST(request: NextRequest) {
               .upsert(backfillRows, { onConflict: 'leader_id,meeting_date' })
               .select('leader_id, status');
             let inserted = full.data;
-            if (full.error) {
-              // Retry without optional note columns in case the schema is missing them
+            if (full.error && isMissingColumnError(full.error)) {
+              // The note columns are genuinely absent from this schema — retry
+              // without them. Any other failure is real: log it and leave the
+              // rows unwritten rather than quietly backfilling without notes.
+              console.warn(
+                '[bulk-review] backfill: note columns missing from schema, retrying without them —',
+                describePostgrestError(full.error)
+              );
               const minimal = backfillRows.map(({ topic, notes, prayer_requests, ...rest }) => rest);
               const retry = await supabase
                 .from('circle_meeting_occurrences')
                 .upsert(minimal, { onConflict: 'leader_id,meeting_date' })
                 .select('leader_id, status');
+              if (retry.error) {
+                console.error('[bulk-review] backfill upsert failed (minimal row):', describePostgrestError(retry.error));
+              }
               inserted = retry.data ?? null;
+            } else if (full.error) {
+              console.error('[bulk-review] backfill upsert failed:', describePostgrestError(full.error));
+              inserted = null;
             }
             for (const row of inserted ?? []) {
               stampedLeaders.add(row.leader_id);

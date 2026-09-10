@@ -12,6 +12,7 @@ import {
   pickWeekOccurrence,
 } from '../../../../lib/circleOccurrences';
 import type { OccurrenceRawPayload } from '../../../../lib/circleOccurrences';
+import { describePostgrestError, isMissingColumnError } from '../../../../lib/postgrestErrors';
 import { submittedAttendanceCount } from '../../../../lib/circleAttendance';
 import { diffInfoUpdate, manualAttendeeKey } from '../../../../lib/circle-leader-toolkit/notes-formatter';
 import type { InfoUpdate, InfoUpdateRequest, ManualAttendee } from '../../../../lib/circle-leader-toolkit/notes-formatter';
@@ -626,14 +627,28 @@ export async function POST(request: NextRequest) {
           .upsert(fullRow, { onConflict: 'leader_id,meeting_date' });
 
         if (upsertRes.error) {
-          console.error('[leader-week-summary] backfill upsert failed (full row):', upsertRes.error);
-          // Retry without the columns that might not exist yet.
+          // Drop the note columns ONLY when they're genuinely absent from the
+          // schema. Retrying on any error recorded a note-less row and reported
+          // success, which reads as "the leader submitted attendance only".
+          if (!isMissingColumnError(upsertRes.error)) {
+            console.error('[leader-week-summary] backfill upsert failed:', describePostgrestError(upsertRes.error));
+            return NextResponse.json({
+              error: `Failed to record CCB event: ${upsertRes.error.message}`,
+              hint: upsertRes.error.hint ?? null,
+              details: upsertRes.error.details ?? null,
+            }, { status: 500 });
+          }
+
+          console.warn(
+            '[leader-week-summary] backfill: note columns missing from schema, retrying without them —',
+            describePostgrestError(upsertRes.error)
+          );
           const { topic, notes, prayer_requests, ...minimalRow } = fullRow as any;
           const retryRes = await supabase
             .from('circle_meeting_occurrences')
             .upsert(minimalRow, { onConflict: 'leader_id,meeting_date' });
           if (retryRes.error) {
-            console.error('[leader-week-summary] backfill upsert failed (minimal row):', retryRes.error);
+            console.error('[leader-week-summary] backfill upsert failed (minimal row):', describePostgrestError(retryRes.error));
             return NextResponse.json({
               error: `Failed to record CCB event: ${retryRes.error.message}`,
               hint: retryRes.error.hint ?? null,

@@ -3,6 +3,16 @@
     "date": "2026-09-10",
     "date_display": "September 10, 2026",
     "date_iso": "2026-09-10",
+    "id": "summary-notes-no-longer-dropped-on-save",
+    "type": "fix",
+    "category": "Event Summary Tracker",
+    "page": "/event-summary-tracker",
+    "description": "A meeting summary can no longer be saved with the leader's notes quietly missing. When Radius saved CCB summaries and the save failed, it automatically tried again without the notes, topic and prayer requests — and counted that as success. On Sync Now, which saves the whole week for every Circle at once, a single bad record was enough to strip the notes from every Circle in that run. Radius now only leaves those fields out for the one specific reason they were meant to cover, and any other failure is reported instead of being papered over, so a Circle either saves with its notes intact or tells you it didn't save."
+  },
+  {
+    "date": "2026-09-10",
+    "date_display": "September 10, 2026",
+    "date_iso": "2026-09-10",
     "id": "event-summary-picks-the-real-summary",
     "type": "fix",
     "category": "Event Summary Tracker",
