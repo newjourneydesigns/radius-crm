@@ -508,11 +508,24 @@ export async function loadLeaderEvents(
               return v;
             }),
       tableRead,
+      // Bound on the DATE, like the calendar and CCB legs above, never on the
+      // instant. `occurrence` is TIMESTAMPTZ but the submit route stores the
+      // naive "YYYY-MM-DD HH:MM:SS" string, which Postgres reads as UTC — so a
+      // 7pm Chicago meeting sits at 19:00Z. On the last day of the 12-week
+      // window `start.toISO()` carries the current time of day, and from
+      // 2pm Chicago onward it passed that instant: the calendar still listed
+      // the meeting (date-bounded) but its submission fell out of this query,
+      // and the row flipped to "Pending" for the rest of the day. Resubmitting
+      // rewrote the same excluded row, so it never cleared until the meeting
+      // aged out the next morning (reported 2026-09-10 for a 2026-06-18
+      // meeting — exactly 12 weeks). Midnight UTC of the window's first date
+      // is below every instant that date can be stored as in either
+      // timezone reading.
       supabase
         .from('circle_event_summaries')
         .select('ccb_event_id, occurrence, status, did_not_meet, submitted_via, created_at')
         .eq('leader_id', leader.id)
-        .gte('occurrence', start.toISO()!),
+        .gte('occurrence', `${startStr}T00:00:00Z`),
       supabase
         .from('circle_summary_ignored_events')
         .select('ccb_event_id, occurrence_date')

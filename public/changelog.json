@@ -3,6 +3,26 @@
     "date": "2026-09-11",
     "date_display": "September 11, 2026",
     "date_iso": "2026-09-11",
+    "id": "toolkit-events-list-shows-unconfirmed-submission",
+    "type": "improvement",
+    "category": "Circles Toolkit",
+    "page": "/circle-leader-toolkit",
+    "description": "When a Circle summary reaches Radius but the church system never confirms the save, the events list now says so — \"Your last submission couldn't be confirmed — tap to try again\" with a Not saved badge — instead of showing the same Pending badge as a meeting nobody has reported yet. The form already explained this on the spot; the list didn't, so a leader coming back later saw Pending and assumed the submit hadn't taken."
+  },
+  {
+    "date": "2026-09-11",
+    "date_display": "September 11, 2026",
+    "date_iso": "2026-09-11",
+    "id": "toolkit-oldest-event-pending-after-submit",
+    "type": "fix",
+    "category": "Circles Toolkit",
+    "page": "/circle-leader-toolkit",
+    "description": "The oldest meeting on the Circles Toolkit events list could stay marked Pending after its summary was submitted. On the last day a meeting is still inside the 12-week window, the list checked for its summary against the current time of day rather than the date, so from early afternoon onward a submitted summary for that meeting dropped out of the check while the meeting itself stayed on the list. Submitting again did not help. The summary lookup now uses the same date boundary as the events list, so a meeting shows Done as soon as its summary is filed, however old it is."
+  },
+  {
+    "date": "2026-09-11",
+    "date_display": "September 11, 2026",
+    "date_iso": "2026-09-11",
     "id": "event-summary-skip-auto-detect-removed",
     "type": "fix",
     "category": "Event Summary Tracker",

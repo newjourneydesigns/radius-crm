@@ -333,6 +333,11 @@ export default function EventsClient({
             {events.map((e) => {
               const occurEncoded = encodeURIComponent(e.occurrenceDateTime);
               const isSubmitted = !!e.submittedAt || e.hasExistingAttendance;
+              // The leader submitted but CCB never confirmed the save (see the
+              // read-back check in ccb-attendance-push.ts). A bare "Pending"
+              // here reads as "your submit didn't take", and leaders respond by
+              // resubmitting until they give up — say what actually happened.
+              const lastAttemptFailed = !isSubmitted && e.submittedStatus === 'failed';
               const href = `/circle-leader-toolkit/${groupId}/events/${e.eventId}/${occurEncoded}`;
               const statusClass = isSubmitted && e.didNotMeet
                 ? 'did-not-meet'
@@ -353,9 +358,13 @@ export default function EventsClient({
                   {/* Content */}
                   <div className="flex-1 min-w-0 px-3.5 py-3.5 flex flex-col justify-center gap-0.5">
                     <p className="text-xs text-neutral-400 truncate">{e.title}</p>
-                    {!isSubmitted && (
+                    {lastAttemptFailed ? (
+                      <p className="text-xs text-red-700 font-semibold">
+                        Your last submission couldn&apos;t be confirmed — tap to try again →
+                      </p>
+                    ) : !isSubmitted ? (
                       <p className="text-xs text-amber-700 font-semibold">Tap to submit your summary →</p>
-                    )}
+                    ) : null}
                     {isSubmitted && !e.didNotMeet && (
                       <p className="text-xs text-green-700 font-semibold">
                         Summary on file
@@ -380,7 +389,10 @@ export default function EventsClient({
                       {isSubmitted && !e.didNotMeet && (
                         <span className="cs-badge cs-badge-success">Done</span>
                       )}
-                      {!isSubmitted && (
+                      {lastAttemptFailed && (
+                        <span className="cs-badge cs-badge-danger">Not saved</span>
+                      )}
+                      {!isSubmitted && !lastAttemptFailed && (
                         <span className="cs-badge cs-badge-warning">Pending</span>
                       )}
                     </div>
