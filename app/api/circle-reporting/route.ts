@@ -592,7 +592,7 @@ export async function GET(request: Request) {
 
     let leadersQuery = db
       .from('circle_leaders')
-      .select('id, name, circle_name, ccb_group_name, ccb_group_id, campus, circle_type, acpd, day, time, frequency, meeting_start_date, status, leader_type')
+      .select('id, name, circle_name, ccb_group_name, campus, circle_type, acpd, day, time, frequency, meeting_start_date, status, leader_type')
       .order('name')
       .limit(5000);
 
@@ -736,17 +736,12 @@ export async function GET(request: Request) {
         const snap = indexes.snapshotsByLeaderWeek.get(`${leader.id}|${week}`);
         const effLeader = applySnapshotCadence(leader, snap);
         if (!isExpectedThisWeek(effLeader, week, snap?.leader_status)) continue;
-        // A week an ACPD cleared, or one CCB had no event for, is a week the
-        // circle owed nothing — it never enters the expected set, so it can't
-        // read as a missing summary or drag compliance down. A week that was
-        // actually reported still gets added by the loops below, which key off
-        // real submissions and occurrences, so a skip can never erase a report.
-        if (skipReason({
-          manuallySkipped: manualSkipKeys.has(weekSkipKey(leader.id, week)),
-          snapshot: snap ?? null,
-          hasCcbGroupId: !!(leader as any).ccb_group_id,
-          hasReport: false,
-        })) continue;
+        // A week an ACPD cleared is a week the circle owed nothing — it never
+        // enters the expected set, so it can't read as a missing summary or
+        // drag compliance down. A week that was actually reported still gets
+        // added by the loops below, which key off real submissions and
+        // occurrences, so a skip can never erase a report.
+        if (skipReason({ manuallySkipped: manualSkipKeys.has(weekSkipKey(leader.id, week)) })) continue;
         const expectedDate = expectedDateForWeek(week, effLeader);
         addExpected(leader.id, week, expectedDate);
       }

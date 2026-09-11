@@ -904,12 +904,7 @@ export default function EventSummaryTrackerPage() {
       // summary or attendance arrived anyway, the meeting happened and the
       // report is what matters.
       const manualSkip = skipByLeader.get(l.id) ?? null;
-      const reason = skipReason({
-        manuallySkipped: !!manualSkip,
-        snapshot: snap ?? null,
-        hasCcbGroupId: !!l.ccb_group_id,
-        hasReport: hasSubmission || !!snap?.ccb_report_available,
-      });
+      const reason = skipReason({ manuallySkipped: !!manualSkip });
       const skip = reason
         ? { reason, by: manualSkip?.skipped_by_name ?? null, note: manualSkip?.note ?? null }
         : null;
@@ -1609,7 +1604,7 @@ export default function EventSummaryTrackerPage() {
               renderRow={(r) => (
                 <RowItem
                   row={r}
-                  onRestoreWeek={r.skip?.reason === 'manual' ? () => setWeekSkip(r.leader.id, 'unskip') : undefined}
+                  onRestoreWeek={() => setWeekSkip(r.leader.id, 'unskip')}
                   skipBusy={skipBusy.has(r.leader.id)}
                 />
               )}
@@ -2284,9 +2279,7 @@ function RowItem({
           {r.leader.day && <span>{r.leader.day}{r.leader.time ? ` · ${formatMeetingTime(r.leader.time)}` : ''}</span>}
           {r.skip ? (
             <span>
-              {r.skip.reason === 'no_calendar_event'
-                ? 'No meeting on the CCB calendar'
-                : `Skipped by ${r.skip.by ?? 'an ACPD'}`}
+              Skipped by {r.skip.by ?? 'an ACPD'}
               {r.skip.note ? ` · ${r.skip.note}` : ''}
             </span>
           ) : r.status === 'did_not_meet' ? (

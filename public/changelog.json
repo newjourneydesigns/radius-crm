@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-09-11",
+    "date_display": "September 11, 2026",
+    "date_iso": "2026-09-11",
+    "id": "event-summary-skip-auto-detect-removed",
+    "type": "fix",
+    "category": "Event Summary Tracker",
+    "page": "/event-summary-tracker",
+    "description": "For a few hours on September 10, the tracker moved circles into Skipped on its own whenever it believed there was no meeting on the CCB calendar that week. The signal it was reading turned out to mean \"no summary yet\", not \"no meeting\", so every circle that simply hadn't reported was cleared at once and Awaiting Submission read zero. Automatic skipping is gone; a circle now only leaves Awaiting Submission when it reports or when an ACPD skips it. Circles that were wrongly skipped are back on the list."
+  },
+  {
     "date": "2026-09-10",
     "date_display": "September 10, 2026",
     "date_iso": "2026-09-10",
@@ -7,7 +17,7 @@
     "type": "feature",
     "category": "Event Summary Tracker",
     "page": "/event-summary-tracker",
-    "description": "Circles that were never going to meet can now be cleared for the week. Every circle with no meeting on the CCB calendar that week — a holiday, a week the events were taken down — now moves to a new Skipped section on its own, instead of sitting in Awaiting Submission turning red. For anything the calendar doesn't cover, each waiting circle has a Skip Week button, and a skipped circle can be put back with Undo. A skipped week is not a did-not-meet and not a missing summary: it is simply a week the circle owed nothing, so it stays out of the submitted percentage, out of the Missed 2+ flag, and out of reporting and compliance. If a leader turns in a summary anyway, the summary wins and the circle moves back to the normal list. Only ACPDs can skip or restore a week."
+    "description": "Circles that were never going to meet can now be cleared for the week. Every waiting circle on the Event Summary Tracker has a Skip Week button; a skipped circle moves to a new Skipped section and can be put back with Undo. A skipped week is not a did-not-meet and not a missing summary: it is simply a week the circle owed nothing, so it stays out of the submitted percentage, out of the Missed 2+ flag, and out of reporting and compliance. If a leader turns in a summary anyway, the summary wins and the circle moves back to the normal list. Only ACPDs can skip or restore a week."
   },
   {
     "date": "2026-09-10",
