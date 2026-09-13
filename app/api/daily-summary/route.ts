@@ -188,10 +188,11 @@ async function buildDigestForUser(
   const encsDueToday: EncouragementItem[] = (encsRaw || []).filter(e => e.message_date === today).map(toEnc);
   const encsOverdue: EncouragementItem[] = (encsRaw || []).filter(e => e.message_date < today).map(toEnc);
 
-  // 4. Follow-ups from circle_leaders (all with follow_up_required, due today or overdue)
+  // 4. Follow-ups on this user's own leaders (due today or overdue)
   const { data: followUpsRaw } = await supabase
     .from('circle_leaders')
     .select('id, name, campus, follow_up_date')
+    .eq('acpd', user.name)
     .eq('follow_up_required', true)
     .or(`follow_up_date.lte.${today},follow_up_date.is.null`)
     .order('follow_up_date', { ascending: true });
@@ -280,10 +281,11 @@ async function buildDigestForUser(
     .filter(l => doesCircleMeetOnDate(tomorrow, l.day, l.frequency, l.meeting_start_date))
     .map(toCircleMeeting);
 
-  // 8. Birthdays today — query all leaders with a birthday and filter by today's month/day
+  // 8. Birthdays today — this user's leaders with a birthday, filtered by today's month/day
   const { data: birthdayLeaders } = await supabase
     .from('circle_leaders')
     .select('id, name, campus, birthday, phone')
+    .eq('acpd', user.name)
     .not('birthday', 'is', null)
     .neq('birthday', '')
     .not('status', 'in', '("Inactive","Removed")');

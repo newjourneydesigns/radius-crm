@@ -170,10 +170,11 @@ export async function POST(request: NextRequest) {
       note: e.note,
     });
 
-    // ── 4. Follow-ups ────────────────────────────────────────────────────
+    // ── 4. Follow-ups (this user's leaders only) ─────────────────────────
     const { data: followUpsRaw } = await supabase
       .from('circle_leaders')
       .select('id, name, campus, follow_up_date')
+      .eq('acpd', userName)
       .eq('follow_up_required', true)
       .or(`follow_up_date.lte.${today},follow_up_date.is.null`)
       .order('follow_up_date', { ascending: true });
@@ -246,10 +247,11 @@ export async function POST(request: NextRequest) {
       .filter(l => doesCircleMeetOnDate(tomorrow, l.day, l.frequency, l.meeting_start_date))
       .map(toCircleMeeting);
 
-    // ── 8. Birthdays today ─────────────────────────────────────────────
+    // ── 8. Birthdays today (this user's leaders only) ───────────────────
     const { data: birthdayLeaders } = await supabase
       .from('circle_leaders')
       .select('id, name, campus, birthday, phone')
+      .eq('acpd', userName)
       .not('birthday', 'is', null)
       .neq('birthday', '')
       .not('status', 'in', '("Inactive","Removed")');
