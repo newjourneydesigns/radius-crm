@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-09-13",
+    "date_display": "September 13, 2026",
+    "date_iso": "2026-09-13",
+    "id": "daily-digest-email-acpd-scoping",
+    "type": "fix",
+    "category": "Daily Digest",
+    "page": "/profile",
+    "description": "Your daily digest email now only lists follow-ups and birthdays for Circle Leaders assigned to you. Both sections were querying every leader in Radius regardless of ACPD, so other directors' leaders showed up in your Overdue Follow-Ups and Birthdays. The Today page was already scoped correctly — the email now matches it."
+  },
+  {
     "date": "2026-09-11",
     "date_display": "September 11, 2026",
     "date_iso": "2026-09-11",
