@@ -273,3 +273,39 @@ export async function recordEventGroupMap(
   }
   return { written };
 }
+
+/**
+ * Union a group's CCB calendar into the map, fire-and-forget.
+ *
+ * Every place that pays for `getGroupCalendarEvents` is holding the only
+ * evidence CCB ever gives us that an event belongs to a group, and until now
+ * only the nightly prewarm wrote it down. Prewarm refreshes a group's calendar
+ * on its meeting day or when its cache row is over a week stale — and the
+ * toolkit's own read path stamps `synced_at` fresh on every live fetch, so a
+ * group whose `day` value is blank or wrong can keep its row young enough that
+ * the stale safety net never fires for it. Such a group's newly created events
+ * were never mapped, and `loadLastAttendedFromFacts` (which attributes purely
+ * through this map) silently left their attendance out of the roster: a circle
+ * that added a 9/6 meeting to CCB after the fact still read "last attended
+ * August" for everyone who was there.
+ *
+ * So the read paths record what they learn too. Never awaited and never
+ * throws — mapping is bookkeeping, and a leader's page must not wait on it.
+ */
+export function rememberGroupCalendarEvents(
+  supabase: Supabase,
+  groupId: string | number | null | undefined,
+  calendarEvents: unknown
+): void {
+  const ccbGroupId = groupId != null ? String(groupId).trim() : '';
+  if (!ccbGroupId || !Array.isArray(calendarEvents) || calendarEvents.length === 0) return;
+
+  const pairs = calendarEvents
+    .map((e) => ({ ccbEventId: String((e as { eventId?: unknown })?.eventId ?? '').trim(), ccbGroupId }))
+    .filter((p) => p.ccbEventId);
+  if (pairs.length === 0) return;
+
+  void recordEventGroupMap(supabase, pairs, 'calendar').catch((e) => {
+    console.warn('[attendance-facts] calendar map write threw:', e);
+  });
+}

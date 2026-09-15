@@ -1,5 +1,25 @@
 [
   {
+    "date": "2026-09-15",
+    "date_display": "September 15, 2026",
+    "date_iso": "2026-09-15",
+    "id": "toolkit-attendance-missing-for-late-added-ccb-event",
+    "type": "fix",
+    "category": "Circles Toolkit",
+    "page": "/circle-leader-toolkit",
+    "description": "Attendance recorded in the church system against an event created after the meeting now reaches the Circles Toolkit roster. A circle that met on a holiday, then set the event up in CCB a few days later and took attendance there, kept reading \"last attended\" as of the previous meeting for everyone who was there. Radius knew each person attended, but nothing had recorded that the newly created event belonged to that circle, so the roster left the meeting out. The toolkit now files that link every time it reads a circle's calendar, the nightly job does the same for every circle in the church, and existing links have been backfilled — so affected rosters correct themselves on the next page load."
+  },
+  {
+    "date": "2026-09-15",
+    "date_display": "September 15, 2026",
+    "date_iso": "2026-09-15",
+    "id": "password-reset-link-stuck-verifying",
+    "type": "fix",
+    "category": "Sign In",
+    "page": "/login",
+    "description": "The Set New Password page no longer spins on \"Verifying reset link\" forever. When a reset link had expired or been used already — which happens on its own when an email provider opens the link to scan it before you do — the page had nothing to say and just kept spinning. It now explains what happened within a few seconds and points you back to sign-in for a fresh link or a magic link instead."
+  },
+  {
     "date": "2026-09-13",
     "date_display": "September 13, 2026",
     "date_iso": "2026-09-13",

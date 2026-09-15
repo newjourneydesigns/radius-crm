@@ -34,6 +34,7 @@ import { createServiceSupabaseClient } from '../server-supabase';
 import { createTimer } from './timing';
 import { isDidNotMeetEvent } from './did-not-meet-reasons';
 import { loadLastAttendedFromFacts } from './attendance-facts-read';
+import { rememberGroupCalendarEvents } from '../ccb/attendance-facts';
 
 // ---------------------------------------------------------------------------
 // Roster
@@ -680,6 +681,8 @@ export async function loadLeaderAttendance(leader: SessionLeader): Promise<LoadA
       }),
     ]);
     timer.mark('ccbFetch');
+
+    rememberGroupCalendarEvents(supabase, groupId, calendarEvents);
 
     const base = computeLastAttended(xml, groupId, calendarEvents);
     storeDerivedLastAttended(supabase, groupId, startStr, endStr, base);

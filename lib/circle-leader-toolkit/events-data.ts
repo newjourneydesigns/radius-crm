@@ -19,6 +19,7 @@ import { loadOccurrenceStatuses, lookupOccurrenceStatus, syncCoversCalendar } fr
 import { createTimer } from './timing';
 import { isDidNotMeetEvent } from './did-not-meet-reasons';
 import { doesMeetingFrequencyIncludeDate } from '../meetingFrequency';
+import { rememberGroupCalendarEvents } from '../ccb/attendance-facts';
 
 export type CircleEventRow = {
   eventId: string;
@@ -505,6 +506,10 @@ export async function loadLeaderEvents(
             .then((v) => {
               calFromCcb = true;
               cacheSet(ccbCalCache, cacheKey, v, CCB_CAL_TTL_MS);
+              // We just paid CCB for the one thing that says which events are
+              // this group's. Write it down — see rememberGroupCalendarEvents
+              // for why prewarm alone doesn't catch every group.
+              rememberGroupCalendarEvents(supabase, leader.ccb_group_id, v);
               return v;
             }),
       tableRead,
@@ -788,6 +793,7 @@ async function loadLeaderCalendar(leader: SessionLeader): Promise<CalendarEvent[
   const ccb = createCCBClient({ module: 'circle-summary', action: 'list_events' });
   const events = await ccb.getGroupCalendarEvents(String(leader.ccb_group_id), startStr, endStr);
   cacheSet(ccbCalCache, cacheKey, events, CCB_CAL_TTL_MS);
+  rememberGroupCalendarEvents(supabase, leader.ccb_group_id, events);
   return events;
 }
 
