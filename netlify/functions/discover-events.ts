@@ -61,7 +61,8 @@ const handler = schedule('15 10 * * *', async () => {
 
     console.log(
       `Event discovery (calendar) complete: ${result.leaders} leaders, ${result.updated} updated, ` +
-        `${result.unchanged} unchanged, ${result.noCalendar} without a cached calendar, ${result.errors} errors`
+        `${result.unchanged} unchanged, ${result.noCalendar} without a cached calendar, ` +
+        `${result.eventGroupPairsSent} event/group pairs mapped, ${result.errors} errors`
     );
     return { statusCode: 200, body: JSON.stringify(result) };
   } catch (err) {
