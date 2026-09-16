@@ -2608,6 +2608,16 @@ ${attendeesBlock}
           first_name: parts[0],
           last_name: parts.slice(1).join(' '),
         });
+        if (parts.length > 2) {
+          // "Mary Jo Smith" — CCB holds the surname as "Smith", so the line
+          // above asks for "Jo Smith" and matches nobody. Try the last token
+          // as the surname too, so a middle name can't hide the person.
+          paramSets.push({
+            srv: 'individual_search',
+            first_name: parts[0],
+            last_name: parts[parts.length - 1],
+          });
+        }
       } else {
         paramSets.push({ srv: 'individual_search', last_name: parts[0] });
         paramSets.push({ srv: 'individual_search', first_name: parts[0] });

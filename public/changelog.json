@@ -7,7 +7,7 @@
     "type": "fix",
     "category": "Circle Leader Toolkit",
     "page": "/circle-leader-toolkit",
-    "description": "Searching for someone by their first name now finds them. Adding a person to your Circle searches Church Community Builder, and a search of a single word was only ever sent as a last name — so a first name, or the first few letters of one, came back empty and you had to open CCB to look up the full spelling before the toolkit would turn them up. A one-word search now checks first names and last names together and merges what comes back, sorted by last name. Full-name and phone searches work exactly as before."
+    "description": "Searching for someone by their first name now finds them. Adding a person to your Circle searches Church Community Builder, and a search of a single word was only ever sent as a last name — so a first name, or the first few letters of one, came back empty and you had to open CCB to look up the full spelling before the toolkit would turn them up. A one-word search now checks first names and last names together and merges what comes back, sorted by last name. A name with a middle name in it, like “Mary Jo Smith,” now matches as well — that used to look for the surname “Jo Smith” and find nobody. Phone searches work exactly as before."
   },
   {
     "date": "2026-09-13",
