@@ -2628,26 +2628,49 @@ ${attendeesBlock}
       paramSets.map((set) => this.runIndividualSearch(set))
     );
 
-    // Every leg failing is a real CCB fault and still throws. One leg failing
-    // hands back the half that did answer, which beats an empty roster search.
     const fulfilled = settled.filter(
       (r): r is PromiseFulfilledResult<CCBIndividualSearchResult[]> => r.status === 'fulfilled'
     );
-    if (!fulfilled.length) {
-      const first = settled[0];
-      throw first && first.status === 'rejected'
-        ? first.reason
-        : new Error('Failed to search individuals: Unknown error');
-    }
+    const rejected = settled.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected'
+    );
 
     const merged = new Map<string, CCBIndividualSearchResult>();
     for (const leg of fulfilled) {
       for (const person of leg.value) merged.set(person.id, person);
     }
 
+    // A leg that threw — a CCB 403, a 429, a tripped circuit breaker, the daily
+    // budget — renders as an empty list, which is the same pixels as "nobody by
+    // that name" and sends a leader hunting for a person who is right there. So
+    // surface the fault whenever nothing came back to contradict it. One leg
+    // failing while the other answers still hands back the half we got.
+    if (rejected.length && merged.size === 0) {
+      throw rejected[0].reason;
+    }
+
+    // Order by how well each person answers what was typed, NOT alphabetically.
+    // Both pickers show only the first handful (RosterClient.tsx and
+    // EventFormClient.tsx each slice to 8), and merging two legs makes the set
+    // bigger — so a surname-sorted list can bury the person a leader searched
+    // for behind strangers who merely matched the other leg.
+    const needle = trimmed.toLowerCase();
+    const relevance = (p: CCBIndividualSearchResult): number => {
+      const first = p.firstName.toLowerCase();
+      const last = p.lastName.toLowerCase();
+      const full = p.fullName.toLowerCase();
+      if (full === needle) return 0;
+      if (first === needle || last === needle) return 1;
+      if (full.startsWith(needle) || first.startsWith(needle) || last.startsWith(needle)) return 2;
+      if (full.includes(needle)) return 3;
+      return 4;
+    };
+
     return Array.from(merged.values()).sort(
       (a, b) =>
-        a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
+        relevance(a) - relevance(b) ||
+        a.lastName.localeCompare(b.lastName) ||
+        a.firstName.localeCompare(b.firstName)
     );
   }
 
