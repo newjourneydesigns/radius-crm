@@ -260,6 +260,20 @@ export interface CCBConfig {
 
 // ---- CCB Client Class ----
 
+export type CCBIndividualSearchResult = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  mobilePhone: string;
+  status: string;
+  statusId: string;
+  isActive: boolean;
+  profileLink: string;
+};
+
 export class CCBClient {
   private readonly baseUrl: string;
   private readonly parser: XMLParser;
@@ -2569,19 +2583,7 @@ ${attendeesBlock}
    * Search for individuals in CCB by name or phone number.
    * Uses the `individual_search` CCB API service.
    */
-  async searchIndividuals(query: string): Promise<Array<{
-    id: string;
-    firstName: string;
-    lastName: string;
-    fullName: string;
-    email: string;
-    phone: string;
-    mobilePhone: string;
-    status: string;
-    statusId: string;
-    isActive: boolean;
-    profileLink: string;
-  }>> {
+  async searchIndividuals(query: string): Promise<CCBIndividualSearchResult[]> {
     const trimmed = query.trim();
     if (!trimmed) return [];
 
@@ -2589,24 +2591,60 @@ ${attendeesBlock}
     const digitsOnly = trimmed.replace(/\D/g, '');
     const isPhone = digitsOnly.length >= 7;
 
-    const params: Record<string, string | number | boolean> = {
-      srv: 'individual_search',
-    };
-
+    // One CCB call per param set. `individual_search` only matches the fields
+    // it is handed and has no combined-name param, so a lone word sent as
+    // last_name found nobody who goes by that first name — a leader had to open
+    // CCB for the full spelling before the roster would turn them up. A single
+    // word can be either name, so ask both ways and merge.
+    const paramSets: Array<Record<string, string | number | boolean>> = [];
     if (isPhone) {
       // Search by phone — CCB supports phone as a search param
-      params.phone = trimmed;
+      paramSets.push({ srv: 'individual_search', phone: trimmed });
     } else {
-      // Search by name — split into first/last if space detected
       const parts = trimmed.split(/\s+/);
       if (parts.length >= 2) {
-        params.first_name = parts[0];
-        params.last_name = parts.slice(1).join(' ');
+        paramSets.push({
+          srv: 'individual_search',
+          first_name: parts[0],
+          last_name: parts.slice(1).join(' '),
+        });
       } else {
-        params.last_name = parts[0];
+        paramSets.push({ srv: 'individual_search', last_name: parts[0] });
+        paramSets.push({ srv: 'individual_search', first_name: parts[0] });
       }
     }
 
+    const settled = await Promise.allSettled(
+      paramSets.map((set) => this.runIndividualSearch(set))
+    );
+
+    // Every leg failing is a real CCB fault and still throws. One leg failing
+    // hands back the half that did answer, which beats an empty roster search.
+    const fulfilled = settled.filter(
+      (r): r is PromiseFulfilledResult<CCBIndividualSearchResult[]> => r.status === 'fulfilled'
+    );
+    if (!fulfilled.length) {
+      const first = settled[0];
+      throw first && first.status === 'rejected'
+        ? first.reason
+        : new Error('Failed to search individuals: Unknown error');
+    }
+
+    const merged = new Map<string, CCBIndividualSearchResult>();
+    for (const leg of fulfilled) {
+      for (const person of leg.value) merged.set(person.id, person);
+    }
+
+    return Array.from(merged.values()).sort(
+      (a, b) =>
+        a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
+    );
+  }
+
+  /** A single `individual_search` call, parsed. See `searchIndividuals`. */
+  private async runIndividualSearch(
+    params: Record<string, string | number | boolean>
+  ): Promise<CCBIndividualSearchResult[]> {
     if (IS_DEV) {
       console.log(`🔍 CCB Individual Search: ${JSON.stringify(params)}`);
     }
