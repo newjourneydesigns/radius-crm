@@ -95,14 +95,23 @@ export async function POST(request: Request) {
         if (results.length > 0) {
           let bestMatch = results[0];
           let bestScore = nameMatchScore(searchName, results[0].fullName);
+          // Two people scoring the same means the name does not identify one
+          // person — two Mary Smiths tie on "Mary Jo Smith". The birthday this
+          // picks is written straight to circle_leaders with no confirmation
+          // step, and birthdays are what keep anyone under 18 out of a bulk
+          // text, so guessing is worse than the 404 below.
+          let tied = false;
           for (const r of results.slice(1)) {
             const score = nameMatchScore(searchName, r.fullName);
             if (score > bestScore) {
               bestScore = score;
               bestMatch = r;
+              tied = false;
+            } else if (score === bestScore) {
+              tied = true;
             }
           }
-          if (bestScore > 0) {
+          if (bestScore > 0 && !tied) {
             individualId = bestMatch.id;
           }
         }

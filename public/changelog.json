@@ -1,5 +1,25 @@
 [
   {
+    "date": "2026-09-16",
+    "date_display": "September 16, 2026",
+    "date_iso": "2026-09-16",
+    "id": "birthday-lookup-ambiguous-name-guard",
+    "type": "fix",
+    "category": "Birthdays",
+    "page": "/dashboard",
+    "description": "Looking up a Circle Leader's birthday in Church Community Builder no longer guesses when the name matches more than one person. If two people fit equally well — two Mary Smiths, say — it now reports that it could not find them instead of silently saving a stranger's birthday to the leader's record. Birthdays are what keep anyone under 18 out of a bulk text, so a wrong one is worse than a missing one."
+  },
+  {
+    "date": "2026-09-16",
+    "date_display": "September 16, 2026",
+    "date_iso": "2026-09-16",
+    "id": "toolkit-roster-search-first-name",
+    "type": "fix",
+    "category": "Circle Leader Toolkit",
+    "page": "/circle-leader-toolkit",
+    "description": "Searching for someone by their first name now finds them. Adding a person to your Circle searches Church Community Builder, and a search of a single word was only ever sent as a last name — so a first name, or the first few letters of one, came back empty and you had to open CCB to look up the full spelling before the toolkit would turn them up. A one-word search now checks first names and last names together and merges what comes back, with the closest matches to what you typed listed first — the picker only shows the first eight, so alphabetical order could bury the person you were looking for. A name with a middle name in it, like “Mary Jo Smith,” now matches as well — that used to look for the surname “Jo Smith” and find nobody. Phone searches work exactly as before."
+  },
+  {
     "date": "2026-09-13",
     "date_display": "September 13, 2026",
     "date_iso": "2026-09-13",
