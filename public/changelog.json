@@ -3,6 +3,17 @@
     "date": "2026-09-17",
     "date_display": "September 17, 2026",
     "date_iso": "2026-09-17",
+    "id": "ccb-reconcile-missing-radius-rows",
+    "type": "fix",
+    "category": "Circles Reporting",
+    "page": "/circle-reporting",
+    "description": "The CCB reconciliation check now lists circles where CCB recorded a meeting but Radius stored no row for it. These were being dropped from the comparison because a missing row was treated as “nothing to compare” rather than as zero attendance — so the circles whose attendance Radius never captured were exactly the ones hidden from the list meant to find them.",
+    "version": "2.55.1"
+  },
+  {
+    "date": "2026-09-17",
+    "date_display": "September 17, 2026",
+    "date_iso": "2026-09-17",
     "id": "circles-reporting-ccb-reconciliation",
     "type": "improvement",
     "category": "Circles Reporting",

@@ -502,11 +502,16 @@ export async function GET(request: NextRequest) {
         const stored = o.leaderId !== null ? radiusByLeader.get(o.leaderId) : undefined;
         const submitted = o.leaderId !== null ? submissionByLeader.get(o.leaderId) : undefined;
         const ccbStatus = classifyStatus(o);
+        // A circle RADIUS holds no row for reports nothing, which is exactly
+        // what `radiusTotalAttendance` counts it as. The per-row delta has to
+        // agree, or the rows silently stop explaining the total: treating a
+        // missing row as null dropped it from the list below, hiding the very
+        // circles whose attendance RADIUS never recorded.
+        const radiusHasRow = Boolean(stored) || Boolean(submitted);
         const radiusAttendance = submitted && submitted.attendance > 0
           ? submitted.attendance
-          : stored?.attendance ?? null;
-        const attendanceDelta =
-          radiusAttendance === null ? null : o.actualAttendance - radiusAttendance;
+          : stored?.attendance ?? 0;
+        const attendanceDelta = o.actualAttendance - radiusAttendance;
         const statusMismatch = Boolean(stored) && stored!.status !== ccbStatus;
         return {
           leader_id: o.leaderId,
@@ -519,6 +524,7 @@ export async function GET(request: NextRequest) {
           ccb_attendance: o.actualAttendance,
           ccb_named: o.namedAttendees,
           ccb_unnamed: o.headCountField,
+          radius_has_row: radiusHasRow,
           radius_stored_status: stored?.status ?? null,
           radius_stored_attendance: stored?.attendance ?? null,
           radius_submitted_attendance: submitted?.attendance ?? null,
@@ -534,8 +540,15 @@ export async function GET(request: NextRequest) {
             o.actualAttendance > submitted.attendance,
         };
       })
-      .filter((d) => d.status_mismatch || (d.attendance_delta ?? 0) !== 0)
-      .sort((a, b) => Math.abs(b.attendance_delta ?? 0) - Math.abs(a.attendance_delta ?? 0));
+      // A missing row is reportable even at zero attendance when CCB knows
+      // something RADIUS does not — a did-not-meet it never recorded.
+      .filter(
+        (d) =>
+          d.status_mismatch ||
+          d.attendance_delta !== 0 ||
+          (!d.radius_has_row && d.ccb_status !== 'no_report')
+      )
+      .sort((a, b) => Math.abs(b.attendance_delta) - Math.abs(a.attendance_delta));
 
     // The mirror image of an orphan. An active weekly circle with no CCB
     // occurrence at all still counts toward the page's `expected` denominator,
@@ -602,6 +615,14 @@ export async function GET(request: NextRequest) {
             ccbTruthWithOrphans.totalAttendance - ccbTruth.totalAttendance,
           circles_hidden_in_orphans: ccbTruthWithOrphans.circles - ccbTruth.circles,
           circles_with_disagreement: disagreements.length,
+          // CCB reported a meeting RADIUS stored nothing for. Distinct from an
+          // orphan: the circle IS matched, the occurrence row just isn't there.
+          circles_ccb_reported_but_radius_has_no_row: disagreements.filter(
+            (d) => !d.radius_has_row
+          ).length,
+          attendance_in_rows_radius_is_missing: disagreements
+            .filter((d) => !d.radius_has_row)
+            .reduce((sum, d) => sum + d.ccb_attendance, 0),
         },
 
         // The worklist. Every row here is a circle whose CCB attendance is
