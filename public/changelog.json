@@ -1,5 +1,27 @@
 [
   {
+    "id": "ccb-reconcile-unexplained-attendance",
+    "type": "improvement",
+    "category": "Circles Reporting",
+    "description": "The CCB reconciliation check now groups and labels attendance that belongs to no Radius circle, instead of leaving it out of the totals unexplained. Circles run outside the Adult Circles structure — VC College being the standing example — have no Circle Leader record to attach to, so their people now show up as a named line rather than as a silent shortfall.",
+    "page": "/circle-reporting",
+    "date": "2026-09-17",
+    "date_display": "September 17, 2026",
+    "date_iso": "2026-09-17",
+    "version": "2.56.0"
+  },
+  {
+    "id": "ccb-event-group-map-self-healing",
+    "type": "fix",
+    "category": "Circle Attendance",
+    "description": "“When did this person last attend” now answers correctly for every circle. Radius could only link a CCB meeting to a circle if it had already seen that meeting on a cached calendar or in a toolkit submission — and the nightly attendance sync only looked at meetings it already knew about, so any meeting none of them had seen could never be learned by any of them. About one meeting in five was affected. The sync now recognises those meetings by the circle's name and records the link itself, so the gap closes on its own overnight with no extra load on CCB.",
+    "page": "/circle-reporting",
+    "date": "2026-09-17",
+    "date_display": "September 17, 2026",
+    "date_iso": "2026-09-17",
+    "version": "2.56.0"
+  },
+  {
     "date": "2026-09-17",
     "date_display": "September 17, 2026",
     "date_iso": "2026-09-17",

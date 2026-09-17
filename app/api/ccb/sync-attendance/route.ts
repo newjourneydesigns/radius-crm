@@ -5,7 +5,18 @@ import { createCCBClient, type LinkRow } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 import { syncRosterCacheForLeader } from '../../../../lib/ccb/roster-cache';
-import { factsFromAttendanceRows, recordAttendanceFacts } from '../../../../lib/ccb/attendance-facts';
+import { factsFromAttendanceRows, recordAttendanceFacts, recordEventGroupMap } from '../../../../lib/ccb/attendance-facts';
+import { buildLeaderNameIndex, pairsForUnmappedEvents } from '../../../../lib/ccb/event-group-match';
+
+/**
+ * PostgREST puts an `in.(...)` list in the query string, so a week's worth of
+ * church-wide event ids has to be asked for in batches or the URL 414s.
+ */
+function chunkIds(ids: string[], size = 400): string[][] {
+  const out: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
+  return out;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -338,6 +349,56 @@ export async function POST(request: NextRequest) {
     console.log(
       `📦 Attendance facts: ${factsResult.written} rows across ${factsResult.occurrences} occurrences`
     );
+  }
+
+  // ── Teach the event → group map what this payload just showed us ──
+  //
+  // The facts above are keyed on CCB's identifiers and are complete. What
+  // decays is ATTRIBUTION: `ccb_event_group_map` only ever learned events from
+  // a 12-week calendar cache or a toolkit submission, and the loop below only
+  // looks at events already listed in `circle_leaders.ccb_event_ids` — so an
+  // event none of those knew about could never be learned by any of them. On
+  // the week of 2026-09-06 that left the map covering 232 of 287 circle
+  // occurrences, and every unmapped one is a meeting `ccb_attendance_facts`
+  // cannot attribute at read time.
+  //
+  // This payload names every event, and CCB titles a circle's events with the
+  // group name, so the gap closes here with no extra CCB call. The daily
+  // semester-wide pass therefore backfills the whole term on its first run,
+  // exactly as the facts table does.
+  //
+  // Writes are additive and never re-point an event the map already holds, so
+  // this cannot disturb an existing attribution.
+  try {
+    const seenEvents = Array.from(attendanceByEventId.entries()).map(([eventId, rows]) => ({
+      eventId,
+      title: rows[0]?.title ?? '',
+    }));
+
+    const alreadyMapped = new Set<string>();
+    for (const batch of chunkIds(seenEvents.map((e) => e.eventId))) {
+      const { data } = await supabase
+        .from('ccb_event_group_map')
+        .select('ccb_event_id')
+        .in('ccb_event_id', batch);
+      for (const row of data ?? []) alreadyMapped.add(String(row.ccb_event_id));
+    }
+
+    const pairs = pairsForUnmappedEvents(
+      seenEvents,
+      buildLeaderNameIndex(activeLeaders),
+      alreadyMapped
+    );
+
+    if (pairs.length > 0) {
+      const mapResult = await recordEventGroupMap(supabase, pairs, 'attendance_match');
+      console.log(
+        `📦 Event/group map: learned ${mapResult.written} of ${seenEvents.length - alreadyMapped.size} unmapped events by name`
+      );
+    }
+  } catch (e: any) {
+    // Bookkeeping must never fail the sync that carries the attendance itself.
+    console.warn('[sync-attendance] event/group map backfill failed:', e?.message || e);
   }
 
   // ── Cross-reference and upsert ────────────────────────────────────

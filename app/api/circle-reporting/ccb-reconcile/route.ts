@@ -49,6 +49,11 @@ import { createCCBClient, type AttendanceSummary } from '../../../../lib/ccb/ccb
 import { createServiceSupabaseClient } from '../../../../lib/server-supabase';
 import { verifyAdminAccess } from '../../../../lib/auth-middleware';
 import { submittedAttendanceCount } from '../../../../lib/circleAttendance';
+import {
+  buildLeaderNameIndex,
+  matchEventTitleToLeader,
+  CIRCLE_EVENT_NAME_RE,
+} from '../../../../lib/ccb/event-group-match';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -63,13 +68,6 @@ const CAMPUS_BY_CODE: Record<string, string> = {
   GVT: 'Gainesville',
   ONL: 'Online',
 };
-
-/**
- * `CODE | S# | Leader Name` — the shape of every Adult Circles group name in
- * CCB. Verified against a 294-row export for 2026-09-06: 100% conformance, so
- * a non-match is a reliable signal that a row is not a circle meeting.
- */
-const CIRCLE_NAME_RE = /^\s*(FMT|DNT|LVT|GVT|ONL)\s*\|\s*(S\d+)\s*\|\s*(.+?)\s*$/i;
 
 /** Only the columns this route selects. The repo has no generated DB types. */
 type GroupCacheRow = {
@@ -363,19 +361,12 @@ export async function GET(request: NextRequest) {
       .limit(5000);
     const leaderRows = (leaderRowsRaw ?? []) as LeaderRow[];
     const leaderByGroup = new Map<string, LeaderRow>();
-    const leaderByCcbName = new Map<string, LeaderRow>();
-    const leaderByPersonName = new Map<string, LeaderRow>();
-    const norm = (v: string | null | undefined) => (v ?? '').trim().toLowerCase();
     for (const l of leaderRows) {
       leaderByGroup.set(String(l.ccb_group_id), l);
-      // First writer wins on both fallbacks: two leaders sharing a display name
-      // must not silently reassign each other's attendance, so an ambiguous
-      // name is left to resolve through the map or not at all.
-      const gn = norm(l.ccb_group_name);
-      if (gn && !leaderByCcbName.has(gn)) leaderByCcbName.set(gn, l);
-      const pn = norm(l.name);
-      if (pn && !leaderByPersonName.has(pn)) leaderByPersonName.set(pn, l);
     }
+    // Same index the attendance sync uses to heal the map, so the two can
+    // never disagree about which circle an event belongs to.
+    const nameIndex = buildLeaderNameIndex(leaderRows);
 
     // ── 3. Build one normalized occurrence per CCB row ───────────────────────
     const occurrences: Occurrence[] = raw.map((r) => {
@@ -394,19 +385,10 @@ export async function GET(request: NextRequest) {
       // Fallback: the title is the group name. Whole title first, then the
       // leader segment of `CODE | S# | Leader Name`.
       if (!leader) {
-        const title = norm(r.title);
-        const byTitle = title ? leaderByCcbName.get(title) : undefined;
-        if (byTitle) {
-          leader = byTitle;
-          attribution = 'group_name_match';
-        } else {
-          const m = CIRCLE_NAME_RE.exec(r.title ?? '');
-          const segment = m ? norm(m[3]) : '';
-          const bySegment = segment ? leaderByPersonName.get(segment) : undefined;
-          if (bySegment) {
-            leader = bySegment;
-            attribution = 'leader_name_match';
-          }
+        const match = matchEventTitleToLeader(r.title, nameIndex);
+        if (match) {
+          leader = match.leader as LeaderRow;
+          attribution = match.via;
         }
       }
 
@@ -417,7 +399,7 @@ export async function GET(request: NextRequest) {
       // leader than the group it sits on — the 2026-09-06 export had two such
       // rows — so the title is the weaker key.
       const ccbGroupName = cached?.name ?? leader?.ccb_group_name ?? null;
-      const prefix = CIRCLE_NAME_RE.exec(ccbGroupName ?? r.title ?? '');
+      const prefix = CIRCLE_EVENT_NAME_RE.exec(ccbGroupName ?? r.title ?? '');
 
       // Campus, best source first. The `CODE |` prefix is the only one that
       // comes from CCB's own naming, and it matched the export on all 294 rows.
@@ -676,6 +658,28 @@ export async function GET(request: NextRequest) {
             .filter((d) => !d.radius_has_row)
             .reduce((sum, d) => sum + d.ccb_attendance, 0),
         },
+
+        // Attendance CCB holds that no RADIUS circle can claim, grouped by the
+        // parenthetical CCB puts on the group name. Circles run outside the
+        // Adult Circles structure — VC College is the standing example — have
+        // no `circle_leaders` row to attach to and never will, so the point is
+        // not to fix them but to name them: without this the week simply reads
+        // 21 people light with nothing saying why.
+        unexplained_attendance: (() => {
+          const buckets = new Map<string, { circles: number; attendance: number; names: string[] }>();
+          for (const o of orphans) {
+            const label = /\(([^)]+)\)\s*$/.exec(o.ccbGroupName ?? o.eventTitle ?? '')?.[1]?.trim()
+              ?? 'No label';
+            const b = buckets.get(label) ?? { circles: 0, attendance: 0, names: [] };
+            b.circles += 1;
+            b.attendance += o.actualAttendance;
+            b.names.push(o.ccbGroupName ?? o.eventTitle ?? o.eventId);
+            buckets.set(label, b);
+          }
+          return Object.fromEntries(
+            Array.from(buckets.entries()).sort(([, a], [, b]) => b.attendance - a.attendance)
+          );
+        })(),
 
         // The worklist. Every row here is a circle whose CCB attendance is
         // invisible to the reporting page until its mapping is fixed.
