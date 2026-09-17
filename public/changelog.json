@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-09-17",
+    "date_display": "September 17, 2026",
+    "date_iso": "2026-09-17",
+    "id": "circles-reporting-ccb-reconciliation",
+    "type": "improvement",
+    "category": "Circles Reporting",
+    "page": "/circle-reporting",
+    "description": "Directors can now reconcile Circles reporting against CCB's own Event List report. A new admin-only check recomputes a week straight from CCB — circles that met, total attendance, average attendance, and the campus split — and shows exactly where Radius disagrees, circle by circle. It also surfaces the two gaps that made the totals drift: CCB meetings Radius couldn't match to a circle, and active circles CCB has no event for. Unique-individual counts are included too, separating people counted by name from people CCB only counted as a number.",
+    "version": "2.55.0"
+  },
+  {
     "date": "2026-09-13",
     "date_display": "September 13, 2026",
     "date_iso": "2026-09-13",
