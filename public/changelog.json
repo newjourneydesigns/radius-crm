@@ -3,6 +3,17 @@
     "date": "2026-09-17",
     "date_display": "September 17, 2026",
     "date_iso": "2026-09-17",
+    "id": "ccb-reconcile-name-fallback",
+    "type": "fix",
+    "category": "Circles Reporting",
+    "page": "/circle-reporting",
+    "description": "The CCB reconciliation check now falls back to matching a circle by name when it can't find the event in its lookup table, the same way the rest of Radius does. Without it the check reported the same gap twice — once as a CCB meeting it couldn't place, and again as a circle with no CCB meeting — which made Radius look like it was losing far more attendance than it actually was.",
+    "version": "2.55.2"
+  },
+  {
+    "date": "2026-09-17",
+    "date_display": "September 17, 2026",
+    "date_iso": "2026-09-17",
     "id": "ccb-reconcile-missing-radius-rows",
     "type": "fix",
     "category": "Circles Reporting",

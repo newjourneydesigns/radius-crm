@@ -120,8 +120,10 @@ type Occurrence = {
   leaderName: string | null;
   leaderStatus: string | null;
   acpd: string | null;
+  /** How this occurrence was tied to a circle. */
+  attribution: 'event_group_map' | 'group_name_match' | 'leader_name_match' | 'unattributed';
   /** Why this row is or isn't counted. */
-  classification: 'counted' | 'orphan_no_group_map' | 'orphan_no_leader' | 'orphan_inactive_leader' | 'excluded_not_a_circle';
+  classification: 'counted' | 'orphan_unattributed' | 'orphan_no_leader' | 'orphan_inactive_leader' | 'excluded_not_a_circle';
 };
 
 type Bucket = {
@@ -343,6 +345,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // `ccb_event_group_map` is incomplete by construction — it accumulates from
+    // cached calendars and toolkit submissions, so an event nothing has taught
+    // it about yet has no entry. Attributing ONLY through it made the route
+    // report the same gap twice: once as an orphan event, once as a circle with
+    // no CCB event. On the week of 2026-09-06 that was 55 orphans and 93
+    // "missing" circles describing 32 of the same circles.
+    //
+    // So the map is the strong key and the event title is the fallback, which
+    // is what every other matcher in the app already does (ccb-client.ts:1865).
+    // CCB titles circle events with the group name — `FMT | S1 | Jane Doe` —
+    // and that matched 100% of a 294-row export.
     const { data: leaderRowsRaw } = await supabase
       .from('circle_leaders')
       .select('id, name, ccb_group_id, ccb_group_name, circle_name, campus, acpd, status, leader_type')
@@ -350,8 +363,18 @@ export async function GET(request: NextRequest) {
       .limit(5000);
     const leaderRows = (leaderRowsRaw ?? []) as LeaderRow[];
     const leaderByGroup = new Map<string, LeaderRow>();
+    const leaderByCcbName = new Map<string, LeaderRow>();
+    const leaderByPersonName = new Map<string, LeaderRow>();
+    const norm = (v: string | null | undefined) => (v ?? '').trim().toLowerCase();
     for (const l of leaderRows) {
       leaderByGroup.set(String(l.ccb_group_id), l);
+      // First writer wins on both fallbacks: two leaders sharing a display name
+      // must not silently reassign each other's attendance, so an ambiguous
+      // name is left to resolve through the map or not at all.
+      const gn = norm(l.ccb_group_name);
+      if (gn && !leaderByCcbName.has(gn)) leaderByCcbName.set(gn, l);
+      const pn = norm(l.name);
+      if (pn && !leaderByPersonName.has(pn)) leaderByPersonName.set(pn, l);
     }
 
     // ── 3. Build one normalized occurrence per CCB row ───────────────────────
@@ -364,9 +387,31 @@ export async function GET(request: NextRequest) {
         .filter((id) => id.length > 0);
       const namedAttendees = attendees.length;
 
-      const ccbGroupId = groupByEvent.get(r.eventId) ?? null;
+      const mappedGroupId = groupByEvent.get(r.eventId) ?? null;
+      let leader = mappedGroupId ? leaderByGroup.get(mappedGroupId) : undefined;
+      let attribution: Occurrence['attribution'] = leader ? 'event_group_map' : 'unattributed';
+
+      // Fallback: the title is the group name. Whole title first, then the
+      // leader segment of `CODE | S# | Leader Name`.
+      if (!leader) {
+        const title = norm(r.title);
+        const byTitle = title ? leaderByCcbName.get(title) : undefined;
+        if (byTitle) {
+          leader = byTitle;
+          attribution = 'group_name_match';
+        } else {
+          const m = CIRCLE_NAME_RE.exec(r.title ?? '');
+          const segment = m ? norm(m[3]) : '';
+          const bySegment = segment ? leaderByPersonName.get(segment) : undefined;
+          if (bySegment) {
+            leader = bySegment;
+            attribution = 'leader_name_match';
+          }
+        }
+      }
+
+      const ccbGroupId = mappedGroupId ?? (leader?.ccb_group_id ?? null);
       const cached = ccbGroupId ? groupCache.get(ccbGroupId) : undefined;
-      const leader = ccbGroupId ? leaderByGroup.get(ccbGroupId) : undefined;
 
       // Prefer the group's own name. The event title can name a different
       // leader than the group it sits on — the 2026-09-06 export had two such
@@ -403,7 +448,7 @@ export async function GET(request: NextRequest) {
 
       let classification: Occurrence['classification'];
       if (!inScope) classification = 'excluded_not_a_circle';
-      else if (!ccbGroupId) classification = 'orphan_no_group_map';
+      else if (!ccbGroupId) classification = 'orphan_unattributed';
       else if (leaderId === null) classification = 'orphan_no_leader';
       else if (!activeLeader) classification = 'orphan_inactive_leader';
       else classification = 'counted';
@@ -424,6 +469,7 @@ export async function GET(request: NextRequest) {
         campusSource,
         groupType,
         leaderId,
+        attribution,
         leaderName: leader?.name ?? null,
         leaderStatus,
         acpd: leader?.acpd ?? null,
@@ -585,6 +631,12 @@ export async function GET(request: NextRequest) {
           in_scope_occurrences: inScopeRows.length,
           excluded_not_a_circle: excluded.length,
           collapsed_duplicate_events: allDedup.collapsed.length,
+          attribution: {
+            event_group_map: inScopeRows.filter((o) => o.attribution === 'event_group_map').length,
+            group_name_match: inScopeRows.filter((o) => o.attribution === 'group_name_match').length,
+            leader_name_match: inScopeRows.filter((o) => o.attribution === 'leader_name_match').length,
+            unattributed: inScopeRows.filter((o) => o.attribution === 'unattributed').length,
+          },
           including_orphans: ccbTruthWithOrphans,
           matched_active_circles_only: ccbTruth,
           by_campus: groupBy(allDedup.kept, (r) => r.campus ?? 'Unknown'),
@@ -631,7 +683,7 @@ export async function GET(request: NextRequest) {
           total: orphans.length,
           attendance: orphans.reduce((s, o) => s + o.actualAttendance, 0),
           by_reason: {
-            no_group_map: orphans.filter((o) => o.classification === 'orphan_no_group_map').length,
+            unattributed: orphans.filter((o) => o.classification === 'orphan_unattributed').length,
             no_leader: orphans.filter((o) => o.classification === 'orphan_no_leader').length,
             inactive_leader: orphans.filter((o) => o.classification === 'orphan_inactive_leader').length,
           },
@@ -645,6 +697,7 @@ export async function GET(request: NextRequest) {
             campus: o.campus,
             attendance: o.actualAttendance,
             reason: o.classification,
+            attribution: o.attribution,
           })),
         },
 
