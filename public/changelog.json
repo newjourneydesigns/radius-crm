@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-09-17",
+    "date_display": "September 17, 2026",
+    "date_iso": "2026-09-17",
+    "id": "ccb-sync-group-name-match",
+    "type": "fix",
+    "category": "Circle Attendance",
+    "page": "/circle-reporting",
+    "description": "The nightly attendance sync now recognises a CCB meeting by the circle's full CCB name, not just the leader's personal name. It was only loading the personal name, so the stronger of the two matches never ran and roughly two thirds of the meetings it should have been able to link were still being missed.",
+    "version": "2.56.1"
+  },
+  {
     "id": "ccb-reconcile-unexplained-attendance",
     "type": "improvement",
     "category": "Circles Reporting",

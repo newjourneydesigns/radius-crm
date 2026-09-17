@@ -247,7 +247,11 @@ export async function POST(request: NextRequest) {
   // Load leaders with cached event IDs
   let query = supabase
     .from('circle_leaders')
-    .select('id, name, ccb_group_id, ccb_event_ids, day, frequency, meeting_start_date, status')
+    // `ccb_group_name` is here for the event/group map backfill below, which
+    // matches a CCB event title against it before falling back to the person's
+    // name. Without it that stronger match is silently dead and only the weaker
+    // one fires.
+    .select('id, name, ccb_group_name, ccb_group_id, ccb_event_ids, day, frequency, meeting_start_date, status')
     .not('ccb_group_id', 'is', null);
 
   if (singleLeaderId) {
