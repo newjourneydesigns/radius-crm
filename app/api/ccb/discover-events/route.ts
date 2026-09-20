@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { syncRosterCacheForLeader } from '../../../../lib/ccb/roster-cache';
+import { recordEventGroupMap } from '../../../../lib/ccb/attendance-facts';
 
 export const dynamic = 'force-dynamic';
 // A forced run walks every active leader at 2s apart (~70 leaders ≈ 2.5 min).
@@ -70,7 +71,8 @@ type CachedCalendarRow = {
 
 /**
  * Calendar mode. For every active leader with a CCB group, union the event
- * ids found in that group's freshest cached calendar into ccb_event_ids.
+ * ids found in that group's freshest cached calendar into ccb_event_ids, and
+ * the same (event -> group) pairs into ccb_event_group_map.
  * No CCB calls, three Supabase round trips, seconds — immune to the
  * synchronous-invocation timeout that kills the CCB walk.
  */
@@ -83,6 +85,7 @@ async function deriveEventIdsFromCalendars(supabase: ReturnType<typeof getServic
     unchanged: 0,
     noCalendar: 0,
     errors: 0,
+    eventGroupPairsSent: 0,
     details: [] as { leader: string; groupId: string; added: string[] }[],
   };
 
@@ -120,6 +123,29 @@ async function deriveEventIdsFromCalendars(supabase: ReturnType<typeof getServic
     if (!prior || t > pt) freshest.set(gid, row);
   }
   results.groupsWithCalendar = freshest.size;
+
+  // Union the same calendars into ccb_event_group_map while we have them.
+  //
+  // That map is the ONLY thing that attributes a CCB attendance fact to a
+  // circle on the roster's read path, and its only automatic writer was the
+  // prewarm — which refreshes a group's calendar on its meeting day, or when
+  // the group's cache row is over a week stale. A group whose `day` is blank
+  // or wrong, and whose leaders visit often enough to keep `synced_at` young,
+  // satisfied neither condition, so an event created in CCB after the fact
+  // was never mapped and its attendance never reached the roster. This job
+  // already reads every cached calendar in the church for free; mapping them
+  // costs nothing beyond the upsert and makes the map as current as the
+  // calendars themselves, nightly, for everyone.
+  const mapPairs = Array.from(freshest.entries()).flatMap(([gid, row]) =>
+    (Array.isArray(row.calendar_events) ? (row.calendar_events as Array<{ eventId?: unknown }>) : [])
+      .map((e) => ({ ccbEventId: String(e?.eventId ?? '').trim(), ccbGroupId: gid }))
+      .filter((pair) => pair.ccbEventId)
+  );
+  // `written` counts pairs sent, not rows inserted — the upsert ignores
+  // duplicates, and an event already mapped keeps its original group.
+  const mapResult = await recordEventGroupMap(supabase, mapPairs, 'calendar');
+  results.eventGroupPairsSent = mapResult.written;
+  if (mapResult.error) results.errors++;
 
   for (const leader of active as any[]) {
     const gid = String(leader.ccb_group_id);
