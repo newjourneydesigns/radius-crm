@@ -8,7 +8,7 @@ import { supabase, CircleLeader } from '../../lib/supabase';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
 import { useMacCompanion } from '../../hooks/useMacCompanion';
-import { apiFetch } from '../../lib/apiClient';
+import { importCcbGroupRoster } from '../../lib/ccbRosterImport';
 import {
   ageFromBirthdate,
   isMinor,
@@ -76,6 +76,12 @@ interface BackfillState {
   error?: string;
 }
 
+/** How far a roster import has got through looking up phone numbers. */
+interface LookupProgress {
+  done: number;
+  total: number;
+}
+
 /** A leader the filters matched who can't be texted, and why. */
 interface ExcludedLeader {
   id: number;
@@ -83,16 +89,6 @@ interface ExcludedLeader {
   campus?: string;
   /** Set only when the leader was dropped because this number is already on the list. */
   phone?: string;
-}
-
-interface RosterMember {
-  id?: string;
-  fullName?: string;
-  firstName?: string;
-  lastName?: string;
-  mobilePhone?: string;
-  phone?: string;
-  birthday?: string;
 }
 
 interface SendLog {
@@ -187,6 +183,20 @@ const openMessagesApp = (recipient: Recipient, message: string) => {
 
 const normalizePhone = (phone: string): string => {
   return phone.replace(/[^+\d]/g, '');
+};
+
+const lookupProgressText = ({ done, total }: LookupProgress): string =>
+  `Looking up phone numbers in CCB… ${done} of ${total}. A big group takes a few minutes.`;
+
+/**
+ * The line for people a roster import left out because their phone lookup
+ * never finished. Kept apart from "without phone", which means CCB has no
+ * number for them — these may well have one.
+ */
+const unfinishedLookupMessage = (count: number, reason: string | undefined, retry: string): string => {
+  const who = count === 1 ? "1 person wasn't added" : `${count} people weren't added`;
+  const why = (reason || 'CCB stopped answering before their phone numbers loaded').replace(/\.\s*$/, '');
+  return `${who} — ${why}. ${retry}`;
 };
 
 /**
@@ -319,6 +329,7 @@ function BulkMessageContent() {
   const [rosterLoadingId, setRosterLoadingId] = useState<number | null>(null);
   const [rosterError, setRosterError] = useState<string | null>(null);
   const [rosterFeedback, setRosterFeedback] = useState<string | null>(null);
+  const [rosterLookup, setRosterLookup] = useState<LookupProgress | null>(null);
   const rosterContainerRef = useRef<HTMLDivElement>(null);
 
   // CCB group number import state
@@ -326,6 +337,7 @@ function BulkMessageContent() {
   const [groupImportLoading, setGroupImportLoading] = useState(false);
   const [groupImportError, setGroupImportError] = useState<string | null>(null);
   const [groupImportFeedback, setGroupImportFeedback] = useState<string | null>(null);
+  const [groupLookup, setGroupLookup] = useState<LookupProgress | null>(null);
 
   // Paste import state
   const [showPastePanel, setShowPastePanel] = useState(false);
@@ -832,17 +844,9 @@ function BulkMessageContent() {
     setRosterLoadingId(leader.id);
 
     try {
-      const res = await apiFetch('/api/ccb/group-roster', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId: leader.ccb_group_id }),
+      const { members, notLookedUp, lookupError } = await importCcbGroupRoster(String(leader.ccb_group_id), {
+        onLookupProgress: (done, total) => setRosterLookup({ done, total }),
       });
-      const json: { success?: boolean; data?: RosterMember[]; details?: string; error?: string } = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.details || json.error || 'Failed to load roster');
-      }
-
-      const members = json.data || [];
       const mapped = members
         .map((m): Recipient | null => {
           const phone = normalizePhone(m.mobilePhone || m.phone || '');
@@ -863,30 +867,35 @@ function BulkMessageContent() {
         })
         .filter((r): r is Recipient => r !== null);
 
-      let addedCount = 0;
+      // Count against the list as of this render, not inside the updater — see
+      // the CCB group import below for why a count taken there reads as 0.
+      const seen = new Set(ccbRecipients.map(r => r.phone));
+      const fresh = mapped.filter(r => {
+        if (seen.has(r.phone)) return false;
+        seen.add(r.phone);
+        return true;
+      });
       setCcbRecipients(prev => {
-        const seen = new Set(prev.map(r => r.phone));
-        const fresh = mapped.filter(r => {
-          if (seen.has(r.phone)) return false;
-          seen.add(r.phone);
-          return true;
-        });
-        addedCount = fresh.length;
-        return [...prev, ...fresh];
+        const have = new Set(prev.map(r => r.phone));
+        return [...prev, ...fresh.filter(r => !have.has(r.phone))];
       });
 
-      const skipped = members.length - mapped.length;
-      const dupes = mapped.length - addedCount;
-      const parts = [`Added ${addedCount} from ${leader.name}'s roster`];
+      const skipped = members.length - mapped.length - notLookedUp;
+      const dupes = mapped.length - fresh.length;
+      const parts = [`Added ${fresh.length} from ${leader.name}'s roster`];
       if (dupes > 0) parts.push(`${dupes} already in list`);
       if (skipped > 0) parts.push(`${skipped} without phone`);
       setRosterFeedback(parts.join(' · '));
+      if (notLookedUp > 0) {
+        setRosterError(unfinishedLookupMessage(notLookedUp, lookupError, 'Add the roster again to pick them up.'));
+      }
     } catch (err) {
       setRosterError(err instanceof Error ? err.message : 'Failed to load roster');
     } finally {
       setRosterLoadingId(null);
+      setRosterLookup(null);
     }
-  }, []);
+  }, [ccbRecipients]);
 
   // ─── CCB group number import ───────────────────────────────
   // Same roster pull as the Circle Roster tab, but keyed by a typed-in CCB
@@ -900,24 +909,17 @@ function BulkMessageContent() {
     setGroupImportLoading(true);
 
     try {
-      const res = await apiFetch('/api/ccb/group-roster', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // includeGroupName costs one extra CCB call, and buys the label the
-        // recipient list shows in place of a bare number.
-        body: JSON.stringify({ groupId, includeGroupName: true }),
+      const { members, groupName, notLookedUp, lookupError } = await importCcbGroupRoster(groupId, {
+        // One extra CCB call, which buys the label the recipient list shows in
+        // place of a bare number.
+        includeGroupName: true,
+        onLookupProgress: (done, total) => setGroupLookup({ done, total }),
       });
-      const json: { success?: boolean; data?: RosterMember[]; groupName?: string | null; details?: string; error?: string } = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.details || json.error || 'Failed to load group');
-      }
-
-      const members = json.data || [];
       if (members.length === 0) {
         setGroupImportError(`CCB returned no members for group ${groupId} — double-check the group number.`);
         return;
       }
-      const groupLabel = json.groupName || `CCB Group ${groupId}`;
+      const groupLabel = groupName || `CCB Group ${groupId}`;
 
       const mapped = members
         .map((m): Recipient | null => {
@@ -955,17 +957,23 @@ function BulkMessageContent() {
         return [...prev, ...fresh.filter(r => !have.has(r.phone))];
       });
 
-      const skipped = members.length - mapped.length;
+      const skipped = members.length - mapped.length - notLookedUp;
       const dupes = mapped.length - fresh.length;
       const parts = [`Added ${fresh.length} from ${groupLabel}`];
       if (dupes > 0) parts.push(`${dupes} already in list`);
       if (skipped > 0) parts.push(`${skipped} without phone`);
       setGroupImportFeedback(parts.join(' · '));
-      setGroupIdInput('');
+      if (notLookedUp > 0) {
+        // Leave the number in the box so picking up the rest is one click.
+        setGroupImportError(unfinishedLookupMessage(notLookedUp, lookupError, 'Import the group again to pick them up.'));
+      } else {
+        setGroupIdInput('');
+      }
     } catch (err) {
       setGroupImportError(err instanceof Error ? err.message : 'Failed to load group');
     } finally {
       setGroupImportLoading(false);
+      setGroupLookup(null);
     }
   }, [groupIdInput, groupImportLoading, ccbRecipients]);
 
@@ -1563,12 +1571,12 @@ function BulkMessageContent() {
                     </div>
                     {rosterLoadingId !== null && (
                       <div className="flex items-center gap-2 text-xs text-emerald-400">
-                        <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                        Loading roster from CCB...
+                        <span className="w-3.5 h-3.5 flex-shrink-0 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        {rosterLookup ? lookupProgressText(rosterLookup) : 'Loading roster from CCB...'}
                       </div>
                     )}
+                    {rosterFeedback && <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">{rosterFeedback}</div>}
                     {rosterError && <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{rosterError}</div>}
-                    {rosterFeedback && !rosterError && <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">{rosterFeedback}</div>}
                     {ccbRecipients.filter(r => r.isFromRoster).length > 0 && (
                       <div className="pt-3 border-t border-gray-800 space-y-1">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">
@@ -1669,7 +1677,7 @@ function BulkMessageContent() {
                           onChange={(e) => { setGroupIdInput(e.target.value.replace(/\D/g, '')); setGroupImportError(null); setGroupImportFeedback(null); }}
                           onKeyDown={(e) => e.key === 'Enter' && handleImportCcbGroup()}
                           placeholder="e.g. 3365"
-                          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 transition-shadow placeholder:text-gray-600"
+                          className="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 transition-shadow placeholder:text-gray-600"
                         />
                         <button
                           type="button"
@@ -1685,12 +1693,12 @@ function BulkMessageContent() {
                     </div>
                     {groupImportLoading && (
                       <div className="flex items-center gap-2 text-xs text-sky-400">
-                        <span className="w-3.5 h-3.5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-                        Loading contact list from CCB...
+                        <span className="w-3.5 h-3.5 flex-shrink-0 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                        {groupLookup ? lookupProgressText(groupLookup) : 'Loading contact list from CCB...'}
                       </div>
                     )}
+                    {groupImportFeedback && <div className="text-xs text-sky-300 bg-sky-500/10 border border-sky-500/20 rounded-lg px-3 py-2">{groupImportFeedback}</div>}
                     {groupImportError && <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{groupImportError}</div>}
-                    {groupImportFeedback && !groupImportError && <div className="text-xs text-sky-300 bg-sky-500/10 border border-sky-500/20 rounded-lg px-3 py-2">{groupImportFeedback}</div>}
                     {ccbRecipients.filter(r => r.isFromGroupImport).length > 0 && (
                       <div className="pt-3 border-t border-gray-800 space-y-1">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">

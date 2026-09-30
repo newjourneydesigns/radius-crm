@@ -200,6 +200,31 @@ function ccbBreakerCheckAndRecord(): void {
   ccbCallTimestamps.push(now);
 }
 
+/**
+ * Milliseconds until the breaker will let another call through; 0 when it will
+ * now. Read-only — it records nothing.
+ *
+ * For batch loops over a method that swallows errors: getIndividualProfile
+ * returns null on any failure, so a tripped breaker reads exactly like "no
+ * such person". Checking first lets the loop stop at the cap and hand the rest
+ * back, instead of recording everyone after the trip as having no profile.
+ */
+export function ccbBreakerWaitMs(): number {
+  const now = Date.now();
+  const lastMinute = ccbCallTimestamps.filter((t) => t >= now - 60_000);
+  const lastHour = ccbCallTimestamps.filter((t) => t >= now - 3_600_000);
+
+  // A slot opens when the call that put the window at its cap ages out.
+  let waitMs = 0;
+  if (lastMinute.length >= CCB_BREAKER_MAX_PER_MINUTE) {
+    waitMs = Math.max(waitMs, lastMinute[lastMinute.length - CCB_BREAKER_MAX_PER_MINUTE] + 60_000 - now);
+  }
+  if (lastHour.length >= CCB_BREAKER_MAX_PER_HOUR) {
+    waitMs = Math.max(waitMs, lastHour[lastHour.length - CCB_BREAKER_MAX_PER_HOUR] + 3_600_000 - now);
+  }
+  return waitMs;
+}
+
 // ---- Types ----
 
 export type EventOccurrence = {
