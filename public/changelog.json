@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-09-30",
+    "date_display": "September 30, 2026",
+    "date_iso": "2026-09-30",
+    "id": "bulk-message-ccb-group-import-timeout",
+    "type": "fix",
+    "category": "Bulk Message",
+    "page": "/bulk-message",
+    "description": "Importing a CCB group or a circle roster into Bulk Message no longer fails with \"Unexpected token '<' … is not valid JSON\". Radius was fetching every member's phone number from CCB inside a single request, which ran past the server's 10-second limit for any group larger than about eighteen people. The roster now loads first and the phone numbers fill in afterwards in small batches, with a running count on screen — a big group takes a few minutes, but it finishes. Birthdays still come along, so anyone under 18 is still held back. If CCB stops answering partway, you keep everyone already found and are told how many to pick up by importing again.",
+    "version": "2.56.2"
+  },
+  {
     "date": "2026-09-17",
     "date_display": "September 17, 2026",
     "date_iso": "2026-09-17",

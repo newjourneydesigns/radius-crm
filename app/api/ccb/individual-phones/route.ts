@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createCCBClient } from '../../../../lib/ccb/ccb-client';
+import { ccbBreakerWaitMs, createCCBClient } from '../../../../lib/ccb/ccb-client';
 import { getCCBRequestContext } from '../../../../lib/ccb/ccb-api-gateway';
 import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
 
 /**
- * Look up phone numbers for a batch of CCB individuals, for Valley Creek Pulse.
+ * Look up phone numbers for a batch of CCB individuals, for Valley Creek Pulse
+ * and Bulk Message's roster imports.
  *
  * ## Why this exists separately from the roster pull
  *
@@ -24,6 +25,14 @@ import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
  * whatever is left, so the caller can come straight back for the rest. A batch
  * is therefore always answerable within the timeout no matter how CCB is
  * behaving, and progress is never lost to a request that died.
+ *
+ * ## Birthday and active status ride along
+ *
+ * The profile read that finds the phone also carries the birthday and whether
+ * CCB still has the person active, so both come back at no extra CCB cost.
+ * Bulk Message needs them: the birthday feeds the under-18 texting gate, and
+ * the roster pull's inline enrichment used to drop anyone CCB had marked
+ * inactive.
  *
  * Read-only and gated on a signed-in Supabase user, like its siblings.
  */
@@ -75,12 +84,27 @@ export async function POST(request: NextRequest) {
     );
 
     const deadline = Date.now() + WORK_BUDGET_MS;
-    const phones: Record<string, { phone: string; mobilePhone: string }> = {};
+    const phones: Record<string, {
+      phone: string;
+      mobilePhone: string;
+      birthday: string;
+      isActive: boolean;
+    }> = {};
     let i = 0;
 
     for (; i < ids.length; i++) {
       if (Date.now() >= deadline) break;
       if (i > 0) await new Promise((r) => setTimeout(r, THROTTLE_MS));
+      // A tripped breaker comes back from getIndividualProfile as a null
+      // profile, which would mark this person — and everyone after them — as
+      // having no number. Wait for a slot while the deadline allows, and hand
+      // the rest back if none opens. Waiting out the budget even then keeps a
+      // caller that comes straight back from spinning on instant empty replies.
+      const breakerWaitMs = ccbBreakerWaitMs();
+      if (breakerWaitMs > 0) {
+        await new Promise((r) => setTimeout(r, Math.min(breakerWaitMs, deadline - Date.now())));
+        if (Date.now() >= deadline || ccbBreakerWaitMs() > 0) break;
+      }
 
       try {
         const profile = await ccb.getIndividualProfile(ids[i]);
@@ -88,6 +112,8 @@ export async function POST(request: NextRequest) {
           phones[ids[i]] = {
             phone: profile.phone || '',
             mobilePhone: profile.mobilePhone || '',
+            birthday: profile.birthday || '',
+            isActive: profile.isActive !== false,
           };
         }
       } catch {
@@ -100,8 +126,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       phones,
-      // Anything the deadline cut short. Empty means the batch finished.
+      // Anything the deadline or the breaker cut short. Empty means the batch
+      // finished.
       remaining: ids.slice(i),
+      // How long to wait before sending `remaining` back — non-zero only while
+      // the breaker is still at its cap.
+      retryAfterMs: ccbBreakerWaitMs(),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
