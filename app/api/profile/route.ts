@@ -148,6 +148,13 @@ export async function GET(request: NextRequest) {
       profile: userProfile,
       preferences,
       hasPreferences: !!emailPrefs
+    }, {
+      // Per-user data behind a bearer token — no browser or CDN may reuse it,
+      // or a just-saved invite/connect template reloads as the stale copy.
+      headers: {
+        'Cache-Control': 'private, no-store, max-age=0',
+        'Netlify-CDN-Cache-Control': 'no-store'
+      }
     });
 
   } catch (error: any) {

@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-10-05",
+    "date_display": "October 5, 2026",
+    "date_iso": "2026-10-05",
+    "id": "invite-template-stale-reload",
+    "type": "fix",
+    "category": "Circle Search",
+    "page": "/search",
+    "description": "Saving a new default message (or resetting it) in Invite a Person and Connect a Person now sticks. Your changes were being saved, but the next time you opened the window it loaded an old cached copy of your profile, so your previous wording kept coming back. The window now always loads your current saved message.",
+    "version": "2.56.3"
+  },
+  {
     "date": "2026-09-30",
     "date_display": "September 30, 2026",
     "date_iso": "2026-09-30",

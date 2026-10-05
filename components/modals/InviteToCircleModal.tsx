@@ -139,7 +139,8 @@ export default function InviteToCircleModal({
         const token = session?.access_token;
         if (!token) return;
         const res = await fetch('/api/profile', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store'
         });
         if (!res.ok) return;
         const data = await res.json();
