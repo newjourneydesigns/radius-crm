@@ -1,5 +1,27 @@
 [
   {
+    "date": "2026-10-06",
+    "date_display": "October 6, 2026",
+    "date_iso": "2026-10-06",
+    "id": "event-summary-skip-week-missing-table",
+    "type": "fix",
+    "category": "Event Summary Tracker",
+    "page": "/event-summary-tracker",
+    "description": "Skip Week works again. Clicking it failed with \"Could not skip the week: undefined\" because the database table that stores skipped weeks was never created on the live site — Skip Week shipped on September 10 without it. With the table in place, Skip Week moves a circle into Skipped and Undo puts it back. If that table is ever missing again, the message now says so and names the setup step to run, instead of \"undefined\".",
+    "version": "2.56.4"
+  },
+  {
+    "date": "2026-10-06",
+    "date_display": "October 6, 2026",
+    "date_iso": "2026-10-06",
+    "id": "toasts-above-desktop-menu",
+    "type": "fix",
+    "category": "General",
+    "page": "/event-summary-tracker",
+    "description": "Pop-up messages — like \"Skipped for this week.\" or an error — now appear on top of the menu bar on desktop. They were sliding underneath it, so a one-line message was almost completely hidden and a longer one lost its first line.",
+    "version": "2.56.4"
+  },
+  {
     "date": "2026-10-05",
     "date_display": "October 5, 2026",
     "date_iso": "2026-10-05",

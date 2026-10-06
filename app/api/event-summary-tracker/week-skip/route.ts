@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verifyAdminAccessDemo } from '../../../../lib/auth-middleware';
-import { describePostgrestError } from '../../../../lib/postgrestErrors';
+import {
+  describePostgrestError,
+  isMissingTableError,
+  type PostgrestLikeError,
+} from '../../../../lib/postgrestErrors';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +15,16 @@ function getServiceClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
+}
+
+// What the ACPD sees when the write fails. A missing table means the migration
+// never ran, and PostgREST 12.2 reports that with no message at all, so name
+// the file to run instead of passing an empty message through.
+function failureMessage(action: string, error: PostgrestLikeError, status: number): string {
+  if (isMissingTableError(error, status)) {
+    return `${action}: the week-skips table isn't set up yet. Run the migration 20260910120000_event_summary_week_skips.sql in Supabase, then try again.`;
+  }
+  return `${action}: ${error?.message || `${describePostgrestError(error)} (HTTP ${status})`}`;
 }
 
 /**
@@ -56,20 +70,20 @@ export async function POST(request: NextRequest) {
     const supabase = getServiceClient();
 
     if (action === 'unskip') {
-      const { error } = await supabase
+      const { error, status } = await supabase
         .from('event_summary_week_skips')
         .delete()
         .eq('leader_id', leaderId)
         .eq('week_start_date', week_start_date);
       if (error) {
-        console.error('[week-skip] delete failed:', describePostgrestError(error));
-        return NextResponse.json({ error: `Could not restore the week: ${error.message}` }, { status: 500 });
+        console.error(`[week-skip] delete failed (HTTP ${status}):`, describePostgrestError(error));
+        return NextResponse.json({ error: failureMessage('Could not restore the week', error, status) }, { status: 500 });
       }
       return NextResponse.json({ leader_id: leaderId, week_start_date, skipped: false });
     }
 
     const trimmedNote = String(note ?? '').trim().slice(0, 200) || null;
-    const { error } = await supabase
+    const { error, status } = await supabase
       .from('event_summary_week_skips')
       .upsert(
         {
@@ -82,8 +96,8 @@ export async function POST(request: NextRequest) {
         { onConflict: 'leader_id,week_start_date' }
       );
     if (error) {
-      console.error('[week-skip] upsert failed:', describePostgrestError(error));
-      return NextResponse.json({ error: `Could not skip the week: ${error.message}` }, { status: 500 });
+      console.error(`[week-skip] upsert failed (HTTP ${status}):`, describePostgrestError(error));
+      return NextResponse.json({ error: failureMessage('Could not skip the week', error, status) }, { status: 500 });
     }
 
     return NextResponse.json({ leader_id: leaderId, week_start_date, skipped: true, note: trimmedNote });

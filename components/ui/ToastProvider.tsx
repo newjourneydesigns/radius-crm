@@ -49,13 +49,15 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
       {children}
       {mounted &&
         createPortal(
-          <div className="fixed inset-x-0 top-0 z-[9998] flex flex-col items-center gap-2 px-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pointer-events-none">
+          // Above the desktop nav (z-[10000]) and open modals (100000), or the
+          // message renders underneath them where nobody can read it.
+          <div className="fixed inset-x-0 top-0 z-[100002] flex flex-col items-center gap-2 px-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pointer-events-none">
             {toasts.map((t) => (
               <div
                 key={t.id}
                 role="status"
                 onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
-                className={`pointer-events-auto w-full max-w-md cursor-pointer rounded-xl border px-4 py-3 text-sm shadow-lg ${TONE[t.type]}`}
+                className={`pointer-events-auto w-full max-w-md cursor-pointer rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur-md ${TONE[t.type]}`}
               >
                 {t.message}
               </div>
