@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-10-08",
+    "date_display": "October 8, 2026",
+    "date_iso": "2026-10-08",
+    "id": "bulk-message-process-queue-import",
+    "type": "feature",
+    "category": "Bulk Message",
+    "page": "/bulk-message",
+    "description": "Bulk Message can now text everyone in a CCB process queue step. Open the new Process Queue tab, enter the step number (or paste the queue page address — the number after step_id=), and Load it. You'll see how many people sit in each status; Done is switched off by default so you only text people still waiting. Pick the statuses you want and Add to List — phone numbers are looked up in CCB for just those people, and under-18s are still held back from sending.",
+    "version": "2.57.0"
+  },
+  {
     "date": "2026-10-06",
     "date_display": "October 6, 2026",
     "date_iso": "2026-10-06",

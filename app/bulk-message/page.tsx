@@ -8,7 +8,7 @@ import { supabase, CircleLeader } from '../../lib/supabase';
 import CCBPersonLookup from '../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../components/ui/CCBPersonLookup';
 import { useMacCompanion } from '../../hooks/useMacCompanion';
-import { importCcbGroupRoster } from '../../lib/ccbRosterImport';
+import { importCcbGroupRoster, fetchCcbQueueStep, importCcbQueuePeople, type CcbQueuePerson } from '../../lib/ccbRosterImport';
 import {
   ageFromBirthdate,
   isMinor,
@@ -36,8 +36,9 @@ interface Recipient {
   isFromPaste?: boolean;
   isFromRoster?: boolean;
   isFromGroupImport?: boolean;
+  isFromQueueImport?: boolean;
   circleLeaderName?: string;
-  /** CCB group name when imported straight from a group number. */
+  /** CCB group name when imported from a group number, or the step label when imported from a process queue. */
   groupName?: string;
   additionalLeaderName?: string;
   additionalLeaderPhone?: string;
@@ -193,6 +194,18 @@ const lookupProgressText = ({ done, total }: LookupProgress): string =>
  * never finished. Kept apart from "without phone", which means CCB has no
  * number for them — these may well have one.
  */
+/**
+ * A CCB process step ID from what the user typed: the bare number, or the
+ * address of the queue page (...step_individuals.php?ax=my&step_id=477).
+ */
+const parseQueueStepId = (input: string): string | null => {
+  const match = input.match(/step_id=(\d+)/i) ?? input.match(/^\s*(\d+)\s*$/);
+  return match ? match[1] : null;
+};
+
+/** Statuses that mean a person is finished with the step — off by default. */
+const isFinishedQueueStatus = (status: string): boolean => /^(done|complete)/i.test(status);
+
 const unfinishedLookupMessage = (count: number, reason: string | undefined, retry: string): string => {
   const who = count === 1 ? "1 person wasn't added" : `${count} people weren't added`;
   const why = (reason || 'CCB stopped answering before their phone numbers loaded').replace(/\.\s*$/, '');
@@ -339,6 +352,17 @@ function BulkMessageContent() {
   const [groupImportFeedback, setGroupImportFeedback] = useState<string | null>(null);
   const [groupLookup, setGroupLookup] = useState<LookupProgress | null>(null);
 
+  // CCB process queue import state
+  const [queueInput, setQueueInput] = useState('');
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [queueImporting, setQueueImporting] = useState(false);
+  const [queueError, setQueueError] = useState<string | null>(null);
+  const [queueFeedback, setQueueFeedback] = useState<string | null>(null);
+  const [queueMinorWarning, setQueueMinorWarning] = useState<string | null>(null);
+  const [queueLookup, setQueueLookup] = useState<LookupProgress | null>(null);
+  const [queueStep, setQueueStep] = useState<{ stepId: string; people: CcbQueuePerson[] } | null>(null);
+  const [queueStatuses, setQueueStatuses] = useState<Set<string>>(new Set());
+
   // Paste import state
   const [showPastePanel, setShowPastePanel] = useState(false);
   const [pasteText, setPasteText] = useState('');
@@ -346,7 +370,7 @@ function BulkMessageContent() {
 
   // Wizard state
   const [wizardStep, setWizardStep] = useState<'build' | 'compose'>('build');
-  const [buildTab, setBuildTab] = useState<'filter' | 'person' | 'roster' | 'paste' | 'group'>('filter');
+  const [buildTab, setBuildTab] = useState<'filter' | 'person' | 'roster' | 'paste' | 'group' | 'queue'>('filter');
 
   // Persist templates
   useEffect(() => { saveTemplates(templates); }, [templates]);
@@ -977,6 +1001,109 @@ function BulkMessageContent() {
     }
   }, [groupIdInput, groupImportLoading, ccbRecipients]);
 
+  // ─── CCB process queue import ──────────────────────────────
+  // Two steps on purpose: loading the queue costs one CCB call and shows who is
+  // in each status; phone numbers cost one call *per person*, so they are only
+  // looked up for the statuses the user keeps ticked.
+  const handleLoadQueue = useCallback(async () => {
+    if (queueLoading || queueImporting) return;
+    const stepId = parseQueueStepId(queueInput);
+    if (!stepId) {
+      setQueueError('Enter the step number, or paste the queue page address — it has step_id= in it.');
+      return;
+    }
+    setQueueError(null);
+    setQueueFeedback(null);
+    setQueueLoading(true);
+    try {
+      const people = await fetchCcbQueueStep(stepId);
+      if (people.length === 0) {
+        setQueueStep(null);
+        setQueueError(`CCB returned nobody for step ${stepId} — double-check the step number.`);
+        return;
+      }
+      setQueueStep({ stepId, people });
+      setQueueStatuses(new Set(people.map(p => p.status).filter(st => !isFinishedQueueStatus(st))));
+    } catch (err) {
+      setQueueStep(null);
+      setQueueError(err instanceof Error ? err.message : 'Failed to load process queue');
+    } finally {
+      setQueueLoading(false);
+    }
+  }, [queueInput, queueLoading, queueImporting]);
+
+  const handleImportQueue = useCallback(async () => {
+    if (!queueStep || queueImporting) return;
+    const chosen = queueStep.people.filter(p => queueStatuses.has(p.status));
+    if (chosen.length === 0) return;
+    setQueueError(null);
+    setQueueFeedback(null);
+    setQueueMinorWarning(null);
+    setQueueImporting(true);
+    try {
+      const { members, notLookedUp, lookupError } = await importCcbQueuePeople(
+        chosen,
+        (done, total) => setQueueLookup({ done, total }),
+      );
+      const label = `Process step ${queueStep.stepId}`;
+      const mapped = members
+        .map((m): Recipient | null => {
+          const phone = normalizePhone(m.mobilePhone || m.phone || '');
+          if (phone.length < 7) return null;
+          const ccbId = parseInt(m.id || '', 10);
+          const fullName = (m.fullName || '').trim() || 'Friend';
+          return {
+            id: isNaN(ccbId) ? -(Date.now() + Math.floor(Math.random() * 100000)) : ccbId,
+            name: fullName,
+            firstName: m.firstName || fullName.split(' ')[0],
+            phone,
+            isFromCCB: true,
+            isFromQueueImport: true,
+            groupName: label,
+            birthdate: m.birthday,
+            age: ageFromBirthdate(m.birthday),
+          };
+        })
+        .filter((r): r is Recipient => r !== null);
+
+      // Count against the list as of this render, not inside the updater — see
+      // the CCB group import above for why.
+      const seen = new Set(ccbRecipients.map(r => r.phone));
+      const fresh = mapped.filter(r => {
+        if (seen.has(r.phone)) return false;
+        seen.add(r.phone);
+        return true;
+      });
+      setCcbRecipients(prev => {
+        const have = new Set(prev.map(r => r.phone));
+        return [...prev, ...fresh.filter(r => !have.has(r.phone))];
+      });
+
+      const skipped = members.length - mapped.length - notLookedUp;
+      const dupes = mapped.length - fresh.length;
+      const parts = [`Added ${fresh.length} from ${label}`];
+      if (dupes > 0) parts.push(`${dupes} already in list`);
+      if (skipped > 0) parts.push(`${skipped} without phone`);
+      setQueueFeedback(parts.join(' · '));
+      const minors = fresh.filter(r => isMinor(r.age)).length;
+      setQueueMinorWarning(minors > 0
+        ? `${minors} of the people added ${minors === 1 ? 'is' : 'are'} under 18. They stay in the list, but they'll be held back when you send.`
+        : null);
+      if (notLookedUp > 0) {
+        // Keep the step loaded so picking up the rest is one click.
+        setQueueError(unfinishedLookupMessage(notLookedUp, lookupError, 'Add them again to pick up the rest.'));
+      } else {
+        setQueueStep(null);
+        setQueueInput('');
+      }
+    } catch (err) {
+      setQueueError(err instanceof Error ? err.message : 'Failed to import process queue');
+    } finally {
+      setQueueImporting(false);
+      setQueueLookup(null);
+    }
+  }, [queueStep, queueStatuses, queueImporting, ccbRecipients]);
+
   const handleSaveList = () => {
     if (!listNameInput.trim() || recipients.length === 0) return;
     const newList: SavedRecipientList = {
@@ -1316,6 +1443,7 @@ function BulkMessageContent() {
                   { id: 'roster', label: 'Circle Roster' },
                   { id: 'paste',  label: 'Paste Import' },
                   { id: 'group',  label: 'CCB Group' },
+                  { id: 'queue',  label: 'Process Queue' },
                 ] as const).map(tab => (
                   <button
                     key={tab.id}
@@ -1508,11 +1636,11 @@ function BulkMessageContent() {
                       size="sm"
                       withFullProfile
                     />
-                    {ccbRecipients.filter(r => !r.isFromPaste && !r.isFromRoster && !r.isFromGroupImport).length > 0 && (
+                    {ccbRecipients.filter(r => !r.isFromPaste && !r.isFromRoster && !r.isFromGroupImport && !r.isFromQueueImport).length > 0 && (
                       <div className="pt-3 border-t border-gray-800">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Added Individually</label>
                         <div className="flex flex-wrap gap-2">
-                          {ccbRecipients.filter(r => !r.isFromPaste && !r.isFromRoster && !r.isFromGroupImport).map(r => (
+                          {ccbRecipients.filter(r => !r.isFromPaste && !r.isFromRoster && !r.isFromGroupImport && !r.isFromQueueImport).map(r => (
                             <div key={r.phone} className="flex items-center gap-1.5 bg-teal-500/10 border border-teal-500/20 px-2.5 py-1 rounded-lg text-xs">
                               <span className="text-teal-300 font-medium">{r.name}</span>
                               <button type="button" onClick={() => handleRemoveCCBRecipient(r.phone)} className="text-teal-500/60 hover:text-rose-400 transition-colors font-bold leading-none">×</button>
@@ -1722,6 +1850,115 @@ function BulkMessageContent() {
                   </div>
                 )}
 
+                {/* PROCESS QUEUE TAB */}
+                {buildTab === 'queue' && (() => {
+                  const queueGroups = queueStep
+                    ? Array.from(queueStep.people.reduce((acc, p) => acc.set(p.status, (acc.get(p.status) ?? 0) + 1), new Map<string, number>()))
+                    : [];
+                  const queueChosen = queueStep ? queueStep.people.filter(p => queueStatuses.has(p.status)).length : 0;
+                  const queueAdded = ccbRecipients.filter(r => r.isFromQueueImport);
+                  return (
+                  <div className="space-y-4">
+                    <p className="text-xs text-gray-500">Import the people sitting in a CCB process queue step.</p>
+                    <div>
+                      <label htmlFor="ccb-queue-step" className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Process Step</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="ccb-queue-step"
+                          type="text"
+                          value={queueInput}
+                          onChange={(e) => { setQueueInput(e.target.value); setQueueStep(null); setQueueError(null); setQueueFeedback(null); }}
+                          onKeyDown={(e) => e.key === 'Enter' && handleLoadQueue()}
+                          placeholder="e.g. 477, or paste the queue page address"
+                          className="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 transition-shadow placeholder:text-gray-600"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleLoadQueue}
+                          disabled={!queueInput.trim() || queueLoading || queueImporting}
+                          className="px-5 py-2 bg-sky-600 hover:bg-sky-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-xs uppercase tracking-widest rounded-lg transition-all flex items-center gap-2"
+                        >
+                          {queueLoading && <span className="w-3.5 h-3.5 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />}
+                          {queueLoading ? 'Loading…' : 'Load'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-600 mt-1.5">Open the step in CCB (Processes → the process → the step) and copy the number after step_id= in the address bar.</p>
+                    </div>
+                    {queueStep && (
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">
+                          {queueStep.people.length} in step {queueStep.stepId} — import which?
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {queueGroups.map(([status, count]) => {
+                            const on = queueStatuses.has(status);
+                            return (
+                              <button
+                                key={status}
+                                type="button"
+                                aria-pressed={on}
+                                disabled={queueImporting}
+                                onClick={() => setQueueStatuses(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(status)) next.delete(status); else next.add(status);
+                                  return next;
+                                })}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                                  on
+                                    ? 'bg-sky-500/15 border-sky-500/50 text-sky-300'
+                                    : 'bg-gray-800 border-gray-700 text-gray-500 hover:text-gray-300'
+                                }`}
+                              >
+                                {status || 'No status'} <span className="text-gray-500">{count}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleImportQueue}
+                          disabled={queueChosen === 0 || queueImporting}
+                          className="w-full py-3 bg-sky-600 hover:bg-sky-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2"
+                        >
+                          {queueImporting && <span className="w-3.5 h-3.5 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />}
+                          {queueImporting ? 'Importing…' : `Add ${queueChosen} to List`}
+                        </button>
+                      </div>
+                    )}
+                    {queueImporting && queueLookup && (
+                      <div className="flex items-center gap-2 text-xs text-sky-400">
+                        <span className="w-3.5 h-3.5 flex-shrink-0 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                        {lookupProgressText(queueLookup)}
+                      </div>
+                    )}
+                    {queueFeedback && <div className="text-xs text-sky-300 bg-sky-500/10 border border-sky-500/20 rounded-lg px-3 py-2">{queueFeedback}</div>}
+                    {queueMinorWarning && <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">{queueMinorWarning}</div>}
+                    {queueError && <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{queueError}</div>}
+                    {queueAdded.length > 0 && (
+                      <div className="pt-3 border-t border-gray-800 space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">
+                          {queueAdded.length} queue people added
+                        </label>
+                        {Array.from(new Set(queueAdded.map(r => r.groupName))).map(gName => (
+                          <div key={gName} className="flex items-center justify-between py-1.5 border-b border-gray-800/50 last:border-0">
+                            <span className="text-xs text-gray-300">{gName}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-gray-500">{queueAdded.filter(r => r.groupName === gName).length} people</span>
+                              <button
+                                type="button"
+                                onClick={() => setCcbRecipients(prev => prev.filter(r => !(r.isFromQueueImport && r.groupName === gName)))}
+                                className="text-gray-600 hover:text-rose-400 transition-colors font-bold text-sm"
+                                aria-label={`Remove everyone from ${gName}`}
+                              >×</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  );
+                })()}
+
               </div>
             </section>
 
@@ -1862,12 +2099,13 @@ function BulkMessageContent() {
                               {r.isFromPaste && <span className="text-[9px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-bold uppercase">Paste</span>}
                               {r.isFromRoster && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase">Roster</span>}
                               {r.isFromGroupImport && <span className="text-[9px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded font-bold uppercase">Group</span>}
-                              {r.isFromCCB && !r.isFromPaste && !r.isFromRoster && !r.isFromGroupImport && <span className="text-[9px] bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded font-bold uppercase">CCB</span>}
+                              {r.isFromQueueImport && <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase">Queue</span>}
+                              {r.isFromCCB && !r.isFromPaste && !r.isFromRoster && !r.isFromGroupImport && !r.isFromQueueImport && <span className="text-[9px] bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded font-bold uppercase">CCB</span>}
                             </div>
                             {(r.isAdditionalLeader || r.isFromRoster) && r.circleLeaderName && (
                               <p className="text-[10px] text-gray-500 mt-0.5">{r.circleLeaderName}&apos;s Circle</p>
                             )}
-                            {r.isFromGroupImport && r.groupName && (
+                            {(r.isFromGroupImport || r.isFromQueueImport) && r.groupName && (
                               <p className="text-[10px] text-gray-500 mt-0.5">{r.groupName}</p>
                             )}
                           </td>

@@ -141,6 +141,39 @@ async function lookUpContacts(
 }
 
 /**
+ * Fill in phones, birthdays and active status for a roster by reading each
+ * person's CCB profile. The profile read is also the only place v1 reports a
+ * birthday (for the under-18 gate) and whether CCB has since marked someone
+ * inactive, so everyone without a phone is looked up and inactive people are
+ * dropped.
+ */
+async function attachContacts(
+  roster: CcbRosterMember[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ members: CcbRosterMember[]; notLookedUp: number; lookupError?: string }> {
+  const missing = roster
+    .filter(m => m.id && !m.phone && !m.mobilePhone)
+    .map(m => m.id as string);
+  const lookup = await lookUpContacts(missing, onProgress);
+
+  const members = roster
+    .map((m): CcbRosterMember => {
+      const contact = m.id ? lookup.found[m.id] : undefined;
+      if (!contact) return m;
+      return {
+        ...m,
+        phone: contact.phone || m.phone,
+        mobilePhone: contact.mobilePhone || m.mobilePhone,
+        birthday: contact.birthday || m.birthday,
+        isActive: contact.isActive,
+      };
+    })
+    .filter(m => m.isActive !== false);
+
+  return { members, notLookedUp: lookup.notLookedUp, lookupError: lookup.error };
+}
+
+/**
  * Pull a CCB group's roster with phone numbers, looking up whoever the roster
  * came back without. Throws when the roster itself can't be read; a lookup
  * that stops partway returns what it has and says how many it didn't reach.
@@ -169,32 +202,64 @@ export async function importCcbGroupRoster(
     throw new Error(json.details || json.error || 'Failed to load roster');
   }
 
-  const roster = json.data || [];
-  const missing = roster
-    .filter(m => m.id && !m.phone && !m.mobilePhone)
-    .map(m => m.id as string);
-  const lookup = await lookUpContacts(missing, options.onLookupProgress);
-
-  // The profile read is also the only place v1 reports a birthday (for the
-  // under-18 gate) and whether CCB has since marked someone inactive.
-  const members = roster
-    .map((m): CcbRosterMember => {
-      const contact = m.id ? lookup.found[m.id] : undefined;
-      if (!contact) return m;
-      return {
-        ...m,
-        phone: contact.phone || m.phone,
-        mobilePhone: contact.mobilePhone || m.mobilePhone,
-        birthday: contact.birthday || m.birthday,
-        isActive: contact.isActive,
-      };
-    })
-    .filter(m => m.isActive !== false);
+  const { members, notLookedUp, lookupError } = await attachContacts(json.data || [], options.onLookupProgress);
 
   return {
     members,
     groupName: json.groupName ?? null,
-    notLookedUp: lookup.notLookedUp,
-    lookupError: lookup.error,
+    notLookedUp,
+    lookupError,
   };
+}
+
+export interface CcbQueuePerson {
+  id: string;
+  name: string;
+  status: string;
+  managerName: string;
+}
+
+/** Everyone in a CCB process queue step, names and statuses only — no phones. */
+export async function fetchCcbQueueStep(stepId: string): Promise<CcbQueuePerson[]> {
+  const res = await apiFetch('/api/ccb/queue-individuals', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stepId }),
+  });
+  const json = await readJson<{
+    success?: boolean;
+    data?: CcbQueuePerson[];
+    details?: string;
+    error?: string;
+  }>(res);
+  if (!res.ok || !json.success) {
+    throw new Error(json.details || json.error || 'Failed to load process queue');
+  }
+  return json.data || [];
+}
+
+/** CCB writes queue names as "First Last"; tolerate "Last, First" too. */
+function splitQueueName(name: string): { firstName: string; lastName: string } {
+  const comma = name.indexOf(',');
+  if (comma > 0) {
+    return { firstName: name.slice(comma + 1).trim(), lastName: name.slice(0, comma).trim() };
+  }
+  const [firstName = '', ...rest] = name.trim().split(/\s+/);
+  return { firstName, lastName: rest.join(' ') };
+}
+
+/**
+ * Look up phones for the chosen people from a queue step. The queue carries no
+ * contact details, so every one of them costs a profile read — pass only the
+ * people actually wanted.
+ */
+export async function importCcbQueuePeople(
+  people: CcbQueuePerson[],
+  onLookupProgress?: (done: number, total: number) => void,
+): Promise<Omit<CcbRosterImport, 'groupName'>> {
+  const roster = people.map((p): CcbRosterMember => {
+    const { firstName, lastName } = splitQueueName(p.name);
+    return { id: p.id, fullName: `${firstName} ${lastName}`.trim(), firstName, lastName };
+  });
+  return attachContacts(roster, onLookupProgress);
 }
