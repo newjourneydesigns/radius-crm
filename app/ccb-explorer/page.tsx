@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import EventSummaryFollowUpModal from '../../components/modals/EventSummaryFollowUpModal';
 import CircleSummaryModal from '../../components/modals/CircleSummaryModal';
+import MultiSelectFilter from '../../components/dashboard/MultiSelectFilter';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiFetch } from '../../lib/apiClient';
@@ -26,6 +27,8 @@ interface EventData {
     status?: string;
   }>;
 }
+
+const normalizeAcpd = (value: string) => value.trim().toLowerCase();
 
 export default function CCBExplorerPage() {
   const { user } = useAuth();
@@ -54,7 +57,8 @@ export default function CCBExplorerPage() {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const [leaders, setLeaders] = useState<Array<{id: number, name: string, campus?: string}>>([]);
+  const [leaders, setLeaders] = useState<Array<{id: number, name: string, campus?: string, acpd?: string | null}>>([]);
+  const [selectedAcpds, setSelectedAcpds] = useState<string[]>([]);
   const [showLeaderDropdown, setShowLeaderDropdown] = useState(false);
   const comboboxRef = useRef<HTMLDivElement>(null);
 
@@ -71,13 +75,33 @@ export default function CCBExplorerPage() {
   useEffect(() => {
     supabase
       .from('circle_leaders')
-      .select('id, name, campus')
+      .select('id, name, campus, acpd')
       .in('status', ['active', 'on-boarding', 'paused'])
       .order('name')
       .then(({ data }) => {
         if (data) setLeaders(data);
       });
   }, []);
+
+  const acpdOptions = useMemo(() => {
+    const names = leaders
+      .map((l) => l.acpd?.trim())
+      .filter((v): v is string => Boolean(v));
+    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+  }, [leaders]);
+
+  // The circles under the chosen ACPDs: what the search matches events against,
+  // and what the leader suggestions narrow to.
+  const acpdLeaders = useMemo(() => {
+    if (selectedAcpds.length === 0) return leaders;
+    const wanted = new Set(selectedAcpds.map(normalizeAcpd));
+    return leaders.filter((l) => wanted.has(normalizeAcpd(l.acpd || '')));
+  }, [leaders, selectedAcpds]);
+
+  const filterLabel = [
+    selectedAcpds.length > 0 ? `ACPD: ${selectedAcpds.join(', ')}` : '',
+    groupName.trim(),
+  ].filter(Boolean).join(' · ');
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -91,10 +115,16 @@ export default function CCBExplorerPage() {
   }, []);
 
   const handleFetchData = async () => {
-    if (!startDate || !groupName) {
-      setError('Please enter a start date and group name');
+    if (!startDate || (!groupName.trim() && selectedAcpds.length === 0)) {
+      setError('Please enter a start date and choose an ACPD or a group name');
       return;
     }
+
+    if (selectedAcpds.length > 0 && acpdLeaders.length === 0) {
+      setError('No circles are assigned to the selected ACPD');
+      return;
+    }
+    const acpdLeaderNames = selectedAcpds.length > 0 ? acpdLeaders.map((l) => l.name) : null;
 
     // Default end date to start date if not set (single day)
     const effectiveEnd = endDate || startDate;
@@ -146,7 +176,11 @@ export default function CCBExplorerPage() {
           const response = await apiFetch('/api/ccb/event-attendance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date: dates[i], groupName }),
+            body: JSON.stringify({
+              date: dates[i],
+              groupName,
+              ...(acpdLeaderNames && { groupNames: acpdLeaderNames }),
+            }),
             signal: abortController.signal,
           });
 
@@ -268,7 +302,7 @@ export default function CCBExplorerPage() {
           events,
           startDate,
           endDate: endDate || startDate,
-          groupName,
+          groupName: filterLabel,
         }),
       });
 
@@ -368,7 +402,7 @@ export default function CCBExplorerPage() {
               </h1>
             </div>
             <p className="text-gray-600 dark:text-gray-400">
-              Search CCB events by date range and group name to view attendance, notes, topics, and prayer requests.
+              Search CCB events by date range, ACPD, and group name to view attendance, notes, topics, and prayer requests.
             </p>
           </div>
 
@@ -408,9 +442,27 @@ export default function CCBExplorerPage() {
                   disabled={loading}
                 />
               </div>
+              <div className="relative z-30">
+                <MultiSelectFilter
+                  label="ACPD"
+                  allLabel="All ACPDs"
+                  options={acpdOptions}
+                  selected={selectedAcpds}
+                  onChange={setSelectedAcpds}
+                  disabled={loading}
+                  labelClassName="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  fieldClassName="w-full min-h-[50px] flex items-center cursor-pointer pl-4 pr-10 py-2.5 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
+                />
+                {selectedAcpds.length > 0 && (
+                  <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {acpdLeaders.length} circle{acpdLeaders.length !== 1 ? 's' : ''} included
+                  </p>
+                )}
+              </div>
               <div ref={comboboxRef} className="relative">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Circle Leader / Group Name
+                  {selectedAcpds.length > 0 && <span className="text-gray-400 font-normal"> (optional)</span>}
                 </label>
                 <div className="relative">
                   <input
@@ -422,7 +474,7 @@ export default function CCBExplorerPage() {
                     }}
                     onFocus={() => setShowLeaderDropdown(true)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Type to search or select a leader..."
+                    placeholder={selectedAcpds.length > 0 ? 'Narrow to one leader or group...' : 'Type to search or select a leader...'}
                     className="w-full px-4 py-3 pr-10 border border-gray-300/30 dark:border-gray-600/30 rounded-xl shadow-sm bg-white/50 dark:bg-gray-700/30 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-vc-500/20 focus:border-vc-500/50 backdrop-blur-sm transition-all duration-200"
                     disabled={loading}
                   />
@@ -441,16 +493,18 @@ export default function CCBExplorerPage() {
                   )}
                 </div>
                 {showLeaderDropdown && !loading && (
-                  <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                  <div className="absolute z-20 w-full mt-1 bg-[#1a1c22] border border-white/[0.08] rounded-xl shadow-2xl shadow-black/50 max-h-56 overflow-y-auto">
                     {(() => {
                       const q = groupName.trim().toLowerCase();
                       const filtered = q
-                        ? leaders.filter(l => l.name.toLowerCase().includes(q))
-                        : leaders;
+                        ? acpdLeaders.filter(l => l.name.toLowerCase().includes(q))
+                        : acpdLeaders;
                       if (filtered.length === 0) {
                         return (
-                          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                            No matching leaders — your typed name will be used as the search term.
+                          <div className="px-4 py-3 text-sm text-slate-400">
+                            {selectedAcpds.length > 0
+                              ? 'No matching leaders under this ACPD — your typed text will narrow the results.'
+                              : 'No matching leaders — your typed name will be used as the search term.'}
                           </div>
                         );
                       }
@@ -463,11 +517,11 @@ export default function CCBExplorerPage() {
                             setGroupName(leader.name);
                             setShowLeaderDropdown(false);
                           }}
-                          className="w-full text-left px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm text-gray-900 dark:text-white flex items-center justify-between first:rounded-t-xl last:rounded-b-xl"
+                          className="w-full text-left px-4 py-2.5 text-sm text-slate-200 transition-colors hover:bg-white/[0.06] hover:text-white flex items-center justify-between first:rounded-t-xl last:rounded-b-xl"
                         >
                           <span className="font-medium">{leader.name}</span>
                           {leader.campus && (
-                            <span className="text-xs text-gray-400 dark:text-gray-500 ml-2 shrink-0">{leader.campus}</span>
+                            <span className="text-xs text-slate-500 ml-2 shrink-0">{leader.campus}</span>
                           )}
                         </button>
                       ));
@@ -479,7 +533,7 @@ export default function CCBExplorerPage() {
 
             <button
               onClick={handleFetchData}
-              disabled={loading || !startDate || !groupName}
+              disabled={loading || !startDate || (!groupName.trim() && selectedAcpds.length === 0)}
               className="btn-primary w-full px-4 py-3 rounded-xl text-sm flex items-center justify-center gap-2"
             >
               {loading ? (
@@ -524,7 +578,7 @@ export default function CCBExplorerPage() {
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              No events found for this date range and group
+              No events found for this date range and filter
             </div>
           )}
 
@@ -735,7 +789,7 @@ export default function CCBExplorerPage() {
         error={summaryError}
         startDate={startDate}
         endDate={endDate || startDate}
-        groupName={groupName}
+        groupName={filterLabel}
         eventCount={events.length}
       />
     </ProtectedRoute>

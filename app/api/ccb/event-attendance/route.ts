@@ -17,6 +17,10 @@ const RATE_LIMIT_MAX = 30; // 30 requests per minute per user
 const responseCache = new Map<string, { data: any; expiresAt: number; writtenThrough: boolean }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Comfortably above the largest ACPD's caseload; stops a body from turning the
+// per-event match into an unbounded loop.
+const MAX_GROUP_NAMES = 500;
+
 function checkRateLimit(userId: string): boolean {
   const now = Date.now();
   const userLimit = rateLimitMap.get(userId);
@@ -73,16 +77,35 @@ export async function POST(request: Request) {
 
     // Parse request body
     const body = await request.json();
-    const { date, endDate, groupName } = body;
+    const { date, endDate } = body;
+    const groupName = typeof body?.groupName === 'string' ? body.groupName.trim() : '';
+    // The CCB Event Explorer's ACPD filter sends every leader under the chosen
+    // ACPDs; an event matching any of them is returned. A groupName sent
+    // alongside narrows those results further rather than widening them.
+    const groupNames: string[] = Array.isArray(body?.groupNames)
+      ? Array.from(new Set<string>(
+          body.groupNames
+            .filter((n: unknown): n is string => typeof n === 'string')
+            .map((n: string) => n.trim())
+            .filter(Boolean)
+        )).sort()
+      : [];
     // Read-only callers (the Event Summary Tracker's attendee list) opt out of
     // the write-through below: a lookup done purely to render names should not
     // rewrite the attendance rows the same screen is reading.
     const writeThrough = body?.writeThrough !== false;
 
     // Validate required fields
-    if (!date || !groupName) {
+    if (!date || (!groupName && groupNames.length === 0)) {
       return NextResponse.json(
-        { error: 'Missing required fields: date and groupName are required' },
+        { error: 'Missing required fields: date and a groupName or groupNames are required' },
+        { status: 400 }
+      );
+    }
+
+    if (groupNames.length > MAX_GROUP_NAMES) {
+      return NextResponse.json(
+        { error: `Too many group names (max ${MAX_GROUP_NAMES})` },
         { status: 400 }
       );
     }
@@ -102,7 +125,9 @@ export async function POST(request: Request) {
     }
 
     // Check cache
-    const cacheKey = `${groupName}:${date}:${effectiveEndDate}`;
+    const cacheKey = groupNames.length > 0
+      ? JSON.stringify([groupName, groupNames, date, effectiveEndDate])
+      : `${groupName}:${date}:${effectiveEndDate}`;
     const cached = getCachedResponse(cacheKey);
     if (cached) {
       console.log(`📦 Returning cached response for ${cacheKey}`);
@@ -127,20 +152,25 @@ export async function POST(request: Request) {
     }));
 
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔍 Fetching CCB events for group "${groupName}" from ${date} to ${effectiveEndDate}`);
+      console.log(`🔍 Fetching CCB events for group "${groupName}" (+${groupNames.length} names) from ${date} to ${effectiveEndDate}`);
     } else {
       console.log(`🔍 Fetching CCB events from ${date} to ${effectiveEndDate}`);
     }
 
     // OPTIMIZED: Use fast search method (10-20x faster!)
-    const events = await ccbClient.searchEventsByDateAndName(
-      groupName,
+    let events = await ccbClient.searchEventsByDateAndName(
+      groupNames.length > 0 ? groupNames : groupName,
       date,
       effectiveEndDate,
       {
         includeAttendees: true,
       }
     );
+
+    if (groupNames.length > 0 && groupName) {
+      const narrowTo = groupName.toLowerCase();
+      events = events.filter((event) => event.title.toLowerCase().includes(narrowTo));
+    }
 
     console.log(`✅ Found ${events.length} events`);
 
