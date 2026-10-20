@@ -16,6 +16,7 @@ import {
   validateAuthorizeRequest, type OAuthDeps,
 } from '../lib/mcp/oauth';
 import { isThisResource } from '../lib/mcp/config';
+import { assistantName, disconnect, disconnectAll, getAssistantAccess } from '../lib/mcp/connections';
 import { readLimitedText } from '../lib/mcp/http';
 import { LEADER_COLUMNS, createSupabaseReadRepo, likeTerm } from '../lib/mcp/repo';
 import { createSupabaseMcpStore } from '../lib/mcp/store-supabase';
@@ -901,6 +902,102 @@ async function main() {
   await test('real store: a failed audit insert throws instead of being swallowed', async () => {
     const { db } = recordingDb({ data: null, error: { message: 'boom' } });
     await assert.rejects(() => createSupabaseMcpStore(db).audit({ event: 'tool_call' }), /audit write failed/);
+  });
+
+  // ── Assistant access page: list and disconnect ────────────────────────
+  await test('connections: a user sees only their own, with the enabled flag and no sensitive detail', async () => {
+    const world = makeWorld();
+    const a = await connect(world, USER_A);
+    await connect(world, USER_B);
+    await call(world, a.access_token, 'search_leaders', {});
+    const asA = await getAssistantAccess(world.oauth, USER_A);
+    assert.strictEqual(asA.enabled, true);
+    assert.strictEqual(asA.connections.length, 1);
+    assert.strictEqual(asA.connections[0].assistant, 'ChatGPT');
+    assert.deepStrictEqual(Object.keys(asA.connections[0]).sort(), ['assistant', 'connected_at', 'expires_at', 'id', 'last_used_at']);
+    assert.strictEqual(asA.activity.length, 1);
+    assert.deepStrictEqual(Object.keys(asA.activity[0]).sort(), ['at', 'ok', 'result_count', 'tool'], 'activity shows names and counts, never arguments');
+    const asB = await getAssistantAccess(world.oauth, USER_B);
+    assert.strictEqual(asB.connections.length, 1);
+    assert.notStrictEqual(asB.connections[0].id, asA.connections[0].id);
+    assert.strictEqual(asB.activity.length, 0, "user B must not see user A's activity");
+    assert.strictEqual((await getAssistantAccess(world.oauth, USER_NO_ACCESS)).enabled, false);
+    world.store.access.set(USER_A, { user_id: USER_A, scopes: ['radius:read'], revoked_at: '2026-10-01T00:00:00Z' });
+    assert.strictEqual((await getAssistantAccess(world.oauth, USER_A)).enabled, false);
+  });
+
+  await test('connections: disconnecting stops the token immediately', async () => {
+    const world = makeWorld();
+    const t = await connect(world, USER_A);
+    assert.ok((await authenticateBearer(world.oauth, t.access_token)).ok);
+    const [mine] = (await getAssistantAccess(world.oauth, USER_A)).connections;
+    assert.strictEqual(await disconnect(world.oauth, USER_A, mine.id), true);
+    assert.ok(!(await authenticateBearer(world.oauth, t.access_token)).ok, 'the access token must stop working at once');
+    const refreshed = await exchangeToken(world.oauth, { grant_type: 'refresh_token', refresh_token: t.refresh_token, client_id: CLIENT_ID });
+    assert.strictEqual(refreshed.body.error, 'invalid_grant', 'and the refresh token must not bring it back');
+    assert.strictEqual((await getAssistantAccess(world.oauth, USER_A)).connections.length, 0);
+    assert.ok(world.store.auditLog.some((e) => e.event === 'disconnected_by_user' && e.user_id === USER_A && e.ok === true));
+  });
+
+  await test("connections: one user cannot disconnect (or detect) another user's connection", async () => {
+    const world = makeWorld();
+    const a = await connect(world, USER_A);
+    const [theirs] = (await getAssistantAccess(world.oauth, USER_A)).connections;
+    assert.strictEqual(await disconnect(world.oauth, USER_B, theirs.id), false);
+    assert.strictEqual(await disconnect(world.oauth, USER_B, 'no-such-grant'), false, 'indistinguishable from a connection that does not exist');
+    assert.ok((await authenticateBearer(world.oauth, a.access_token)).ok, "A's token must be untouched");
+    assert.strictEqual((await getAssistantAccess(world.oauth, USER_A)).connections.length, 1);
+    // ending it twice is harmless
+    assert.strictEqual(await disconnect(world.oauth, USER_A, theirs.id), true);
+    assert.strictEqual(await disconnect(world.oauth, USER_A, theirs.id), false);
+  });
+
+  await test('connections: disconnect everything ends only the caller\'s connections', async () => {
+    const world = makeWorld();
+    const a1 = await connect(world, USER_A);
+    const a2 = await connect(world, USER_A);
+    const b = await connect(world, USER_B);
+    assert.strictEqual(await disconnectAll(world.oauth, USER_A), 2);
+    for (const t of [a1, a2]) assert.ok(!(await authenticateBearer(world.oauth, t.access_token)).ok);
+    assert.ok((await authenticateBearer(world.oauth, b.access_token)).ok, "B must not be affected by A's disconnect");
+    assert.strictEqual(await disconnectAll(world.oauth, USER_A), 0);
+    assert.ok(world.store.auditLog.some((e) => e.event === 'disconnected_all_by_user' && e.result_count === 2));
+  });
+
+  await test('connections: assistant names are readable and tolerate junk', () => {
+    assert.strictEqual(assistantName('https://chatgpt.com/oauth/client.json'), 'ChatGPT');
+    assert.strictEqual(assistantName('https://example.org/oauth/client.json'), 'example.org');
+    assert.strictEqual(assistantName('not a url'), 'AI assistant');
+  });
+
+  await test('real store: connection queries are scoped to the user inside the query itself', async () => {
+    const listQ = recordingDb({ data: [], error: null });
+    await createSupabaseMcpStore(listQ.db).listGrantsForUser('user-a', new Date('2026-10-20T15:00:00Z'));
+    const list = listQ.queries[0];
+    assert.strictEqual(list.table, 'mcp_oauth_grants');
+    assert.ok(list.ops.some((o) => o[0] === 'eq' && o[1] === 'user_id' && o[2] === 'user-a'));
+    assert.ok(list.ops.some((o) => o[0] === 'is' && o[1] === 'revoked_at' && o[2] === null), 'only live connections');
+    assert.ok(list.ops.some((o) => o[0] === 'gt' && o[1] === 'expires_at'), 'not expired ones');
+
+    const oneQ = recordingDb({ data: [{ id: 'g' }], error: null });
+    assert.strictEqual(await createSupabaseMcpStore(oneQ.db).revokeGrantForUser('user-a', 'g'), true);
+    const one = oneQ.queries[0];
+    assert.strictEqual(one.ops[0][0], 'update');
+    assert.ok(one.ops.some((o) => o[0] === 'eq' && o[1] === 'id' && o[2] === 'g'));
+    assert.ok(one.ops.some((o) => o[0] === 'eq' && o[1] === 'user_id' && o[2] === 'user-a'), 'ownership is part of the UPDATE itself');
+    const nothingQ = recordingDb({ data: [], error: null });
+    assert.strictEqual(await createSupabaseMcpStore(nothingQ.db).revokeGrantForUser('user-b', 'g'), false);
+
+    const allQ = recordingDb({ data: [{ id: '1' }, { id: '2' }], error: null });
+    assert.strictEqual(await createSupabaseMcpStore(allQ.db).revokeAllGrantsForUser('user-a'), 2);
+    assert.ok(allQ.queries[0].ops.some((o) => o[0] === 'eq' && o[1] === 'user_id' && o[2] === 'user-a'));
+
+    const actQ = recordingDb({ data: [], error: null });
+    await createSupabaseMcpStore(actQ.db).recentToolCalls('user-a', 15);
+    const act = actQ.queries[0];
+    assert.strictEqual(act.table, 'mcp_audit_log');
+    assert.ok(act.ops.some((o) => o[0] === 'eq' && o[1] === 'user_id' && o[2] === 'user-a'));
+    assert.strictEqual(act.ops.find((o) => o[0] === 'select')![1], 'at, tool, ok, result_count', 'never selects arguments');
   });
 
   await test('likeTerm: filter syntax and wildcards cannot survive into a query', () => {

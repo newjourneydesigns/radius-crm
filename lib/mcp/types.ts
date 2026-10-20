@@ -12,6 +12,15 @@ export interface GrantRow {
   resource: string;
   expires_at: string;
   revoked_at: string | null;
+  created_at?: string;
+  last_used_at?: string | null;
+}
+
+export interface ActivityRow {
+  at: string;
+  tool: string | null;
+  ok: boolean | null;
+  result_count: number | null;
 }
 
 export interface CodeRow {
@@ -56,10 +65,18 @@ export interface McpStore {
   /** Redirect URIs registered by hand in mcp_allowed_redirects. */
   listAllowedRedirectUris(): Promise<string[]>;
   userExists(userId: string): Promise<boolean>;
-  createGrant(grant: Omit<GrantRow, 'id' | 'revoked_at'>): Promise<GrantRow>;
+  createGrant(grant: Omit<GrantRow, 'id' | 'revoked_at' | 'created_at' | 'last_used_at'>): Promise<GrantRow>;
   getGrant(id: string): Promise<GrantRow | null>;
   revokeGrant(id: string): Promise<void>;
   touchGrant(id: string): Promise<void>;
+  /** A user's own live (not revoked, not expired) connections, newest first. */
+  listGrantsForUser(userId: string, now: Date): Promise<GrantRow[]>;
+  /** Ends one connection, but only if it belongs to `userId`. Returns whether anything was ended. */
+  revokeGrantForUser(userId: string, grantId: string): Promise<boolean>;
+  /** Ends every live connection belonging to `userId`. Returns how many. */
+  revokeAllGrantsForUser(userId: string): Promise<number>;
+  /** The user's most recent tool calls: name, outcome and record count only, never arguments or content. */
+  recentToolCalls(userId: string, limit: number): Promise<ActivityRow[]>;
   insertCode(code: CodeRow): Promise<void>;
   /** Atomically marks a code used. A code that was already used reports 'reused'. */
   claimCode(codeHash: string, now: Date): Promise<ClaimResult<CodeRow>>;

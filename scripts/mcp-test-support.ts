@@ -1,7 +1,7 @@
 // In-memory stand-ins for the Supabase-backed store and read repo, used only by scripts/test-mcp.ts.
 import type { LeaderRow, ReadRepo, ConnectionRow, NoteRow, TodoRow } from '../lib/mcp/repo';
 import type {
-  AccessRow, AuditEntry, ClaimResult, CodeRow, GrantRow, McpStore, TokenRow,
+  AccessRow, ActivityRow, AuditEntry, ClaimResult, CodeRow, GrantRow, McpStore, TokenRow,
 } from '../lib/mcp/types';
 
 export class MemoryStore implements McpStore {
@@ -28,6 +28,30 @@ export class MemoryStore implements McpStore {
     if (g && !g.revoked_at) g.revoked_at = new Date(0).toISOString();
   }
   async touchGrant() {}
+  async listGrantsForUser(userId: string, now: Date) {
+    return Array.from(this.grants.values())
+      .filter((g) => g.user_id === userId && !g.revoked_at && new Date(g.expires_at) > now)
+      .map((g) => ({ ...g, created_at: g.created_at ?? now.toISOString(), last_used_at: g.last_used_at ?? null }));
+  }
+  async revokeGrantForUser(userId: string, grantId: string) {
+    const g = this.grants.get(grantId);
+    if (!g || g.user_id !== userId || g.revoked_at) return false;
+    g.revoked_at = new Date(0).toISOString();
+    return true;
+  }
+  async revokeAllGrantsForUser(userId: string) {
+    let n = 0;
+    for (const g of Array.from(this.grants.values())) {
+      if (g.user_id === userId && !g.revoked_at) { g.revoked_at = new Date(0).toISOString(); n++; }
+    }
+    return n;
+  }
+  async recentToolCalls(userId: string, limit: number): Promise<ActivityRow[]> {
+    return this.auditLog
+      .filter((e) => e.event === 'tool_call' && e.user_id === userId)
+      .slice(-limit).reverse()
+      .map((e) => ({ at: '2026-10-20T15:00:00Z', tool: e.tool ?? null, ok: e.ok ?? null, result_count: e.result_count ?? null }));
+  }
   async insertCode(c: CodeRow) { this.codes.set(c.code_hash, { ...c }); }
   async claimCode(hash: string, now: Date): Promise<ClaimResult<CodeRow>> {
     const row = this.codes.get(hash);

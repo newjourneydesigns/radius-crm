@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { hasPassed } from './time';
-import type { AccessRow, AuditEntry, ClaimResult, CodeRow, GrantRow, McpStore, TokenRow } from './types';
+import type { AccessRow, ActivityRow, AuditEntry, ClaimResult, CodeRow, GrantRow, McpStore, TokenRow } from './types';
 
 const isPast = hasPassed;
 
@@ -53,6 +53,50 @@ export function createSupabaseMcpStore(db: SupabaseClient): McpStore {
     async touchGrant(id) {
       // Best effort: a failed timestamp must not fail the request.
       await db.from('mcp_oauth_grants').update({ last_used_at: new Date().toISOString() }).eq('id', id);
+    },
+
+    async listGrantsForUser(userId, now) {
+      const res = await db
+        .from('mcp_oauth_grants')
+        .select('id, user_id, client_id, scope, resource, created_at, expires_at, revoked_at, last_used_at')
+        .eq('user_id', userId)
+        .is('revoked_at', null)
+        .gt('expires_at', now.toISOString())
+        .order('created_at', { ascending: false });
+      return must(res, 'list grants') as GrantRow[];
+    },
+
+    async revokeGrantForUser(userId, grantId) {
+      // The user id is part of the UPDATE's own condition, so one person can never end another's connection.
+      const res = await db
+        .from('mcp_oauth_grants')
+        .update({ revoked_at: new Date().toISOString() })
+        .eq('id', grantId)
+        .eq('user_id', userId)
+        .is('revoked_at', null)
+        .select('id');
+      return (must(res, 'revoke grant for user') as { id: string }[]).length > 0;
+    },
+
+    async revokeAllGrantsForUser(userId) {
+      const res = await db
+        .from('mcp_oauth_grants')
+        .update({ revoked_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .is('revoked_at', null)
+        .select('id');
+      return (must(res, 'revoke all grants') as { id: string }[]).length;
+    },
+
+    async recentToolCalls(userId, limit) {
+      const res = await db
+        .from('mcp_audit_log')
+        .select('at, tool, ok, result_count')
+        .eq('user_id', userId)
+        .eq('event', 'tool_call')
+        .order('at', { ascending: false })
+        .limit(limit);
+      return must(res, 'recent tool calls') as ActivityRow[];
     },
 
     async insertCode(code) {

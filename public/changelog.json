@@ -6,8 +6,8 @@
     "id": "assistant-read-only-access",
     "type": "feature",
     "category": "Assistant access",
-    "page": "/update-log",
-    "description": "Radius can now be connected, read-only, to an AI assistant such as ChatGPT. After you sign in and approve it on a consent screen, the assistant can look up Circle Leaders, their notes, logged interactions and follow-ups. It can't change anything, and it never sees phone numbers, emails, birthdays or prayer requests. Access is off for everyone until an administrator turns it on for an account, and every request it makes is logged.",
+    "page": "/assistant-access",
+    "description": "Radius can now be connected, read-only, to an AI assistant such as ChatGPT. After you sign in and approve it on a consent screen, the assistant can look up Circle Leaders, their notes, logged interactions and follow-ups. It can't change anything, and it never sees phone numbers, emails, birthdays or prayer requests. Access is off for everyone until an administrator turns it on for an account. The new Assistant access page (Settings, App Management) shows what's connected and what it has read, and lets you disconnect one assistant or all of them with one click.",
     "version": "2.59.0"
   },
   {

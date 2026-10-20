@@ -167,7 +167,12 @@ The full input and output schemas are returned by `tools/list`, and are defined 
 
 ## Turning access off
 
-Any one of these works immediately:
+**The easy way:** open **Settings → App Management → Assistant access** (`/assistant-access/`). It lists your
+connected assistants, when each was last used, and your recent assistant activity (tool and number of records,
+never the content). **Disconnect** ends one connection and **Disconnect everything** ends all of yours; the
+assistant stops working on its next request. You can only ever see and end your own connections.
+
+Or in SQL, any one of these works immediately:
 
 ```sql
 -- Stop one person entirely (existing tokens stop working on their next request)
@@ -247,9 +252,9 @@ I can't verify from here. Today the exposure is one enabled account (yours), and
 and what it grants, but treat any "connect Radius" link you didn't start yourself as hostile.
 
 A proper fix is a **pairing step**: a "Connect assistant" button inside Radius that records a short-lived
-(about 10 minutes) pairing for your account, and an approval that is refused unless one is open. I'd build it
-together with a **list of active connections with a Disconnect button**, which today needs SQL. It adds a
-small page and one table, so I have not built it without your say-so.
+(about 10 minutes) pairing for your account, and an approval that is refused unless one is open. That is not
+built; it adds a table and a step to every connection, so it needs your say-so. The **Assistant access** page
+(above) limits the damage if it ever happens: you can see the connection and end it in one click.
 
 ## Known limits
 
