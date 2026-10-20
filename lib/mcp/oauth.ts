@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 import type { ClientInfo } from './clients';
+import { hasPassed, timestampMillis } from './time';
 import { MCP_SUPPORTED_SCOPES, isThisResource, type McpConfig } from './config';
 import {
   isValidCodeChallenge,
@@ -47,7 +48,11 @@ export type AuthorizeValidation =
 const plusSeconds = (date: Date, seconds: number) =>
   DateTime.fromJSDate(date).plus({ seconds }).toUTC().toISO()!;
 
-const isPast = (iso: string, now: Date) => DateTime.fromISO(iso).toMillis() <= now.getTime();
+const isPast = hasPassed;
+
+// A refresh token re-presented this soon after it rotated is most likely a client retrying after a lost
+// response, not theft. It is still refused, but it doesn't end the whole grant.
+const REFRESH_REUSE_GRACE_MS = 10_000;
 
 const fatal = (error: string, description: string): AuthorizeValidation => ({
   ok: false,
@@ -77,17 +82,21 @@ export async function validateAuthorizeRequest(
   const { config } = deps;
 
   if (!params.client_id) return fatal('invalid_request', 'Missing client_id.');
-  const client = await deps.resolveClient(params.client_id);
-  if (!client) return fatal('invalid_client', 'This client is not recognised.');
-
   const redirectUri = params.redirect_uri;
   if (!redirectUri) return fatal('invalid_request', 'Missing redirect_uri.');
-  // Must be registered here (env or database, exact match) AND listed in the client's own metadata.
+
+  // Every failure below says the same thing, so this unauthenticated check can't be used to learn which
+  // redirect addresses are registered or which clients exist.
+  const unverified = fatal('invalid_request', 'This request could not be verified.');
+
+  // Registered here first (env or database, exact match), before any outbound fetch is made for the client.
   const registered = config.allowedRedirectUris.has(redirectUri) ||
     (await deps.store.listAllowedRedirectUris()).includes(redirectUri);
-  if (!registered || !client.redirectUris.includes(redirectUri)) {
-    return fatal('invalid_request', 'This redirect address is not allowed.');
-  }
+  if (!registered) return unverified;
+
+  // ...and also listed in the client's own metadata document.
+  const client = await deps.resolveClient(params.client_id);
+  if (!client || !client.redirectUris.includes(redirectUri)) return unverified;
 
   const state = params.state && params.state.length <= 512 ? params.state : undefined;
   const bounce = (error: string, description: string): AuthorizeValidation => ({
@@ -214,10 +223,10 @@ const tokenError = (error: string, description: string, status = 400): TokenResp
 async function issueTokens(deps: OAuthDeps, grant: GrantRow): Promise<TokenResponse> {
   const { store, config } = deps;
   const now = deps.now();
-  const grantEndsInSeconds = Math.floor((DateTime.fromISO(grant.expires_at).toMillis() - now.getTime()) / 1000);
+  const grantEndsInSeconds = Math.floor((timestampMillis(grant.expires_at) - now.getTime()) / 1000);
   const accessTtl = Math.min(config.accessTtlSeconds, grantEndsInSeconds);
   const refreshTtl = Math.min(config.refreshTtlSeconds, grantEndsInSeconds);
-  if (accessTtl <= 0) return tokenError('invalid_grant', 'This authorization has expired.');
+  if (!(accessTtl > 0)) return tokenError('invalid_grant', 'This authorization has expired.');
 
   const access = randomCredential('rmcp_a');
   const refresh = randomCredential('rmcp_r');
@@ -312,6 +321,10 @@ export async function exchangeToken(
       return tokenError('invalid_grant', 'Unknown refresh token.');
     }
     if (claim.status === 'reused') {
+      const rotatedAt = claim.row.used_at ? timestampMillis(claim.row.used_at) : NaN;
+      if (now.getTime() - rotatedAt <= REFRESH_REUSE_GRACE_MS) {
+        return tokenError('invalid_grant', 'This refresh token was just used. Use the newest one.');
+      }
       await store.revokeGrant(claim.row.grant_id);
       await store.audit({ event: 'refresh_replayed', grant_id: claim.row.grant_id, ok: false });
       return tokenError('invalid_grant', 'This refresh token was already used.');

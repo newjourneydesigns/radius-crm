@@ -37,7 +37,7 @@ export function parseArguments(schema: JsonSchema, args: unknown): Record<string
   const props = schema.properties || {};
 
   for (const key of Object.keys(input)) {
-    if (!(key in props)) {
+    if (!Object.prototype.hasOwnProperty.call(props, key)) {
       if (schema.additionalProperties === false) throw new InputError(`Unknown argument "${key}".`);
     }
   }

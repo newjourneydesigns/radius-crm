@@ -48,6 +48,15 @@ export function loadMcpConfig(env: Record<string, string | undefined> = process.
 export const protectedResourceMetadataUrl = (config: McpConfig) =>
   `${config.baseUrl}/.well-known/oauth-protected-resource/api/mcp`;
 
+const MAX_RESOURCE_LENGTH = 2048;
+
+// A loop, not /\/+$/: that regex is quadratic on a long run of slashes, and this runs on unauthenticated input.
+function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end--;
+  return value.slice(0, end);
+}
+
 /** Clients may name the resource with or without the trailing slash; both mean this server. */
 export const isThisResource = (config: McpConfig, value: string) =>
-  value.replace(/\/+$/, '') === config.resourceUrl.replace(/\/+$/, '');
+  value.length <= MAX_RESOURCE_LENGTH && trimTrailingSlashes(value) === trimTrailingSlashes(config.resourceUrl);

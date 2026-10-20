@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getUserFromAuthHeader } from '../../../../lib/server-supabase';
+import { readLimitedText, tooLarge } from '../../../../lib/mcp/http';
 import { serverMisconfigured } from '../../../../lib/mcp/metadata';
 import {
   approveAuthorization,
@@ -43,11 +44,15 @@ async function handleAuthorize(request: Request) {
     return serverMisconfigured();
   }
 
-  const body = await request.json().catch(() => null);
-  const rawParams = (body && typeof body === 'object' ? body.params : null) || {};
+  const text = await readLimitedText(request, 16 * 1024);
+  if (text === null) return tooLarge();
+  let body: { params?: Record<string, unknown>; decision?: unknown } | null = null;
+  try { body = JSON.parse(text); } catch { /* treated as an empty request below */ }
+  const rawParams: Record<string, unknown> = (body && typeof body === 'object' ? body.params : null) || {};
   const params: AuthorizeParams = {};
   for (const key of PARAM_KEYS) {
-    if (typeof rawParams[key] === 'string') params[key] = rawParams[key];
+    const value = rawParams[key];
+    if (typeof value === 'string') params[key] = value;
   }
   const decision = body?.decision;
 

@@ -125,11 +125,22 @@ export class MemoryRepo implements ReadRepo {
   async leaderNames(ids: number[]) {
     return new Map(LEADERS.filter((l) => ids.includes(l.id)).map((l) => [l.id, l.name] as [number, string]));
   }
+  capped = false;
   async leaderFollowUps(f: { leaderId?: number }) {
-    return LEADERS.filter((l) => l.follow_up_required && (f.leaderId === undefined || l.id === f.leaderId));
+    return {
+      rows: LEADERS.filter((l) => l.follow_up_required && (f.leaderId === undefined || l.id === f.leaderId)),
+      capped: this.capped,
+    };
   }
-  async personalFollowUps(userId: string, f: { leaderId?: number }) {
+  lastTodoFilter: { leaderId?: number; completed?: boolean } | null = null;
+  async personalFollowUps(userId: string, f: { leaderId?: number; completed?: boolean }) {
     this.calls.push(`personalFollowUps:${userId}`);
-    return TODOS.filter((t) => t.user_id === userId && (f.leaderId === undefined || t.linked_leader_id === f.leaderId));
+    this.lastTodoFilter = f;
+    return {
+      rows: TODOS.filter((t) => t.user_id === userId
+        && (f.leaderId === undefined || t.linked_leader_id === f.leaderId)
+        && (f.completed === undefined || !!t.completed === f.completed)),
+      capped: this.capped,
+    };
   }
 }

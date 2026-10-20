@@ -42,6 +42,9 @@ export const fetchClientMetadata: ClientMetadataFetcher = async (url) => {
     cache: 'no-store',
   });
   if (!response.ok) throw new Error(`client metadata HTTP ${response.status}`);
+  if (Number(response.headers.get('content-length') || 0) > MAX_DOCUMENT_BYTES) {
+    throw new Error('client metadata too large');
+  }
   const text = await response.text();
   if (text.length > MAX_DOCUMENT_BYTES) throw new Error('client metadata too large');
   return JSON.parse(text);
@@ -74,8 +77,11 @@ export async function resolveClient(
 
   const cached = cache.get(clientId);
   if (cached && cached.expiresAt > now) return cached.info;
-  // Bound the memory an attacker can use by inventing client ids.
-  if (cache.size > 200) cache.clear();
+  // Bound the memory an attacker can use by inventing client ids, without letting them flush real entries.
+  if (cache.size >= 200) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
 
   try {
     const info = parseClientDocument(clientId, await fetcher(url.toString()));

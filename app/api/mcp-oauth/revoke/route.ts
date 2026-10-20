@@ -1,3 +1,4 @@
+import { readLimitedText, tooLarge } from '../../../../lib/mcp/http';
 import { serverMisconfigured } from '../../../../lib/mcp/metadata';
 import { revokeToken } from '../../../../lib/mcp/oauth';
 import { createOAuthDeps } from '../../../../lib/mcp/runtime';
@@ -13,7 +14,9 @@ export async function POST(request: Request) {
   } catch {
     return serverMisconfigured();
   }
-  const token = new URLSearchParams(await request.text()).get('token');
+  const text = await readLimitedText(request, 4 * 1024);
+  if (text === null) return tooLarge();
+  const token = new URLSearchParams(text).get('token');
   if (token) {
     try {
       await revokeToken(deps, token);

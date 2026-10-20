@@ -81,12 +81,16 @@ export interface ReadRepo {
   authorNames(userIds: string[]): Promise<Map<string, string>>;
   leaderNames(ids: number[]): Promise<Map<number, string>>;
   /** Leaders with an open follow-up flag. Shared data: any signed-in Radius user can see it. */
-  leaderFollowUps(f: { leaderId?: number }): Promise<LeaderRow[]>;
-  /** The caller's OWN follow-up todos. `userId` always comes from the verified token, never from a tool argument. */
-  personalFollowUps(userId: string, f: { leaderId?: number }): Promise<TodoRow[]>;
+  leaderFollowUps(f: { leaderId?: number }): Promise<{ rows: LeaderRow[]; capped: boolean }>;
+  /**
+   * The caller's OWN follow-up todos, optionally only open (`completed: false`) or only done (`true`).
+   * `userId` always comes from the verified token, never from a tool argument. `capped` means more rows
+   * exist than were fetched.
+   */
+  personalFollowUps(userId: string, f: { leaderId?: number; completed?: boolean }): Promise<{ rows: TodoRow[]; capped: boolean }>;
 }
 
-const LEADER_COLUMNS =
+export const LEADER_COLUMNS =
   'id, name, campus, acpd, status, circle_name, circle_type, circle_location, day, time, frequency, ' +
   'meeting_start_date, leader_type, team_name, director, check_in_cadence, last_check_in_date, ' +
   'event_summary_state, additional_leader_name, follow_up_required, follow_up_date, follow_up_time, ' +
@@ -218,7 +222,8 @@ export function createSupabaseReadRepo(db: SupabaseClient): ReadRepo {
       let q = db.from('circle_leaders').select(LEADER_COLUMNS).eq('follow_up_required', true);
       if (f.leaderId !== undefined) q = q.eq('id', f.leaderId);
       const res = must(await q.order('follow_up_date', { ascending: true, nullsFirst: false }).limit(FOLLOW_UP_FETCH_CAP), 'leader follow-ups');
-      return (res.data || []) as unknown as LeaderRow[];
+      const rows = (res.data || []) as unknown as LeaderRow[];
+      return { rows, capped: rows.length >= FOLLOW_UP_FETCH_CAP };
     },
 
     async personalFollowUps(userId, f) {
@@ -229,8 +234,15 @@ export function createSupabaseReadRepo(db: SupabaseClient): ReadRepo {
       q = f.leaderId !== undefined
         ? q.eq('linked_leader_id', f.leaderId)
         : q.or('todo_type.eq.follow_up,linked_leader_id.not.is.null');
-      const res = must(await q.order('due_date', { ascending: true, nullsFirst: false }).limit(FOLLOW_UP_FETCH_CAP), 'personal follow-ups');
-      return (res.data || []) as TodoRow[];
+      // Filtering on completion here, not after the fetch, so a long history of finished to-dos can't push
+      // the open ones out of the capped page.
+      if (f.completed !== undefined) q = q.eq('completed', f.completed);
+      q = f.completed === true
+        ? q.order('completed_at', { ascending: false, nullsFirst: false })
+        : q.order('due_date', { ascending: true, nullsFirst: false });
+      const res = must(await q.limit(FOLLOW_UP_FETCH_CAP), 'personal follow-ups');
+      const rows = (res.data || []) as TodoRow[];
+      return { rows, capped: rows.length >= FOLLOW_UP_FETCH_CAP };
     },
   };
 }

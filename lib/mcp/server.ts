@@ -1,4 +1,5 @@
 import { protectedResourceMetadataUrl, MCP_SCOPE_READ } from './config';
+import { readLimitedText } from './http';
 import { authenticateBearer, type OAuthDeps, type Principal } from './oauth';
 import type { ReadRepo } from './repo';
 import { InputError } from './schema';
@@ -13,6 +14,10 @@ const SERVER_INFO = { name: 'radius-mcp', title: 'Radius', version: '1.0.0' };
 const SUPPORTED_PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_BODY_BYTES = 100 * 1024;
 const RATE_LIMIT_PER_MINUTE = 120;
+const MAX_LOGGED_ARGS_CHARS = 2000;
+// What an access token we issued looks like (rmcp_a_ + 256 bits as base64url). Anything else is rejected
+// before the database is touched.
+const ACCESS_TOKEN_SHAPE = /^rmcp_a_[A-Za-z0-9_-]{43}$/;
 
 const INSTRUCTIONS =
   'Read-only access to Radius, the Circle Leader CRM. Start with search_leaders to find a leader id, ' +
@@ -23,14 +28,22 @@ const INSTRUCTIONS =
 // Per-instance, best effort: serverless instances don't share memory, so this slows a runaway loop rather than guaranteeing a cap.
 const callCounts = new Map<string, { count: number; resetAt: number }>();
 
-function withinRateLimit(grantId: string, nowMs: number): boolean {
+function withinRateLimit(grantId: string, nowMs: number, weight: number): boolean {
   const entry = callCounts.get(grantId);
   if (!entry || nowMs >= entry.resetAt) {
-    callCounts.set(grantId, { count: 1, resetAt: nowMs + 60_000 });
-    return true;
+    callCounts.set(grantId, { count: weight, resetAt: nowMs + 60_000 });
+    return weight <= RATE_LIMIT_PER_MINUTE;
   }
-  entry.count += 1;
+  entry.count += weight;
   return entry.count <= RATE_LIMIT_PER_MINUTE;
+}
+
+/** Arguments are written to the audit log, so they are size-capped: a call can't bloat the table. */
+function loggableArguments(args: unknown): unknown {
+  if (args === undefined) return null;
+  const text = JSON.stringify(args);
+  if (text === undefined || text.length <= MAX_LOGGED_ARGS_CHARS) return args ?? null;
+  return { truncated: true, preview: text.slice(0, MAX_LOGGED_ARGS_CHARS) };
 }
 
 export const resetRateLimits = () => callCounts.clear();
@@ -100,7 +113,7 @@ async function callTool(deps: McpServerDeps, principal: Principal, params: Recor
       grant_id: principal.grantId,
       client_id: principal.clientId,
       tool: tool.name,
-      args: params?.arguments ?? null,
+      args: loggableArguments(params?.arguments),
       ok,
       result_count: count,
       error: error ?? null,
@@ -185,17 +198,13 @@ async function processMcpPost(request: Request, deps: McpServerDeps): Promise<Re
   const header = request.headers.get('authorization') || '';
   const match = /^Bearer\s+(\S+)$/i.exec(header);
   if (!match) return unauthorized(deps, false);
+  // Not something we could have issued: refuse without a database read, and without writing a log row an
+  // unauthenticated caller could use to fill the table.
+  if (!ACCESS_TOKEN_SHAPE.test(match[1])) return unauthorized(deps, true);
 
   const auth = await authenticateBearer(deps, match[1]);
-  if (!auth.ok) {
-    await deps.store.audit({ event: 'auth_failed', ok: false, error: auth.error });
-    return unauthorized(deps, true);
-  }
+  if (!auth.ok) return unauthorized(deps, true);
   const { principal } = auth;
-
-  if (!withinRateLimit(principal.grantId, deps.now().getTime())) {
-    return json({ error: 'rate_limited' }, 429, { 'Retry-After': '60' });
-  }
 
   const protocolHeader = request.headers.get('mcp-protocol-version');
   if (protocolHeader && !SUPPORTED_PROTOCOLS.includes(protocolHeader)) {
@@ -205,8 +214,8 @@ async function processMcpPost(request: Request, deps: McpServerDeps): Promise<Re
   if (!(request.headers.get('content-type') || '').toLowerCase().includes('application/json')) {
     return json(rpcError(null, -32600, 'Content-Type must be application/json.'), 415);
   }
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) return json(rpcError(null, -32600, 'Request too large.'), 413);
+  const text = await readLimitedText(request, MAX_BODY_BYTES);
+  if (text === null) return json(rpcError(null, -32600, 'Request too large.'), 413);
 
   let payload: unknown;
   try {
@@ -218,6 +227,11 @@ async function processMcpPost(request: Request, deps: McpServerDeps): Promise<Re
   const messages = Array.isArray(payload) ? payload : [payload];
   if (messages.length === 0 || messages.length > 20) {
     return json(rpcError(null, -32600, 'Send between 1 and 20 messages.'), 400);
+  }
+
+  // Every message in a batch counts, so batching can't be used to get around the limit.
+  if (!withinRateLimit(principal.grantId, deps.now().getTime(), messages.length)) {
+    return json({ error: 'rate_limited' }, 429, { 'Retry-After': '60' });
   }
 
   const replies: unknown[] = [];

@@ -15,7 +15,10 @@ import {
   approveAuthorization, authenticateBearer, denyAuthorization, exchangeToken, revokeToken,
   validateAuthorizeRequest, type OAuthDeps,
 } from '../lib/mcp/oauth';
-import { likeTerm } from '../lib/mcp/repo';
+import { isThisResource } from '../lib/mcp/config';
+import { readLimitedText } from '../lib/mcp/http';
+import { LEADER_COLUMNS, createSupabaseReadRepo, likeTerm } from '../lib/mcp/repo';
+import { createSupabaseMcpStore } from '../lib/mcp/store-supabase';
 import { handleMcpPost, methodNotAllowed, resetRateLimits, type McpServerDeps } from '../lib/mcp/server';
 import { READ_TOOLS, type ToolDefinition } from '../lib/mcp/tools';
 import { MemoryRepo, MemoryStore } from './mcp-test-support';
@@ -171,7 +174,40 @@ async function main() {
   await test('authorize: unknown client is a fatal error, never a redirect', async () => {
     const world = makeWorld();
     const v = await validateAuthorizeRequest(world.oauth, authorizeParams('x'.repeat(43), { client_id: 'https://evil.example/oauth/client.json' }));
-    assert.ok(!v.ok && v.fatal && v.error === 'invalid_client');
+    assert.ok(!v.ok && v.fatal && v.error === 'invalid_request');
+  });
+
+  await test('authorize: every pre-redirect failure gives the same answer, so it is not an oracle', async () => {
+    const world = makeWorld();
+    const challenge = pkceS256('v'.repeat(50));
+    const answers = new Set<string>();
+    for (const over of [
+      { client_id: 'https://evil.example/oauth/client.json' },   // unknown client
+      { redirect_uri: 'https://attacker.example/cb' },           // unregistered redirect
+      { client_id: 'https://chatgpt.com/oauth/other/client.json', redirect_uri: 'https://attacker.example/cb' },
+    ]) {
+      const v = await validateAuthorizeRequest(world.oauth, authorizeParams(challenge, over));
+      assert.ok(!v.ok && v.fatal);
+      answers.add(JSON.stringify([v.error, v.description]));
+    }
+    assert.strictEqual(answers.size, 1, `expected one indistinguishable answer, got ${Array.from(answers).join(' | ')}`);
+  });
+
+  await test('authorize: an unregistered redirect is refused before any outbound fetch', async () => {
+    const world = makeWorld();
+    await validateAuthorizeRequest(world.oauth, authorizeParams(pkceS256('v'.repeat(50)), { redirect_uri: 'https://attacker.example/cb' }));
+    assert.strictEqual(fetchCalls, 0);
+  });
+
+  await test('client cache: inventing client ids evicts one entry at a time, never the whole cache', async () => {
+    const config = makeConfig();
+    clearClientCache();
+    const fetcher = async (url: string) => ({ client_id: url, redirect_uris: [REDIRECT] });
+    await resolveClient(CLIENT_ID, config, fetcher, clock);
+    for (let i = 0; i < 250; i++) await resolveClient(`https://chatgpt.com/oauth/junk${i}/client.json`, config, fetcher, clock);
+    let refetched = 0;
+    await resolveClient(`https://chatgpt.com/oauth/junk249/client.json`, config, async (u) => { refetched++; return { client_id: u, redirect_uris: [REDIRECT] }; }, clock);
+    assert.strictEqual(refetched, 0, 'the most recent entries must still be cached');
   });
 
   await test('authorize: redirect URI must be in BOTH the server allow-list and the client document', async () => {
@@ -370,9 +406,21 @@ async function main() {
     assert.strictEqual(next.status, 200);
     assert.notStrictEqual(next.body.access_token, t2.access_token);
     assert.ok((await authenticateBearer(world2.oauth, next.body.access_token as string)).ok);
+    advance(11); // past the retry grace window
     const reuse = await exchangeToken(world2.oauth, { grant_type: 'refresh_token', refresh_token: t2.refresh_token, client_id: CLIENT_ID });
     assert.strictEqual(reuse.body.error, 'invalid_grant');
     assert.ok(!(await authenticateBearer(world2.oauth, next.body.access_token as string)).ok, 'reuse must kill the new tokens too');
+  });
+
+  await test('refresh: a retry right after rotation is refused but does not end the grant', async () => {
+    const world = makeWorld();
+    const t = await connect(world);
+    const next = await exchangeToken(world.oauth, { grant_type: 'refresh_token', refresh_token: t.refresh_token, client_id: CLIENT_ID });
+    assert.strictEqual(next.status, 200);
+    advance(3);
+    const retry = await exchangeToken(world.oauth, { grant_type: 'refresh_token', refresh_token: t.refresh_token, client_id: CLIENT_ID });
+    assert.strictEqual(retry.body.error, 'invalid_grant');
+    assert.ok((await authenticateBearer(world.oauth, next.body.access_token as string)).ok, 'the newest tokens must survive a quick retry');
   });
 
   await test('refresh: wrong client_id is refused', async () => {
@@ -411,6 +459,16 @@ async function main() {
     const world = makeWorld();
     const t = await connect(world);
     for (const bad of ['', 'nonsense', t.refresh_token, t.code]) assert.ok(!(await authenticateBearer(world.oauth, bad)).ok);
+  });
+
+  await test('bearer: an unreadable expiry fails closed; the SQL timestamp form still parses', async () => {
+    const world = makeWorld();
+    const t = await connect(world);
+    const stored = world.store.tokens.get(sha256Hex(t.access_token))!;
+    stored.expires_at = 'not a timestamp';
+    assert.ok(!(await authenticateBearer(world.oauth, t.access_token)).ok, 'garbage expiry must not count as unexpired');
+    stored.expires_at = '2026-10-20 16:00:00+00';
+    assert.ok((await authenticateBearer(world.oauth, t.access_token)).ok, 'a valid SQL-style timestamp must still work');
   });
 
   await test('bearer: a token minted for a different resource is refused', async () => {
@@ -481,6 +539,25 @@ async function main() {
     assert.strictEqual(res.status, 503);
     const body = await res.text();
     assert.ok(!body.includes('hunter2') && !body.includes('5432'));
+  });
+
+  await test('mcp: tokens that cannot be ours are rejected without a database read or a log row', async () => {
+    const world = makeWorld();
+    let reads = 0;
+    const getToken = world.store.getToken.bind(world.store);
+    world.store.getToken = async (h) => { reads++; return getToken(h); };
+    const before = world.store.auditLog.length;
+    for (const bad of ['x', 'rmcp_a_forged', 'rmcp_a_' + 'A'.repeat(42), 'rmcp_a_' + 'A'.repeat(44), 'rmcp_r_' + 'A'.repeat(43), 'rmcp_a_' + 'A'.repeat(42) + '!']) {
+      const res = await rpc(world, bad, { jsonrpc: '2.0', id: 1, method: 'ping' });
+      assert.strictEqual(res.status, 401, bad);
+    }
+    assert.strictEqual(reads, 0);
+    assert.strictEqual(world.store.auditLog.length, before, 'unauthenticated requests must not write audit rows');
+    // a well-formed but unknown token does reach the store, still without a log row
+    const unknown = await rpc(world, 'rmcp_a_' + 'A'.repeat(43), { jsonrpc: '2.0', id: 1, method: 'ping' });
+    assert.strictEqual(unknown.status, 401);
+    assert.strictEqual(reads, 1);
+    assert.strictEqual(world.store.auditLog.length, before);
   });
 
   await test('mcp: tools/list advertises exactly the five read-only tools with schemas and annotations', async () => {
@@ -669,12 +746,161 @@ async function main() {
     for (const ev of ['authorize_approved', 'token_issued']) assert.ok(world.store.auditLog.some((e) => e.event === ev), ev);
   });
 
+  await test('rate limit: batching cannot be used to get around it', async () => {
+    const world = makeWorld();
+    const t = await connect(world);
+    const batch = Array.from({ length: 20 }, (_, i) => ({ jsonrpc: '2.0', id: i + 1, method: 'ping' }));
+    const statuses: number[] = [];
+    for (let i = 0; i < 8; i++) statuses.push((await rpc(world, t.access_token, batch)).status);
+    assert.deepStrictEqual(statuses.slice(0, 6), [200, 200, 200, 200, 200, 200], '6 x 20 = 120 messages are allowed');
+    assert.strictEqual(statuses[6], 429);
+  });
+
   await test('rate limit: a runaway loop is slowed with 429', async () => {
     const world = makeWorld();
     const t = await connect(world);
     let last = 200;
     for (let i = 0; i < 125; i++) last = (await rpc(world, t.access_token, { jsonrpc: '2.0', id: i + 1, method: 'ping' })).status;
     assert.strictEqual(last, 429);
+  });
+
+  await test('audit: a failing audit write stops the response instead of returning unlogged data', async () => {
+    const world = makeWorld();
+    const t = await connect(world);
+    world.store.audit = async () => { throw new Error('audit write failed: relation does not exist'); };
+    const res = await rpc(world, t.access_token, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'list_leader_notes', arguments: { leader_id: 1 } } });
+    assert.strictEqual(res.status, 503);
+    const body = await res.text();
+    assert.ok(!body.includes('Great conversation'), 'note text must not be returned when it could not be logged');
+  });
+
+  await test('audit: logged arguments are size-capped', async () => {
+    const world = makeWorld();
+    const t = await connect(world);
+    await call(world, t.access_token, 'search_leaders', { query: 'x'.repeat(50_000) }); // rejected: too long
+    const entry = world.store.auditLog.filter((e) => e.event === 'tool_call').pop()!;
+    assert.ok(JSON.stringify(entry.args).length < 2200, `logged ${JSON.stringify(entry.args).length} chars`);
+    assert.strictEqual((entry.args as any).truncated, true);
+  });
+
+  await test('input: a huge resource value cannot pin the CPU (the old regex was quadratic)', async () => {
+    const config = makeConfig();
+    const started = Date.now();
+    assert.strictEqual(isThisResource(config, '/'.repeat(1_000_000) + 'x'), false);
+    assert.strictEqual(isThisResource(config, `${BASE}/api/mcp${'/'.repeat(100_000)}`), false, 'over the length cap');
+    assert.ok(isThisResource(config, RESOURCE) && isThisResource(config, RESOURCE.slice(0, -1)));
+    assert.ok(Date.now() - started < 250, `took ${Date.now() - started}ms`);
+    const world = makeWorld();
+    const t0 = Date.now();
+    const r = await exchangeToken(world.oauth, { grant_type: 'refresh_token', refresh_token: 'x', client_id: CLIENT_ID, resource: '/'.repeat(500_000) + 'x' });
+    assert.strictEqual(r.body.error, 'invalid_target');
+    assert.ok(Date.now() - t0 < 250);
+  });
+
+  await test('input: bodies over the limit are refused by declared length or by actual size', async () => {
+    const declared = { headers: { get: () => '999999' }, text: async () => { throw new Error('must not read'); } } as any;
+    assert.strictEqual(await readLimitedText(declared, 1000), null);
+    const sneaky = { headers: { get: () => null }, text: async () => 'é'.repeat(600) } as any; // 1200 bytes, 600 chars
+    assert.strictEqual(await readLimitedText(sneaky, 1000), null, 'limit is in bytes, not characters');
+    assert.strictEqual(await readLimitedText({ headers: { get: () => '5' }, text: async () => 'hello' } as any, 1000), 'hello');
+  });
+
+  await test('input: tool arguments cannot smuggle prototype keys, absurd ids or loose PKCE challenges', async () => {
+    const world = makeWorld();
+    const t = await connect(world);
+    for (const args of [{ leader_id: 1, toString: 1 }, { leader_id: 1, constructor: {} }, { leader_id: 1, hasOwnProperty: 1 }]) {
+      assert.strictEqual((await call(world, t.access_token, 'get_leader', args)).result!.isError, true, JSON.stringify(args));
+    }
+    assert.strictEqual((await call(world, t.access_token, 'get_leader', { leader_id: 2147483648 })).result!.isError, true);
+    assert.strictEqual((await call(world, t.access_token, 'get_leader', { leader_id: 2147483647 })).result!.isError, true, 'valid shape, but no such leader');
+    for (const challenge of ['a'.repeat(42), 'a'.repeat(44), 'a'.repeat(42) + '.', 'a'.repeat(42) + '~']) {
+      const v = await validateAuthorizeRequest(world.oauth, authorizeParams(challenge));
+      assert.ok(!v.ok && !v.fatal && v.error === 'invalid_request', challenge);
+    }
+  });
+
+  await test('follow-ups: completion is filtered in the database, and a capped source is reported', async () => {
+    const world = makeWorld();
+    const t = await connect(world);
+    await call(world, t.access_token, 'list_follow_ups', { status: 'overdue' });
+    assert.strictEqual(world.repo.lastTodoFilter?.completed, false);
+    await call(world, t.access_token, 'list_follow_ups', { status: 'completed' });
+    assert.strictEqual(world.repo.lastTodoFilter?.completed, true);
+    await call(world, t.access_token, 'list_follow_ups', { status: 'all' });
+    assert.strictEqual(world.repo.lastTodoFilter?.completed, undefined);
+    assert.strictEqual((await call(world, t.access_token, 'list_follow_ups', {})).result!.structuredContent.results_may_be_incomplete, false);
+    world.repo.capped = true;
+    assert.strictEqual((await call(world, t.access_token, 'list_follow_ups', {})).result!.structuredContent.results_may_be_incomplete, true);
+  });
+
+  // ── the real Supabase layer, with the query builder recorded ───────────
+  function recordingDb(result: { data: any; error: any; count?: number } = { data: [], error: null, count: 0 }) {
+    const queries: { table: string; ops: any[][] }[] = [];
+    const db = {
+      from(table: string) {
+        const q = { table, ops: [] as any[][] };
+        queries.push(q);
+        const proxy: any = new Proxy(function () {}, {
+          get(_t, prop: string) {
+            if (prop === 'then') return (resolve: (v: unknown) => void) => resolve(result);
+            return (...args: any[]) => { q.ops.push([prop, ...args]); return proxy; };
+          },
+        });
+        return proxy;
+      },
+    };
+    return { db: db as any, queries };
+  }
+
+  await test('real repo: personal to-dos are always filtered by the user id it is given', async () => {
+    for (const userId of ['user-a', 'user-b']) {
+      const { db, queries } = recordingDb();
+      await createSupabaseReadRepo(db).personalFollowUps(userId, { completed: false });
+      assert.strictEqual(queries.length, 1);
+      assert.strictEqual(queries[0].table, 'todo_items');
+      assert.ok(queries[0].ops.some((o) => o[0] === 'eq' && o[1] === 'user_id' && o[2] === userId), `no user_id filter for ${userId}`);
+      assert.ok(queries[0].ops.some((o) => o[0] === 'eq' && o[1] === 'completed' && o[2] === false));
+    }
+    const { db, queries } = recordingDb();
+    await createSupabaseReadRepo(db).personalFollowUps('user-a', { leaderId: 7 });
+    assert.ok(queries[0].ops.some((o) => o[0] === 'eq' && o[1] === 'user_id' && o[2] === 'user-a'), 'a leader filter must not replace the user filter');
+  });
+
+  await test('real repo: leader queries select only whitelisted columns and sanitise search text', async () => {
+    assert.ok(!/phone|email|birthday|prayer|ccb_profile|password|token/i.test(LEADER_COLUMNS), `LEADER_COLUMNS leaks: ${LEADER_COLUMNS}`);
+    const { db, queries } = recordingDb();
+    const repo = createSupabaseReadRepo(db);
+    await repo.searchLeaders({ query: 'x),or(id.gt.0', campus: 'a%b_c', limit: 5, offset: 0 });
+    const q = queries[0];
+    const select = q.ops.find((o) => o[0] === 'select')!;
+    assert.strictEqual(select[1], LEADER_COLUMNS);
+    const or = q.ops.find((o) => o[0] === 'or')![1] as string;
+    assert.ok(!/[()]/.test(or) && (or.match(/,/g) || []).length === 1, `unsafe or(): ${or}`);
+    const ilike = q.ops.find((o) => o[0] === 'ilike')!;
+    assert.ok(!/[%_]/.test(String(ilike[2]).slice(1, -1)), `wildcards survived: ${ilike[2]}`);
+    await repo.listNotes(3, { limit: 5, offset: 0 });
+    assert.ok(queries[1].ops.some((o) => o[0] === 'eq' && o[1] === 'circle_leader_id' && o[2] === 3));
+    const noteSelect = queries[1].ops.find((o) => o[0] === 'select')![1] as string;
+    assert.ok(!/phone|email|birthday/.test(noteSelect));
+  });
+
+  await test('real store: claiming a code or refresh token is one conditional UPDATE, so a double-spend is impossible', async () => {
+    for (const [method, table] of [['claimCode', 'mcp_oauth_codes'], ['claimRefreshToken', 'mcp_oauth_tokens']] as const) {
+      const { db, queries } = recordingDb({ data: null, error: null });
+      const result = await (createSupabaseMcpStore(db) as any)[method]('hash', new Date());
+      assert.strictEqual(result.status, 'missing');
+      const claim = queries[0];
+      assert.strictEqual(claim.table, table);
+      assert.strictEqual(claim.ops[0][0], 'update', 'the first operation must be the claiming UPDATE');
+      assert.ok(claim.ops.some((o) => o[0] === 'is' && o[1] === 'used_at' && o[2] === null), 'must only claim rows not yet used');
+      assert.ok(claim.ops.some((o) => o[0] === 'select'), 'must read back the claimed row');
+      if (method === 'claimRefreshToken') assert.ok(claim.ops.some((o) => o[0] === 'eq' && o[1] === 'kind' && o[2] === 'refresh'), 'an access token must never be claimable as a refresh token');
+    }
+  });
+
+  await test('real store: a failed audit insert throws instead of being swallowed', async () => {
+    const { db } = recordingDb({ data: null, error: { message: 'boom' } });
+    await assert.rejects(() => createSupabaseMcpStore(db).audit({ event: 'tool_call' }), /audit write failed/);
   });
 
   await test('likeTerm: filter syntax and wildcards cannot survive into a query', () => {

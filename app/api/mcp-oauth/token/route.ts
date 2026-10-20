@@ -1,3 +1,4 @@
+import { readLimitedText, tooLarge } from '../../../../lib/mcp/http';
 import { serverMisconfigured } from '../../../../lib/mcp/metadata';
 import { exchangeToken } from '../../../../lib/mcp/oauth';
 import { createOAuthDeps } from '../../../../lib/mcp/runtime';
@@ -16,7 +17,9 @@ export async function POST(request: Request) {
     return serverMisconfigured();
   }
 
-  const body = new URLSearchParams(await request.text());
+  const text = await readLimitedText(request, 16 * 1024);
+  if (text === null) return tooLarge();
+  const body = new URLSearchParams(text);
   const form: Record<string, string | undefined> = {};
   for (const key of [
     'grant_type', 'code', 'code_verifier', 'client_id', 'redirect_uri', 'refresh_token', 'scope', 'resource',

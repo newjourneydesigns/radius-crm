@@ -22,7 +22,7 @@ Radius runs a private [MCP](https://modelcontextprotocol.io) server so one signe
 | Can it reach the database directly? | No. Its token is an opaque string that only works at `/api/mcp/`. It is not a Supabase token. |
 | What is never returned? | Phone numbers, emails, birthdays, additional-leader contact details, prayer points. |
 | How long does access last? | Access tokens: 1 hour. Refresh tokens: 30 days, rotating. Each approval ends after 90 days. |
-| Is it logged? | Every tool call and connection event goes to `mcp_audit_log` (tool, arguments, record count, outcome; not record contents). |
+| Is it logged? | Every tool call and connection event goes to `mcp_audit_log` (tool, arguments capped at 2,000 characters, record count, outcome; not record contents). If a call can't be logged it is not answered. |
 | Where are secrets? | Tokens and codes are stored only as SHA-256 hashes. The service key never leaves the server. |
 
 ## One-time setup
@@ -194,6 +194,17 @@ select user_id, client_id, scope, created_at, expires_at, last_used_at
 from public.mcp_oauth_grants where revoked_at is null and expires_at > now();
 ```
 
+## Housekeeping
+
+Used-up codes and expired tokens accumulate, and the audit log grows. Nothing breaks if you ignore this for a
+long time, but to tidy up (safe to run any time):
+
+```sql
+delete from public.mcp_oauth_codes  where expires_at < now() - interval '1 day';
+delete from public.mcp_oauth_tokens where expires_at < now() - interval '1 day';
+delete from public.mcp_audit_log    where at < now() - interval '180 days';
+```
+
 ## Environment variables (all optional if the defaults fit)
 
 | Variable | Purpose |
@@ -226,9 +237,30 @@ Every write would ship with all of these, or it doesn't ship:
 
 Deliberately excluded for good: sending messages to leaders, bulk changes, and any delete.
 
+## Open risk: someone else starting the connection (not fixed)
+
+The consent screen can't tell whether *you* started "Connect" in ChatGPT, or someone else did and sent you the
+link. If an attacker began a connection in their own ChatGPT and talked an enabled user into opening that
+link while signed in and clicking Allow, the approval would go back with the attacker's session details.
+Whether that would hand the attacker tokens depends on how ChatGPT ties its callback to the connection, which
+I can't verify from here. Today the exposure is one enabled account (yours), and the screen names the account
+and what it grants, but treat any "connect Radius" link you didn't start yourself as hostile.
+
+A proper fix is a **pairing step**: a "Connect assistant" button inside Radius that records a short-lived
+(about 10 minutes) pairing for your account, and an approval that is refused unless one is open. I'd build it
+together with a **list of active connections with a Disconnect button**, which today needs SQL. It adds a
+small page and one table, so I have not built it without your say-so.
+
 ## Known limits
 
 - **Matching, not guessing:** `acpd`, `campus` and the like are substring matches on what's stored in Radius.
 - **Only one Radius user is expected.** The code supports several (each gets their own token and personal to-dos), but access is granted one row at a time.
-- **Rate limit:** 120 calls a minute per connection, counted per server instance, so it slows a runaway loop and isn't a hard cap.
+- **Rate limit:** 120 messages a minute per connection (every message in a batch counts), tracked per server
+  instance, so it slows a runaway loop and isn't a hard cap.
+- **Long follow-up lists:** each source is read up to 500 records. When that limit is hit, `list_follow_ups`
+  returns `results_may_be_incomplete: true`; narrow with `leader_id`, `from` or `to`.
+- **Note authors:** author names come from the users table, which Radius itself shows only to ACPD users.
+  Enable assistant access only for accounts that already see those names.
+- **Duplicate-looking retries:** a refresh token used a second time within 10 seconds is refused but doesn't end
+  the connection (a client retrying after a lost response). After that, reuse ends the connection.
 - **Leader ids are integers.** `supabase/schema.sql` in this repo shows UUIDs, but the app's types and queries use integers, and these tools follow the app. If a live id turns out to be a UUID, `get_leader` and the list tools will say the id isn't valid.

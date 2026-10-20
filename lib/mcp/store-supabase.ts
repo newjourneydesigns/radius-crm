@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { DateTime } from 'luxon';
+import { hasPassed } from './time';
 import type { AccessRow, AuditEntry, ClaimResult, CodeRow, GrantRow, McpStore, TokenRow } from './types';
 
-const isPast = (iso: string, now: Date) => DateTime.fromISO(iso).toMillis() <= now.getTime();
+const isPast = hasPassed;
 
 function must<T>(result: { data: T; error: { message: string } | null }, what: string): T {
   if (result.error) throw new Error(`${what}: ${result.error.message}`);
@@ -118,7 +118,9 @@ export function createSupabaseMcpStore(db: SupabaseClient): McpStore {
         error: entry.error ? entry.error.slice(0, 500) : null,
         duration_ms: entry.duration_ms ?? null,
       });
-      if (error) console.warn('MCP audit write failed:', error.message);
+      // Not swallowed: the consent screen promises every request is logged, so a request that can't be
+      // logged must not succeed. Callers let this surface as a 503 / 500.
+      if (error) throw new Error(`audit write failed: ${error.message}`);
     },
   };
 }

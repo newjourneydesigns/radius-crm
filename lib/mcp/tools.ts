@@ -49,6 +49,7 @@ const cursorProp: JsonSchema = {
 const leaderIdProp: JsonSchema = {
   type: 'integer',
   minimum: 1,
+  maximum: 2147483647,
   description: 'The Radius Circle Leader id, as returned by search_leaders.',
 };
 
@@ -468,6 +469,10 @@ const listFollowUps: ToolDefinition = {
     properties: {
       as_of_date: { type: 'string', description: "Today's date in Central time; what overdue was measured against." },
       timezone: { type: 'string' },
+      results_may_be_incomplete: {
+        type: 'boolean',
+        description: 'true when a source had more than 500 records and only the first 500 were considered; narrow with leader_id, from or to.',
+      },
       items: {
         type: 'array',
         items: {
@@ -489,7 +494,7 @@ const listFollowUps: ToolDefinition = {
       },
       ...pageProps,
     },
-    required: ['as_of_date', 'timezone', 'items', 'total', 'next_cursor'],
+    required: ['as_of_date', 'timezone', 'results_may_be_incomplete', 'items', 'total', 'next_cursor'],
   },
   async run(args, ctx) {
     const wanted = args.status as 'upcoming' | 'overdue' | 'completed' | 'all';
@@ -501,11 +506,18 @@ const listFollowUps: ToolDefinition = {
     const today = DateTime.fromJSDate(ctx.now()).setZone(TIMEZONE).toISODate()!;
     const classify = (due: string | null): FollowUpStatus => (due && due < today ? 'overdue' : 'upcoming');
 
-    const [leaderRows, todoRows] = await Promise.all([
-      wanted === 'completed' ? Promise.resolve<LeaderRow[]>([]) : ctx.repo.leaderFollowUps({ leaderId }),
+    const [leaders, todos] = await Promise.all([
+      wanted === 'completed'
+        ? Promise.resolve<{ rows: LeaderRow[]; capped: boolean }>({ rows: [], capped: false })
+        : ctx.repo.leaderFollowUps({ leaderId }),
       // The user id comes from the verified token; there is no tool argument that can change it.
-      ctx.repo.personalFollowUps(ctx.principal.userId, { leaderId }),
+      ctx.repo.personalFollowUps(ctx.principal.userId, {
+        leaderId,
+        completed: wanted === 'completed' ? true : wanted === 'all' ? undefined : false,
+      }),
     ]);
+    const leaderRows = leaders.rows;
+    const todoRows = todos.rows;
 
     const items: FollowUpItem[] = [];
     for (const row of leaderRows) {
@@ -557,6 +569,7 @@ const listFollowUps: ToolDefinition = {
       structured: {
         as_of_date: today,
         timezone: TIMEZONE,
+        results_may_be_incomplete: leaders.capped || todos.capped,
         items: page,
         total: matching.length,
         next_cursor: nextCursor(offset, page.length, matching.length),
