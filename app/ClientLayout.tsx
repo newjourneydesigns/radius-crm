@@ -106,6 +106,9 @@ function isPublicRoute(pathname: string, isDedicatedToolkitHost = false) {
     p === '/login' ||
     p === '/search' ||
     p.startsWith('/auth') ||
+    // Assistant consent screen. It handles being signed out itself so the request's query string survives
+    // the trip through /login (ProtectedRoute would send the user there without it).
+    p === '/oauth/authorize' ||
     p.startsWith('/circle-leader-toolkit') ||
     p.startsWith('/teams-toolkit') ||
     p.startsWith('/student-toolkit') ||
@@ -129,6 +132,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     pathname === '/dev-color-preview' || // TEMP dev-only preview route — remove
     pathname === '/login' ||
     pathname.startsWith('/auth') ||
+    pathname.startsWith('/oauth/authorize') ||
     pathname.startsWith('/circle-leader-toolkit') ||
     pathname.startsWith('/teams-toolkit') ||
     pathname.startsWith('/student-toolkit') ||
