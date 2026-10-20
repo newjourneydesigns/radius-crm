@@ -11,6 +11,10 @@ interface MultiSelectFilterProps {
   onChange: (selected: string[]) => void;
   /** Display-only transform, e.g. capitalising raw status values */
   formatOption?: (option: string) => string;
+  disabled?: boolean;
+  /** Replace the default label/field styling so the filter can sit in a form with taller inputs */
+  labelClassName?: string;
+  fieldClassName?: string;
 }
 
 const normalize = (value: string) => value.trim().toLowerCase();
@@ -22,6 +26,9 @@ export default function MultiSelectFilter({
   selected,
   onChange,
   formatOption = (option) => option,
+  disabled = false,
+  labelClassName = 'block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2',
+  fieldClassName = 'w-full min-h-[38px] cursor-pointer rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 pl-3 pr-9 py-2 text-sm text-gray-900 dark:text-white shadow-sm',
 }: MultiSelectFilterProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -36,6 +43,10 @@ export default function MultiSelectFilter({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
   const isSelected = (option: string) => selected.some((value) => normalize(value) === normalize(option));
 
   const toggle = (option: string) => {
@@ -48,11 +59,11 @@ export default function MultiSelectFilter({
 
   return (
     <div ref={containerRef}>
-      <span className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{label}</span>
-      <div className="relative">
+      <span className={labelClassName}>{label}</span>
+      <div className={`relative ${disabled ? 'pointer-events-none opacity-60' : ''}`}>
         <div
           onClick={() => setOpen((wasOpen) => !wasOpen)}
-          className="w-full min-h-[38px] cursor-pointer rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 pl-3 pr-9 py-2 text-sm text-gray-900 dark:text-white shadow-sm"
+          className={fieldClassName}
         >
           {selected.length === 0 ? (
             <span className="text-gray-500 dark:text-gray-400">{allLabel}</span>
@@ -85,6 +96,7 @@ export default function MultiSelectFilter({
         <button
           type="button"
           onClick={() => setOpen((wasOpen) => !wasOpen)}
+          disabled={disabled}
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-label={`Filter by ${label}`}

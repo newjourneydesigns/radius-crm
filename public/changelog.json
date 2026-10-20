@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-10-20",
+    "date_display": "October 20, 2026",
+    "date_iso": "2026-10-20",
+    "id": "ccb-explorer-acpd-filter",
+    "type": "feature",
+    "category": "CCB Event Explorer",
+    "page": "/ccb-explorer",
+    "description": "The CCB Event Explorer can now filter by ACPD. Pick one or more ACPDs and Fetch Data returns event summaries for just the circles assigned to them — no leader name needed. The Circle Leader / Group Name box becomes optional and only suggests leaders under the ACPDs you picked; type in it to narrow further to one circle. Analyze notes which ACPDs the summary covers. The leader suggestions list is also solid now instead of see-through, so the Fetch Data button no longer shows through it.",
+    "version": "2.58.0"
+  },
+  {
     "date": "2026-10-08",
     "date_display": "October 8, 2026",
     "date_iso": "2026-10-08",

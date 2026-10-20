@@ -1548,9 +1548,12 @@ ${attendeesBlock}
    * - Uses a single API call to attendance_profiles with date filtering
    * - Filters by group name in the results
    * - No need to fetch all groups first
+   *
+   * Pass several names to match any of them — e.g. every circle under an ACPD —
+   * for the cost of the same single call.
    */
   async searchEventsByDateAndName(
-    partialGroupName: string,
+    partialGroupName: string | string[],
     startDate: string,
     endDate: string,
     options: { includeAttendees?: boolean } = {}
@@ -1565,12 +1568,15 @@ ${attendeesBlock}
     }
 
     // Validate group name
-    if (!partialGroupName || partialGroupName.trim().length === 0) {
+    const searchTerms = (Array.isArray(partialGroupName) ? partialGroupName : [partialGroupName])
+      .map((term) => (term || '').toLowerCase().trim())
+      .filter(Boolean);
+    if (searchTerms.length === 0) {
       throw new Error('Group name search term is required');
     }
 
     if (IS_DEV) {
-      console.log(`⚡ FAST Search: Group "${partialGroupName}", Date: ${startDate} to ${endDate}`);
+      console.log(`⚡ FAST Search: ${searchTerms.length} group term(s), Date: ${startDate} to ${endDate}`);
     }
 
     try {
@@ -1592,16 +1598,16 @@ ${attendeesBlock}
       }
 
       // Filter events by group name and build LinkRow objects
-      const searchTerm = partialGroupName.toLowerCase().trim();
       const results: LinkRow[] = [];
 
       for (const event of rawEvents) {
         const eventName = String(event?.name || event?.event_name || '').trim();
         const groupName = String(event?.group?.name || '').trim();
-        
-        // Check if event name or group name matches
-        if (!eventName.toLowerCase().includes(searchTerm) && 
-            !groupName.toLowerCase().includes(searchTerm)) {
+        const eventNameLower = eventName.toLowerCase();
+        const groupNameLower = groupName.toLowerCase();
+
+        // Check if event name or group name matches any search term
+        if (!searchTerms.some((term) => eventNameLower.includes(term) || groupNameLower.includes(term))) {
           continue;
         }
 
@@ -1632,7 +1638,7 @@ ${attendeesBlock}
       }
 
       if (IS_DEV) {
-        console.log(`✅ Matched ${results.length} events for "${partialGroupName}"`);
+        console.log(`✅ Matched ${results.length} events for ${searchTerms.length} group term(s)`);
       }
       return results;
 
