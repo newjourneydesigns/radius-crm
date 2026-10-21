@@ -1389,6 +1389,12 @@ export default function SettingsPage() {
                   </svg>
                   Import CSV
                 </a>
+                <a
+                  href="/assistant-access"
+                  className="btn-secondary inline-flex items-center px-4 py-2 rounded-lg text-sm"
+                >
+                  Assistant access
+                </a>
               </div>
 
               <ServiceWorkerUtils />
