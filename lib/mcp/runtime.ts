@@ -4,6 +4,7 @@ import { resolveClient } from './clients';
 import { loadMcpConfig } from './config';
 import type { OAuthDeps } from './oauth';
 import { createSupabaseReadRepo } from './repo';
+import { createSupabaseContactRepo, createSupabaseWriteRepo } from './repo-write';
 import type { McpServerDeps } from './server';
 import { createSupabaseMcpStore } from './store-supabase';
 
@@ -20,5 +21,10 @@ export function createOAuthDeps(db: SupabaseClient = createServiceSupabaseClient
 
 export function createMcpServerDeps(): McpServerDeps {
   const db = createServiceSupabaseClient({ noStore: true });
-  return { ...createOAuthDeps(db), repo: createSupabaseReadRepo(db) };
+  return {
+    ...createOAuthDeps(db),
+    repo: createSupabaseReadRepo(db),
+    contacts: createSupabaseContactRepo(db),
+    writes: createSupabaseWriteRepo(db),
+  };
 }

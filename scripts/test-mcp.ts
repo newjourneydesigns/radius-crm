@@ -21,8 +21,8 @@ import { readLimitedText } from '../lib/mcp/http';
 import { LEADER_COLUMNS, createSupabaseReadRepo, likeTerm } from '../lib/mcp/repo';
 import { createSupabaseMcpStore } from '../lib/mcp/store-supabase';
 import { handleMcpPost, methodNotAllowed, resetRateLimits, type McpServerDeps } from '../lib/mcp/server';
-import { READ_TOOLS, type ToolDefinition } from '../lib/mcp/tools';
-import { MemoryRepo, MemoryStore } from './mcp-test-support';
+import { ALL_TOOLS, READ_TOOLS, type ToolDefinition } from '../lib/mcp/tools';
+import { CONNECTION_TYPES, CONTACTS, MemoryContactRepo, MemoryRepo, MemoryStore, MemoryWriteRepo, SUMMARIES } from './mcp-test-support';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const Ajv = require('ajv');
@@ -34,6 +34,7 @@ const CLIENT_ID = 'https://chatgpt.com/oauth/client.json';
 const USER_A = 'user-a';
 const USER_B = 'user-b';
 const USER_NO_ACCESS = 'user-c';
+const USER_VIEWER = 'user-v';
 
 const START = new Date('2026-10-20T15:00:00Z').getTime();
 let clock = START;
@@ -58,17 +59,19 @@ function makeConfig(env: Record<string, string | undefined> = {}): McpConfig {
 
 function makeWorld(config: McpConfig = makeConfig()) {
   const store = new MemoryStore();
-  for (const u of [USER_A, USER_B, USER_NO_ACCESS]) store.users.add(u);
+  for (const u of [USER_A, USER_B, USER_NO_ACCESS, USER_VIEWER]) store.users.add(u);
   store.access.set(USER_A, { user_id: USER_A, scopes: ['radius:read'], revoked_at: null });
   store.access.set(USER_B, { user_id: USER_B, scopes: ['radius:read'], revoked_at: null });
   const repo = new MemoryRepo();
+  const contacts = new MemoryContactRepo();
+  const writes = new MemoryWriteRepo(repo, () => new Date(clock).toISOString());
   clearClientCache();
   const oauth: OAuthDeps = {
     store, config, now,
     resolveClient: (id) => resolveClient(id, config, async () => { fetchCalls++; return clientDocument; }, clock),
   };
-  const server: McpServerDeps = { ...oauth, repo };
-  return { store, repo, oauth, server, config };
+  const server: McpServerDeps = { ...oauth, repo, contacts, writes };
+  return { store, repo, contacts, writes, oauth, server, config };
 }
 
 const authorizeParams = (challenge: string, over: Record<string, string | undefined> = {}) => ({
@@ -76,9 +79,14 @@ const authorizeParams = (challenge: string, over: Record<string, string | undefi
   code_challenge_method: 'S256', scope: 'radius:read', state: 'st-123', resource: RESOURCE, ...over,
 });
 
-async function connect(world: ReturnType<typeof makeWorld>, userId = USER_A) {
+/** Turns scopes (and optionally a campus allow-list) on for a user, as the SQL grant would. */
+function enable(world: ReturnType<typeof makeWorld>, userId: string, scopes: string[], campuses: string[] | null = null) {
+  world.store.access.set(userId, { user_id: userId, scopes, campuses, revoked_at: null });
+}
+
+async function connect(world: ReturnType<typeof makeWorld>, userId = USER_A, scope?: string) {
   const verifier = base64Url(randomBytes(48));
-  const validation = await validateAuthorizeRequest(world.oauth, authorizeParams(pkceS256(verifier)));
+  const validation = await validateAuthorizeRequest(world.oauth, authorizeParams(pkceS256(verifier), scope ? { scope } : {}));
   assert.ok(validation.ok, 'authorize request should validate');
   if (!validation.ok) throw new Error('unreachable');
   const approval = await approveAuthorization(world.oauth, validation.request, userId);
@@ -561,12 +569,14 @@ async function main() {
     assert.strictEqual(world.store.auditLog.length, before);
   });
 
-  await test('mcp: tools/list advertises exactly the five read-only tools with schemas and annotations', async () => {
+  await test('mcp: a read-only connection sees exactly the seven read tools, all read-only, and no write or contact tool', async () => {
     const world = makeWorld();
     const t = await connect(world);
     const res = await (await rpc(world, t.access_token, { jsonrpc: '2.0', id: 1, method: 'tools/list' })).json();
     const tools = res.result.tools as any[];
-    assert.deepStrictEqual(tools.map((x) => x.name).sort(), ['get_leader', 'list_follow_ups', 'list_leader_connections', 'list_leader_notes', 'search_leaders']);
+    assert.deepStrictEqual(tools.map((x) => x.name).sort(), [
+      'get_event_summary', 'get_leader', 'list_event_summaries', 'list_follow_ups', 'list_leader_connections', 'list_leader_notes', 'search_leaders',
+    ]);
     for (const tool of tools) {
       assert.strictEqual(tool.annotations.readOnlyHint, true, tool.name);
       assert.strictEqual(tool.annotations.destructiveHint, false, tool.name);
@@ -575,7 +585,6 @@ async function main() {
       assert.ok(tool.description.length > 40 && tool.outputSchema, tool.name);
       assert.deepStrictEqual(tool.securitySchemes, [{ type: 'oauth2', scopes: ['radius:read'] }]);
     }
-    assert.ok(!tools.some((x) => /^(create|add|update|delete|complete|log|set|send)/.test(x.name)), 'no write tools exist');
   });
 
   await test('mcp: a tool the connection has no scope for is hidden and refused (read/write separation)', async () => {
@@ -1006,6 +1015,622 @@ async function main() {
     }
     assert.strictEqual(likeTerm("Marcus O'Hale"), "Marcus O'Hale");
     assert.strictEqual(likeTerm('Zoë Müller-Åberg'), 'Zoë Müller-Åberg');
+  });
+
+  // ── phase 2: campus scoping, contacts, event summaries, writes ─────────
+  const READ = 'radius:read';
+  const CONTACTS_SCOPE = 'radius:contacts:read';
+  const NOTES_WRITE = 'radius:notes:write';
+  const CONN_WRITE = 'radius:connections:write';
+  const ALL_SCOPES = [READ, CONTACTS_SCOPE, NOTES_WRITE, CONN_WRITE];
+  const sc = (r: Awaited<ReturnType<typeof call>>) => r.result!.structuredContent;
+  const errText = (r: Awaited<ReturnType<typeof call>>) => {
+    assert.strictEqual(r.result?.isError, true, 'expected a tool error');
+    return r.result!.content[0].text;
+  };
+  const key = (n: number) => `retry-key-${String(n).padStart(4, '0')}`;
+
+  async function fullWorld(over: { userId?: string; scopes?: string[]; campuses?: string[] | null } = {}) {
+    const world = makeWorld();
+    const userId = over.userId ?? USER_A;
+    enable(world, userId, over.scopes ?? ALL_SCOPES, over.campuses ?? null);
+    const scope = (over.scopes ?? ALL_SCOPES).join(' ');
+    const t = await connect(world, userId, scope);
+    return { world, token: t.access_token };
+  }
+
+  await test('scopes: a connection that asks for nothing gets read-only; asking for more than the account has is refused', async () => {
+    const world = makeWorld();
+    const t = await connect(world);
+    assert.strictEqual(t.scope, READ);
+    const verifier = base64Url(randomBytes(48));
+    const v = await validateAuthorizeRequest(world.oauth, authorizeParams(pkceS256(verifier), { scope: ALL_SCOPES.join(' ') }));
+    assert.ok(v.ok);
+    if (v.ok) {
+      const approval = await approveAuthorization(world.oauth, v.request, USER_A);
+      assert.strictEqual(approval.ok, false, 'user A only holds radius:read, so the wider approval must be refused');
+    }
+  });
+
+  await test('scopes: contact reading and writing are separate permissions, and each hides the others', async () => {
+    const onlyContacts = await fullWorld({ scopes: [READ, CONTACTS_SCOPE] });
+    const names = ((await (await rpc(onlyContacts.world, onlyContacts.token, { jsonrpc: '2.0', id: 1, method: 'tools/list' })).json()).result.tools as any[]).map((x) => x.name);
+    assert.ok(names.includes('get_leader_contact'));
+    assert.ok(!names.includes('add_leader_note') && !names.includes('log_connection'));
+    const refused = await call(onlyContacts.world, onlyContacts.token, 'add_leader_note', { leader_id: 1, content: 'hi there', idempotency_key: key(1) });
+    assert.match(errText(refused), /not allowed/);
+    assert.strictEqual(onlyContacts.world.writes.writeCalls, 0);
+
+    const onlyNotes = await fullWorld({ scopes: [READ, NOTES_WRITE] });
+    const names2 = ((await (await rpc(onlyNotes.world, onlyNotes.token, { jsonrpc: '2.0', id: 1, method: 'tools/list' })).json()).result.tools as any[]).map((x) => x.name);
+    assert.ok(names2.includes('add_leader_note') && !names2.includes('get_leader_contact') && !names2.includes('log_connection'));
+    errText(await call(onlyNotes.world, onlyNotes.token, 'get_leader_contact', { leader_id: 1 }));
+    assert.deepStrictEqual(onlyNotes.world.contacts.reads, [], 'no contact was read');
+    errText(await call(onlyNotes.world, onlyNotes.token, 'log_connection', { leader_id: 1, connection_type: 'Text', date_of_connection: '2026-10-18', idempotency_key: key(2) }));
+  });
+
+  await test('scopes: the tool set is exactly the five read tools, two summary tools, one contact tool, two write tools', () => {
+    assert.deepStrictEqual(ALL_TOOLS.map((t) => t.name).sort(), [
+      'add_leader_note', 'get_event_summary', 'get_leader', 'get_leader_contact', 'list_event_summaries', 'list_follow_ups',
+      'list_leader_connections', 'list_leader_notes', 'log_connection', 'search_leaders',
+    ]);
+    assert.ok(!ALL_TOOLS.some((t) => /delete|remove|update|edit|send|message|review|clear|bulk/i.test(t.name)), 'no out-of-scope tool exists');
+    for (const tool of ALL_TOOLS) assert.strictEqual(tool.inputSchema.additionalProperties, false, tool.name);
+  });
+
+  await test('annotations: write tools are marked as writes (idempotent, non-destructive); read tools stay read-only', async () => {
+    const { world, token } = await fullWorld();
+    const tools = (await (await rpc(world, token, { jsonrpc: '2.0', id: 1, method: 'tools/list' })).json()).result.tools as any[];
+    for (const tool of tools) {
+      const isWrite = tool.name === 'add_leader_note' || tool.name === 'log_connection';
+      assert.strictEqual(tool.annotations.readOnlyHint, !isWrite, tool.name);
+      assert.strictEqual(tool.annotations.destructiveHint, false, tool.name);
+      assert.strictEqual(tool.annotations.idempotentHint, true, tool.name);
+    }
+    const note = tools.find((x) => x.name === 'add_leader_note');
+    assert.deepStrictEqual(note.securitySchemes, [{ type: 'oauth2', scopes: [NOTES_WRITE] }]);
+    assert.match(note.description, /wait for them to say yes/);
+    assert.deepStrictEqual(note.inputSchema.required.sort(), ['content', 'idempotency_key', 'leader_id']);
+    assert.ok(!('created_at' in note.inputSchema.properties) && !('user_id' in note.inputSchema.properties), 'attribution and time are server-set');
+  });
+
+  await test('role: contact and write tools check the live Radius role on every call', async () => {
+    const viewer = await fullWorld({ userId: USER_VIEWER });
+    for (const [name, args] of [
+      ['get_leader_contact', { leader_id: 1 }],
+      ['add_leader_note', { leader_id: 1, content: 'a note', idempotency_key: key(3) }],
+    ] as const) {
+      assert.match(errText(await call(viewer.world, viewer.token, name, args)), /not allowed/);
+    }
+    assert.deepStrictEqual(viewer.world.contacts.reads, []);
+    assert.strictEqual(viewer.world.writes.writeCalls, 0);
+    assert.ok(viewer.world.store.auditLog.some((e) => e.tool === 'add_leader_note' && e.error === 'role_not_allowed'));
+    // plain reads are unaffected by role
+    assert.strictEqual((await call(viewer.world, viewer.token, 'search_leaders', {})).result!.isError, false);
+
+    const acpd = await fullWorld();
+    assert.strictEqual((await call(acpd.world, acpd.token, 'get_leader_contact', { leader_id: 1 })).result!.isError, false);
+    acpd.world.repo.roles.set(USER_A, 'viewer'); // demoted after connecting
+    assert.match(errText(await call(acpd.world, acpd.token, 'get_leader_contact', { leader_id: 1 })), /not allowed/);
+  });
+
+  await test('campus: a restricted user cannot see, read, or write outside their campuses, by any tool', async () => {
+    const { world, token } = await fullWorld({ campuses: ['Denton'] });
+    const search = sc(await call(world, token, 'search_leaders', {}));
+    assert.deepStrictEqual(search.items.map((i: any) => i.id).sort(), [3, 4]);
+    // asking for another campus is a narrowing filter, not a way around the permission
+    assert.strictEqual(sc(await call(world, token, 'search_leaders', { campus: 'Lake Highlands' })).total, 0);
+
+    for (const [name, args] of [
+      ['get_leader', { leader_id: 1 }],
+      ['list_leader_notes', { leader_id: 1 }],
+      ['list_leader_connections', { leader_id: 1 }],
+      ['get_leader_contact', { leader_id: 1 }],
+      ['add_leader_note', { leader_id: 1, content: 'sneaky', idempotency_key: key(4) }],
+      ['log_connection', { leader_id: 1, connection_type: 'Text', date_of_connection: '2026-10-18', idempotency_key: key(5) }],
+    ] as const) {
+      assert.strictEqual(errText(await call(world, token, name, args)), 'No Circle Leader with id 1.', name);
+    }
+    assert.deepStrictEqual(world.contacts.reads, [], 'contact data of a hidden leader was never fetched');
+    assert.strictEqual(world.writes.writeCalls, 0, 'nothing was written for a hidden leader');
+    assert.strictEqual(errText(await call(world, token, 'list_follow_ups', { leader_id: 1 })), 'No Circle Leader with id 1.');
+
+    const followUps = sc(await call(world, token, 'list_follow_ups', { status: 'all' }));
+    assert.ok(followUps.items.every((i: any) => i.leader_id === null || [3, 4].includes(i.leader_id)), 'follow-ups of other campuses are hidden');
+
+    const list = sc(await call(world, token, 'list_event_summaries', { limit: 50 }));
+    assert.ok(list.items.length > 0 && list.items.every((i: any) => ['Denton'].includes(i.campus)));
+    const hidden = await call(world, token, 'get_event_summary', { summary_id: SUMMARIES[0].id });
+    const missing = await call(world, token, 'get_event_summary', { summary_id: '00000000-0000-4000-8000-0000000000ff' });
+    assert.strictEqual(errText(hidden).replace(SUMMARIES[0].id, 'X'), errText(missing).replace('00000000-0000-4000-8000-0000000000ff', 'X'), 'hidden looks exactly like missing');
+    assert.strictEqual(sc(await call(world, token, 'get_event_summary', { summary_id: SUMMARIES[3].id })).summary_id, SUMMARIES[3].id);
+  });
+
+  await test('campus: an empty allow-list sees nothing, and leaders with no campus are hidden from a restricted user', async () => {
+    const { world, token } = await fullWorld({ campuses: [] });
+    assert.strictEqual(sc(await call(world, token, 'search_leaders', {})).total, 0);
+    assert.strictEqual(sc(await call(world, token, 'list_event_summaries', {})).total, 0);
+    const second = await fullWorld({ campuses: ['Denton'] });
+    second.world.repo.leaders.find((l) => l.id === 3)!.campus = null;
+    assert.match(errText(await call(second.world, second.token, 'get_leader', { leader_id: 3 })), /No Circle Leader/);
+  });
+
+  await test('contact: primary and additional leader are kept apart, missing values are null, blanks count as missing', async () => {
+    const { world, token } = await fullWorld();
+    const one = sc(await call(world, token, 'get_leader_contact', { leader_id: 1 }));
+    assert.deepStrictEqual(one.primary, { name: 'Jordan Avery', email: 'jordan@example.org', phone: '555-0101' });
+    assert.deepStrictEqual(one.additional, { name: 'Casey Avery', email: null, phone: '555-0102' });
+    assert.strictEqual(one.radius_url, `${BASE}/circle/1`);
+    const two = sc(await call(world, token, 'get_leader_contact', { leader_id: 2 }));
+    assert.deepStrictEqual(two.primary, { name: 'Sam and Riley Brooks', email: null, phone: null });
+    assert.strictEqual(two.additional, null);
+    assert.strictEqual(sc(await call(world, token, 'get_leader_contact', { leader_id: 3 })).additional, null, 'blank additional fields are not a person');
+    const four = sc(await call(world, token, 'get_leader_contact', { leader_id: 4 }));
+    assert.deepStrictEqual(four.additional, { name: null, email: null, phone: '555-0105' });
+    assert.match(errText(await call(world, token, 'get_leader_contact', { leader_id: 99 })), /No Circle Leader/);
+    assert.match(errText(await call(world, token, 'get_leader_contact', { leader_id: 1, extra: 1 })), /Unknown argument/);
+    assert.match(errText(await call(world, token, 'get_leader_contact', { leader_id: '1' })), /integer/);
+  });
+
+  await test('contact: details never appear in searches, leader profiles, summaries or the audit log', async () => {
+    const { world, token } = await fullWorld();
+    const everything: string[] = [];
+    everything.push(JSON.stringify(await call(world, token, 'search_leaders', { limit: 50 })));
+    everything.push(JSON.stringify(await call(world, token, 'get_leader', { leader_id: 1 })));
+    everything.push(JSON.stringify(await call(world, token, 'list_event_summaries', { limit: 50 })));
+    everything.push(JSON.stringify(await call(world, token, 'get_event_summary', { summary_id: SUMMARIES[0].id })));
+    await call(world, token, 'get_leader_contact', { leader_id: 1 });
+    for (const text of everything) assert.ok(!/jordan@example|555-01|casey/i.test(text), 'a contact detail leaked into a non-contact tool');
+    assert.ok(!/jordan@example|555-01/i.test(JSON.stringify(world.store.auditLog)), 'the audit log holds no contact values');
+    assert.ok(world.store.auditLog.some((e) => e.tool === 'get_leader_contact' && e.ok === true), 'the contact read itself is audited');
+  });
+
+  await test('summaries: list shape, newest meeting first, ties broken the same way every time', async () => {
+    const { world, token } = await fullWorld();
+    const out = sc(await call(world, token, 'list_event_summaries', { limit: 50 }));
+    const order = out.items.map((i: any) => Number(i.summary_id.slice(-12)));
+    assert.deepStrictEqual(order, [3, 5, 4, 1, 7, 2, 6]);
+    assert.strictEqual(out.total, 7);
+    assert.strictEqual(out.next_cursor, null);
+    assert.deepStrictEqual(out.items.map((i: any) => i.summary_id), sc(await call(world, token, 'list_event_summaries', { limit: 50 })).items.map((i: any) => i.summary_id), 'stable across calls');
+    const s1 = out.items.find((i: any) => i.summary_id === SUMMARIES[0].id);
+    assert.deepStrictEqual(
+      { leader_id: s1.leader_id, leader_name: s1.leader_name, circle_name: s1.circle_name, campus: s1.campus, submission_status: s1.submission_status, radius_url: s1.radius_url, submitted_at: s1.submitted_at, occurrence: s1.occurrence },
+      { leader_id: 1, leader_name: 'Jordan Avery', circle_name: 'LVT | S1 | Jordan Avery', campus: 'Lake Highlands', submission_status: 'submitted', radius_url: `${BASE}/circle/1`, submitted_at: '2026-10-14T15:00:00+00:00', occurrence: '2026-10-13T23:30:00+00:00' }
+    );
+    assert.strictEqual(s1.event_date, '2026-10-13');
+    assert.strictEqual(s1.reporting_week_start, '2026-10-11');
+    const late = out.items.find((i: any) => i.summary_id === SUMMARIES[6].id);
+    assert.strictEqual(late.event_date, '2026-10-10', 'Saturday evening Central stays Saturday even though it is Sunday in UTC');
+    assert.strictEqual(late.reporting_week_start, '2026-10-04');
+    assert.strictEqual(out.items.find((i: any) => i.summary_id === SUMMARIES[5].id).submission_status, 'failed');
+    assert.ok(!/Topic|Notes |Prayer/.test(JSON.stringify(out)), 'the list carries no written responses');
+  });
+
+  await test('summaries: pagination covers every row once, ends cleanly, survives new rows, and rejects forged cursors', async () => {
+    const { world, token } = await fullWorld();
+    const p1 = sc(await call(world, token, 'list_event_summaries', { limit: 3 }));
+    assert.strictEqual(p1.items.length, 3);
+    assert.ok(p1.next_cursor);
+    // a newer summary arrives between page 1 and page 2: it must not shift page 2
+    world.repo.summaries.push({ ...SUMMARIES[2], id: '00000000-0000-4000-8000-000000000099', created_at: '2026-10-16T10:00:00+00:00', occurrence: '2026-10-15T23:30:00+00:00' });
+    const p2 = sc(await call(world, token, 'list_event_summaries', { limit: 3, cursor: p1.next_cursor }));
+    const p3 = sc(await call(world, token, 'list_event_summaries', { limit: 3, cursor: p2.next_cursor }));
+    const ids = [...p1.items, ...p2.items, ...p3.items].map((i: any) => Number(i.summary_id.slice(-12)));
+    assert.deepStrictEqual(ids, [3, 5, 4, 1, 7, 2, 6]);
+    assert.strictEqual(p3.next_cursor, null);
+    assert.strictEqual(p3.total, 8, 'total reflects the whole result, not the page');
+    const evil = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
+    const goodId = '00000000-0000-4000-8000-000000000001';
+    for (const cursor of ['nope', evil({ o: '2026-10-01T00:00:00+00:00),id.gt.0,or(x.eq.1', c: '2026-10-01T00:00:00+00:00', i: goodId }), evil({ o: '2026-10-01T00:00:00+00:00', c: '2026-10-01T00:00:00+00:00', i: 'not-a-uuid' }), evil({})]) {
+      assert.match(errText(await call(world, token, 'list_event_summaries', { cursor })), /cursor is not valid/);
+    }
+    assert.ok(!world.repo.calls.includes('listEventSummaries') || world.repo.calls.filter((c) => c === 'listEventSummaries').length === 3, 'a bad cursor never reached the database');
+    for (const bad of [{ limit: 0 }, { limit: 51 }, { limit: 'x' }]) assert.strictEqual(errText(await call(world, token, 'list_event_summaries', bad)).length > 0, true);
+  });
+
+  await test('summaries: campus, circle, leader, date and reporting-week filters', async () => {
+    const { world, token } = await fullWorld();
+    const ids = async (args: object) => (sc(await call(world, token, 'list_event_summaries', { limit: 50, ...args })).items as any[]).map((i) => Number(i.summary_id.slice(-12)));
+    assert.deepStrictEqual(await ids({ campus: 'Denton' }), [5, 4, 7]);
+    assert.deepStrictEqual(await ids({ leader_id: 1 }), [1, 2]);
+    assert.deepStrictEqual(await ids({ circle: 'jordan' }), [1, 2]);
+    assert.deepStrictEqual(await ids({ campus: 'Denton', circle: 'jordan' }), [], 'filters combine');
+    assert.deepStrictEqual(await ids({ week_start: '2026-10-11' }), [3, 5, 4, 1]);
+    assert.deepStrictEqual(await ids({ week_start: '2026-10-04' }), [7, 2]);
+    assert.deepStrictEqual(await ids({ occurrence_from: '2026-10-13', occurrence_to: '2026-10-13' }), [5, 4, 1], 'a Central-time day, inclusive');
+    assert.deepStrictEqual(await ids({ occurrence_from: '2026-10-14' }), [3]);
+    assert.match(errText(await call(world, token, 'list_event_summaries', { week_start: '2026-10-12' })), /Sunday/);
+    assert.match(errText(await call(world, token, 'list_event_summaries', { week_start: '2026-10-11', occurrence_from: '2026-10-01' })), /not both/);
+    assert.match(errText(await call(world, token, 'list_event_summaries', { occurrence_from: '2026-10-20', occurrence_to: '2026-10-01' })), /after/);
+    assert.match(errText(await call(world, token, 'list_event_summaries', { occurrence_from: '2026-02-31' })), /real date/);
+    assert.match(errText(await call(world, token, 'list_event_summaries', { review_status: 'maybe' })), /one of/);
+    world.repo.leaderIdCapped = true;
+    assert.match(errText(await call(world, token, 'list_event_summaries', { campus: 'Denton' })), /Narrow/);
+  });
+
+  await test('summaries: review status is the signed-in user’s, kept apart from submission status', async () => {
+    const a = await fullWorld();
+    const ids = async (w: typeof a, args: object) => (sc(await call(w.world, w.token, 'list_event_summaries', { limit: 50, ...args })).items as any[]).map((i) => Number(i.summary_id.slice(-12)));
+    assert.deepStrictEqual(await ids(a, { review_status: 'unreviewed' }), [3, 4, 7, 6]);
+    assert.deepStrictEqual(await ids(a, { review_status: 'reviewed_by_me' }), [1]);
+    assert.deepStrictEqual(await ids(a, { review_status: 'reviewed_by_other' }), [5, 2], 'a stamp whose reviewer is gone still counts as someone else');
+    assert.deepStrictEqual(await ids(a, { review_status: 'reviewed_by_anyone' }), [5, 1, 2]);
+    const all = sc(await call(a.world, a.token, 'list_event_summaries', { limit: 50 })).items as any[];
+    const state = (n: number) => all.find((i) => i.summary_id === SUMMARIES[n - 1].id).review;
+    assert.deepStrictEqual(state(1), { state: 'reviewed_by_me', reviewed_at: '2026-10-15T12:00:00+00:00', reviewed_by_name: 'Alex Morgan' });
+    assert.strictEqual(state(2).state, 'reviewed_by_other');
+    assert.strictEqual(state(2).reviewed_by_name, 'Pat Rivera');
+    assert.deepStrictEqual(state(5), { state: 'reviewed_by_other', reviewed_at: '2026-10-15T09:00:00+00:00', reviewed_by_name: null });
+    const failed = all.find((i) => i.summary_id === SUMMARIES[5].id);
+    assert.strictEqual(failed.submission_status, 'failed');
+    assert.strictEqual(failed.review.state, 'unreviewed', 'a failed submission is not the same thing as an unreviewed one');
+
+    const b = await fullWorld({ userId: USER_B });
+    assert.deepStrictEqual(await ids(b, { review_status: 'reviewed_by_me' }), [2], 'the same data reads differently for a different user');
+  });
+
+  await test('summaries: when no review data exists at all, everything is honestly unreviewed', async () => {
+    const { world, token } = await fullWorld();
+    for (const s of world.repo.summaries) { s.reviewed_at = null; s.reviewed_by = null; }
+    const out = sc(await call(world, token, 'list_event_summaries', { limit: 50 }));
+    assert.ok(out.items.every((i: any) => i.review.state === 'unreviewed' && i.review.reviewed_at === null && i.review.reviewed_by_name === null));
+    assert.strictEqual(sc(await call(world, token, 'list_event_summaries', { review_status: 'reviewed_by_me' })).total, 0);
+    assert.strictEqual(sc(await call(world, token, 'list_event_summaries', { review_status: 'reviewed_by_anyone' })).total, 0);
+  });
+
+  await test('summaries: reading never marks anything reviewed', async () => {
+    const { world, token } = await fullWorld({ userId: USER_B });
+    const before = JSON.stringify(world.repo.summaries);
+    await call(world, token, 'list_event_summaries', { limit: 50 });
+    for (const s of SUMMARIES) await call(world, token, 'get_event_summary', { summary_id: s.id });
+    await call(world, token, 'list_event_summaries', { review_status: 'unreviewed' });
+    assert.strictEqual(JSON.stringify(world.repo.summaries), before, 'no summary changed');
+    const unreviewed = sc(await call(world, token, 'get_event_summary', { summary_id: SUMMARIES[2].id }));
+    assert.strictEqual(unreviewed.review.state, 'unreviewed', 'still unreviewed after being read');
+  });
+
+  await test('summaries: get_event_summary returns the full response, submission and review separately, and no private extras', async () => {
+    const { world, token } = await fullWorld();
+    const out = sc(await call(world, token, 'get_event_summary', { summary_id: SUMMARIES[0].id.toUpperCase() }));
+    assert.strictEqual(out.summary_id, SUMMARIES[0].id);
+    assert.deepStrictEqual(out.leader, { id: 1, name: 'Jordan Avery', circle_name: 'LVT | S1 | Jordan Avery', campus: 'Lake Highlands' });
+    assert.strictEqual(out.event.occurrence, '2026-10-13T23:30:00+00:00');
+    assert.strictEqual(out.event.reporting_week_start, '2026-10-11');
+    assert.deepStrictEqual(out.responses.dynamic_responses, [{ question_id: 'q1', label: 'How did it go?', value: 'Well' }]);
+    assert.strictEqual(out.responses.topic, 'Topic 1');
+    assert.strictEqual(out.responses.prayer_requests, 'Prayer 1');
+    assert.strictEqual(out.responses.attendee_count, 3);
+    assert.strictEqual(out.responses.manual_attendee_count, 1);
+    assert.strictEqual(out.submission.status, 'submitted');
+    assert.strictEqual(out.submission.submitted_at, '2026-10-14T15:00:00+00:00');
+    assert.strictEqual(out.review.state, 'reviewed_by_me');
+    const text = JSON.stringify(out);
+    assert.ok(!/client_ip|user_agent|ccb_response|555-0199|"Pat"/.test(text), 'no IP, user agent, raw CCB payload or attendee contact details');
+    const failed = sc(await call(world, token, 'get_event_summary', { summary_id: SUMMARIES[5].id }));
+    assert.strictEqual(failed.submission.status, 'failed');
+    assert.strictEqual(failed.submission.ccb_error, 'CCB refused the report');
+    assert.strictEqual(failed.review.state, 'unreviewed');
+    const dnm = sc(await call(world, token, 'get_event_summary', { summary_id: SUMMARIES[6].id }));
+    assert.strictEqual(dnm.responses.did_not_meet, true);
+    assert.strictEqual(dnm.responses.did_not_meet_reason, 'Sick');
+    assert.match(errText(await call(world, token, 'get_event_summary', { summary_id: 'nope' })), /wrong format/);
+    assert.match(errText(await call(world, token, 'get_event_summary', {})), /required/);
+    assert.match(errText(await call(world, token, 'get_event_summary', { summary_id: '00000000-0000-4000-8000-0000000000ff' })), /No event summary/);
+  });
+
+  // ── writes: add_leader_note ──
+  await test('add_leader_note: saves the exact text as the signed-in user with a server time, and verifies it by reading it back', async () => {
+    const { world, token } = await fullWorld();
+    const text = '  Met for coffee.\r\nShe said "yes" — café ☕  \n';
+    const before = { notes: world.repo.notes.length, connections: world.repo.connections.length, leader: JSON.stringify(world.repo.leaders[0]) };
+    const out = sc(await call(world, token, 'add_leader_note', { leader_id: 1, content: text, idempotency_key: key(10) }));
+    assert.strictEqual(out.note.content, text, 'byte for byte, whitespace included');
+    assert.strictEqual(out.note.leader_id, 1);
+    assert.strictEqual(out.note.created_by_name, 'Alex Morgan');
+    assert.strictEqual(out.note.created_at, new Date(clock).toISOString(), 'the server clock, not the caller');
+    assert.strictEqual(out.verified, true);
+    assert.strictEqual(out.replayed, false);
+    assert.strictEqual(out.radius_url, `${BASE}/circle/1`);
+    assert.strictEqual(world.repo.notes.length, before.notes + 1);
+    assert.strictEqual(world.repo.connections.length, before.connections, 'a note is not a connection');
+    assert.strictEqual(JSON.stringify(world.repo.leaders[0]), before.leader, 'follow-up and contact markers untouched');
+    const stored = world.repo.notes.find((n) => n.id === out.note.id)!;
+    assert.strictEqual(stored.created_by, USER_A);
+    const listed = sc(await call(world, token, 'list_leader_notes', { leader_id: 1 }));
+    assert.strictEqual(listed.items[0].id, out.note.id);
+    for (const forged of [{ created_at: '2020-01-01T00:00:00Z' }, { user_id: USER_B }, { created_by: USER_B }]) {
+      assert.match(errText(await call(world, token, 'add_leader_note', { leader_id: 1, content: 'x'.repeat(10), idempotency_key: key(11), ...forged })), /Unknown argument/);
+    }
+  });
+
+  await test('add_leader_note: bad input is refused before anything is written', async () => {
+    const { world, token } = await fullWorld();
+    const base = { leader_id: 1, content: 'A real note', idempotency_key: key(12) };
+    const cases: [object, RegExp][] = [
+      [{ ...base, content: '   \n\t ' }, /empty/],
+      [{ ...base, content: '' }, /too short/],
+      [{ ...base, content: 'x'.repeat(5001) }, /too long/],
+      [{ ...base, idempotency_key: 'short' }, /wrong format/],
+      [{ ...base, idempotency_key: 'has spaces in it!' }, /wrong format/],
+      [{ leader_id: 1, content: 'A real note' }, /idempotency_key.*required/],
+      [{ ...base, leader_id: 0 }, /at least 1/],
+      [{ ...base, leader_id: 1.5 }, /integer/],
+      [{ ...base, leader_id: 99 }, /No Circle Leader/],
+    ];
+    for (const [args, re] of cases) assert.match(errText(await call(world, token, 'add_leader_note', args)), re, JSON.stringify(args).slice(0, 80));
+    assert.strictEqual(world.writes.writeCalls, 0);
+    assert.strictEqual(sc(await call(world, token, 'add_leader_note', { ...base, content: 'x'.repeat(5000), idempotency_key: key(13) })).note.content.length, 5000, 'the maximum is accepted whole, never truncated');
+  });
+
+  await test('add_leader_note: a retry with the same key never duplicates; a different payload under that key is a conflict', async () => {
+    const { world, token } = await fullWorld();
+    const args = { leader_id: 1, content: 'Prayed together.', idempotency_key: key(20) };
+    const first = sc(await call(world, token, 'add_leader_note', args));
+    const count = world.repo.notes.length;
+    const retry = sc(await call(world, token, 'add_leader_note', args));
+    assert.strictEqual(retry.replayed, true);
+    assert.strictEqual(retry.note.id, first.note.id);
+    assert.strictEqual(world.repo.notes.length, count, 'no second note');
+    const conflict = await call(world, token, 'add_leader_note', { ...args, content: 'Something else entirely.' });
+    assert.match(errText(conflict), /already used for a different save/);
+    assert.strictEqual(world.repo.notes.length, count);
+    // the same key on a different leader is also a different save
+    assert.match(errText(await call(world, token, 'add_leader_note', { ...args, leader_id: 2 })), /already used/);
+    // a new key with the same words is a deliberate second note
+    sc(await call(world, token, 'add_leader_note', { ...args, idempotency_key: key(21) }));
+    assert.strictEqual(world.repo.notes.length, count + 1);
+    // keys belong to the user: another user reusing the string is not a retry
+    const b = await fullWorld({ userId: USER_B });
+    const other = sc(await call(b.world, b.token, 'add_leader_note', args));
+    assert.strictEqual(other.replayed, false);
+  });
+
+  await test('add_leader_note: a failed write saves nothing and leaves the key free; a lost reply is safely retried', async () => {
+    const { world, token } = await fullWorld();
+    const args = { leader_id: 1, content: 'Needs a second look.', idempotency_key: key(30) };
+    const n = world.repo.notes.length;
+    world.writes.failNext = 'before';
+    assert.match(errText(await call(world, token, 'add_leader_note', args)), /may not have been saved.*same idempotency_key/);
+    assert.strictEqual(world.repo.notes.length, n, 'nothing saved');
+    assert.ok(world.store.auditLog.some((e) => e.tool === 'add_leader_note' && e.ok === false && e.error === 'internal_error'));
+    const ok = sc(await call(world, token, 'add_leader_note', args));
+    assert.strictEqual(ok.replayed, false, 'the failed attempt did not use up the key');
+    assert.strictEqual(world.repo.notes.length, n + 1);
+
+    const lost = { ...args, content: 'Reply gets lost.', idempotency_key: key(31) };
+    world.writes.failNext = 'after';
+    errText(await call(world, token, 'add_leader_note', lost));
+    assert.strictEqual(world.repo.notes.length, n + 2, 'it did commit');
+    const again = sc(await call(world, token, 'add_leader_note', lost));
+    assert.strictEqual(again.replayed, true);
+    assert.strictEqual(world.repo.notes.length, n + 2, 'the retry did not add a third');
+  });
+
+  await test('add_leader_note: if the read-back does not match, the tool says so and names the saved record', async () => {
+    const { world, token } = await fullWorld();
+    world.writes.tamperNote = (note) => { note.content = 'something else'; };
+    const message = errText(await call(world, token, 'add_leader_note', { leader_id: 1, content: 'Original words', idempotency_key: key(40) }));
+    assert.match(message, /saved as record \d+/);
+    assert.match(message, /Do not retry/);
+    world.writes.tamperNote = (note) => { note.created_by = USER_B; };
+    assert.match(errText(await call(world, token, 'add_leader_note', { leader_id: 1, content: 'Original words', idempotency_key: key(41) })), /did not match/);
+  });
+
+  await test('add_leader_note: the audit log records that a note was written, never what it said', async () => {
+    const { world, token } = await fullWorld();
+    const secret = 'Her marriage is falling apart; keep this private.';
+    await call(world, token, 'add_leader_note', { leader_id: 1, content: secret, idempotency_key: key(50) });
+    await call(world, token, 'add_leader_note', { leader_id: 1, content: secret, idempotency_key: 'bad key' }); // fails validation
+    await call(world, token, 'add_leader_note', { leader_id: 1, content: secret }); // fails validation
+    world.writes.failNext = 'before';
+    await call(world, token, 'add_leader_note', { leader_id: 1, content: secret, idempotency_key: key(51) });
+    const audit = world.store.auditLog.filter((e) => e.tool === 'add_leader_note');
+    assert.strictEqual(audit.length, 4);
+    const dump = JSON.stringify(world.store.auditLog) + JSON.stringify(Array.from(world.writes.log.values()));
+    assert.ok(!dump.includes('marriage') && !dump.includes(secret), 'no copy of the note in any log, success or failure');
+    const okEntry = audit[0].args as any;
+    assert.strictEqual(okEntry.leader_id, 1);
+    assert.strictEqual(okEntry.idempotency_key, key(50));
+    assert.strictEqual(okEntry.content_length, secret.length);
+    assert.match(okEntry.content_sha256_prefix, /^[0-9a-f]{12}$/);
+    assert.ok(audit.every((e) => e.user_id === USER_A && e.client_id === CLIENT_ID), 'every write names who made it');
+  });
+
+  await test('writes: at most 20 saves a minute per connection', async () => {
+    const { world, token } = await fullWorld();
+    for (let i = 0; i < 20; i++) sc(await call(world, token, 'add_leader_note', { leader_id: 1, content: `note number ${i}`, idempotency_key: key(100 + i) }));
+    assert.match(errText(await call(world, token, 'add_leader_note', { leader_id: 1, content: 'one too many', idempotency_key: key(200) })), /Too many saves/);
+    assert.strictEqual(world.repo.notes.filter((n) => /^note number/.test(n.content ?? '')).length, 20);
+    advance(61);
+    assert.strictEqual((await call(world, token, 'add_leader_note', { leader_id: 1, content: 'after the wait', idempotency_key: key(201) })).result!.isError, false);
+  });
+
+  // ── writes: log_connection ──
+  await test('log_connection: records the interaction date separately from the entry time, with the app’s side effects and no more', async () => {
+    const { world, token } = await fullWorld();
+    const leader = world.repo.leaders.find((l) => l.id === 1)!;
+    const followUp = { r: leader.follow_up_required, d: leader.follow_up_date, n: leader.follow_up_note };
+    const out = sc(await call(world, token, 'log_connection', { leader_id: 1, connection_type: 'coffee', date_of_connection: '2026-10-18', note: 'Talked about the fall launch', idempotency_key: key(60) }));
+    assert.deepStrictEqual(
+      { ...out.connection, id: undefined },
+      { id: undefined, leader_id: 1, connection_type: 'Coffee', date_of_connection: '2026-10-18', note: 'Talked about the fall launch', entered_at: new Date(clock).toISOString(), entered_by_name: 'Alex Morgan' }
+    );
+    assert.notStrictEqual(out.connection.date_of_connection, out.connection.entered_at.slice(0, 10), 'what happened and when it was typed in are different fields');
+    assert.strictEqual(out.verified, true);
+    assert.strictEqual(out.replayed, false);
+    assert.ok(out.effects.some((e: string) => /timeline/.test(e)) && out.effects.some((e: string) => /Follow-ups were not changed/.test(e)));
+    const mirror = world.repo.notes.find((n) => /^Connection on Oct 18, 2026 via Coffee: Talked/.test(n.content ?? ''));
+    assert.ok(mirror, 'the matching timeline note exists');
+    assert.strictEqual(mirror!.created_by, USER_A);
+    assert.strictEqual(leader.last_check_in_date, '2026-10-18');
+    assert.deepStrictEqual({ r: leader.follow_up_required, d: leader.follow_up_date, n: leader.follow_up_note }, followUp, 'the follow-up is untouched');
+    const listed = sc(await call(world, token, 'list_leader_connections', { leader_id: 1 }));
+    assert.strictEqual(listed.items[0].id, out.connection.id);
+  });
+
+  await test('log_connection: a backdated entry never moves the last check-in backwards; the optional note really is optional', async () => {
+    const { world, token } = await fullWorld();
+    const leader = world.repo.leaders.find((l) => l.id === 1)!;
+    sc(await call(world, token, 'log_connection', { leader_id: 1, connection_type: 'Text', date_of_connection: '2026-10-19', idempotency_key: key(61) }));
+    const old = sc(await call(world, token, 'log_connection', { leader_id: 1, connection_type: 'Call', date_of_connection: '2026-09-02', idempotency_key: key(62) }));
+    assert.strictEqual(old.connection.note, null);
+    assert.strictEqual(old.connection.date_of_connection, '2026-09-02');
+    assert.strictEqual(leader.last_check_in_date, '2026-10-19');
+    assert.ok(world.repo.notes.some((n) => n.content === 'Connection on Sep 2, 2026 via Call'));
+    assert.strictEqual(sc(await call(world, token, 'log_connection', { leader_id: 1, connection_type: 'Text', date_of_connection: '2026-10-20', note: '   ', idempotency_key: key(63) })).connection.note, null, 'a blank note is no note');
+  });
+
+  await test('log_connection: dates and types are validated, in Central time', async () => {
+    const { world, token } = await fullWorld();
+    const base = { leader_id: 1, connection_type: 'Text', date_of_connection: '2026-10-18', idempotency_key: key(70) };
+    assert.match(errText(await call(world, token, 'log_connection', { ...base, date_of_connection: '2026-10-21' })), /in the future.*2026-10-20/);
+    assert.match(errText(await call(world, token, 'log_connection', { ...base, date_of_connection: '2026-02-30' })), /real date/);
+    assert.match(errText(await call(world, token, 'log_connection', { ...base, date_of_connection: '10/18/2026' })), /wrong format/);
+    assert.match(errText(await call(world, token, 'log_connection', { ...base, date_of_connection: '2026-10-18T10:00:00Z' })), /wrong format/);
+    const type = errText(await call(world, token, 'log_connection', { ...base, connection_type: 'Carrier pigeon' }));
+    assert.match(type, /not an active connection type.*Text, Coffee, Call/);
+    assert.match(errText(await call(world, token, 'log_connection', { ...base, leader_id: 99 })), /No Circle Leader/);
+    assert.match(errText(await call(world, token, 'log_connection', { ...base, note: 'x'.repeat(2001) })), /too long/);
+    assert.strictEqual(world.writes.writeCalls, 0);
+    // 8pm Central on Oct 20 is already Oct 21 in UTC: "today" is still the Central date
+    clock = new Date('2026-10-21T01:00:00Z').getTime();
+    const late = await fullWorld();
+    assert.strictEqual((await call(late.world, late.token, 'log_connection', { ...base, date_of_connection: '2026-10-20', idempotency_key: key(71) })).result!.isError, false);
+    assert.match(errText(await call(late.world, late.token, 'log_connection', { ...base, date_of_connection: '2026-10-21', idempotency_key: key(72) })), /in the future/);
+  });
+
+  await test('log_connection: retries cannot duplicate, conflicts are explicit, failures save nothing', async () => {
+    const { world, token } = await fullWorld();
+    const args = { leader_id: 2, connection_type: 'Text', date_of_connection: '2026-10-17', note: 'Sent the schedule', idempotency_key: key(80) };
+    const first = sc(await call(world, token, 'log_connection', args));
+    const [c, n] = [world.repo.connections.length, world.repo.notes.length];
+    const retry = sc(await call(world, token, 'log_connection', args));
+    assert.strictEqual(retry.replayed, true);
+    assert.strictEqual(retry.connection.id, first.connection.id);
+    assert.deepStrictEqual(retry.effects, ['No change: this save had already been made.']);
+    assert.deepStrictEqual([world.repo.connections.length, world.repo.notes.length], [c, n], 'no second connection and no second timeline note');
+    assert.match(errText(await call(world, token, 'log_connection', { ...args, date_of_connection: '2026-10-16' })), /already used for a different save/);
+    assert.deepStrictEqual([world.repo.connections.length, world.repo.notes.length], [c, n]);
+
+    world.writes.failNext = 'before';
+    assert.match(errText(await call(world, token, 'log_connection', { ...args, idempotency_key: key(81) })), /may not have been saved/);
+    assert.deepStrictEqual([world.repo.connections.length, world.repo.notes.length], [c, n], 'all-or-nothing');
+    world.writes.tamperConnection = (x) => { x.connection_type_id = 3; };
+    assert.match(errText(await call(world, token, 'log_connection', { ...args, idempotency_key: key(82) })), /saved as record \d+.*Do not retry/);
+  });
+
+  await test('log_connection: the audit log keeps the type and date but never the note text', async () => {
+    const { world, token } = await fullWorld();
+    await call(world, token, 'log_connection', { leader_id: 1, connection_type: 'Text', date_of_connection: '2026-10-18', note: 'She is struggling with her diagnosis', idempotency_key: key(90) });
+    const noteLength = 'She is struggling with her diagnosis'.length;
+    const dump = JSON.stringify(world.store.auditLog) + JSON.stringify(Array.from(world.writes.log.values()));
+    assert.ok(!dump.includes('diagnosis'), 'the pastoral text is not copied into a log');
+    const entry = world.store.auditLog.find((e) => e.tool === 'log_connection')!;
+    assert.deepStrictEqual({ ...(entry.args as object), note_sha256_prefix: 'x' }, {
+      leader_id: 1, connection_type: 'Text', date_of_connection: '2026-10-18', idempotency_key: key(90), note_length: noteLength, note_sha256_prefix: 'x',
+    });
+    assert.strictEqual(entry.user_id, USER_A);
+  });
+
+  await test('writes: adding a note alone is never counted as contacting someone', async () => {
+    const { world, token } = await fullWorld();
+    const leader = world.repo.leaders.find((l) => l.id === 1)!;
+    const connections = world.repo.connections.length;
+    sc(await call(world, token, 'add_leader_note', { leader_id: 1, content: 'Thinking about her this week.', idempotency_key: key(95) }));
+    assert.strictEqual(leader.last_check_in_date, null);
+    assert.strictEqual(world.repo.connections.length, connections);
+  });
+
+  await test('new tool outputs conform to their published output schemas (and the schemas reject bad shapes)', async () => {
+    const { world, token } = await fullWorld();
+    const ajv = new Ajv({ allErrors: true });
+    const cases: [string, unknown][] = [
+      ['list_event_summaries', { limit: 50 }], ['get_event_summary', { summary_id: SUMMARIES[0].id }],
+      ['get_leader_contact', { leader_id: 1 }], ['get_leader_contact', { leader_id: 2 }],
+      ['add_leader_note', { leader_id: 1, content: 'schema check', idempotency_key: key(300) }],
+      ['log_connection', { leader_id: 1, connection_type: 'Text', date_of_connection: '2026-10-18', idempotency_key: key(301) }],
+    ];
+    for (const [name, args] of cases) {
+      const tool = ALL_TOOLS.find((x) => x.name === name)!;
+      const res = await call(world, token, name, args);
+      assert.strictEqual(res.result!.isError, false, `${name}: ${res.result?.content[0].text}`);
+      const validate = ajv.compile(tool.outputSchema);
+      assert.ok(validate(res.result!.structuredContent), `${name}: ${JSON.stringify(validate.errors)}`);
+      assert.deepStrictEqual(JSON.parse(res.result!.content[0].text), res.result!.structuredContent, name);
+    }
+    const note = ALL_TOOLS.find((x) => x.name === 'add_leader_note')!;
+    assert.strictEqual(ajv.compile(note.outputSchema)({ replayed: false }), false);
+  });
+
+  await test('real repos: contact and summary queries select only whitelisted columns; writes go through the two functions', async () => {
+    const { db, queries } = recordingDb({ data: { id: 1 }, error: null });
+    const { createSupabaseContactRepo, createSupabaseWriteRepo, WriteError } = require('../lib/mcp/repo-write');
+    await createSupabaseContactRepo(db).getLeaderContact(1);
+    assert.strictEqual(queries[0].table, 'circle_leaders');
+    assert.strictEqual(queries[0].ops.find((o) => o[0] === 'select')![1], 'id, name, email, phone, additional_leader_name, additional_leader_email, additional_leader_phone');
+    assert.ok(!/birthday|ccb|prayer/i.test(queries[0].ops.find((o) => o[0] === 'select')![1]));
+
+    const s = recordingDb({ data: null, error: null });
+    await createSupabaseReadRepo(s.db).getEventSummary('00000000-0000-4000-8000-000000000001');
+    const cols = s.queries[0].ops.find((o) => o[0] === 'select')![1] as string;
+    assert.strictEqual(s.queries[0].table, 'circle_event_summaries');
+    assert.ok(!/client_ip|user_agent|ccb_response/.test(cols), `summary columns leak: ${cols}`);
+    assert.ok(s.queries[0].ops.every((o) => !['insert', 'update', 'upsert', 'delete'].includes(o[0] as string)), 'reading a summary issues no write');
+
+    const camp = recordingDb({ data: [], error: null, count: 0 });
+    await createSupabaseReadRepo(camp.db).searchLeaders({ allowedCampuses: ['Denton', 'Flower Mound'], limit: 5, offset: 0 });
+    assert.ok(camp.queries[0].ops.some((o) => o[0] === 'or' && o[1] === 'campus.ilike.Denton,campus.ilike.Flower Mound'), 'the allow-list is part of the query itself');
+    const none = recordingDb({ data: [], error: null, count: 0 });
+    await createSupabaseReadRepo(none.db).searchLeaders({ allowedCampuses: [], limit: 5, offset: 0 });
+    assert.ok(none.queries[0].ops.some((o) => o[0] === 'eq' && o[1] === 'id' && o[2] === -1), 'an empty allow-list matches nothing');
+    const l = recordingDb({ data: [], error: null, count: 0 });
+    await createSupabaseReadRepo(l.db).listEventSummaries({ leaderIds: [1], review: 'reviewed_by_other', userId: 'user-a', limit: 10, after: { occurrence: '2026-10-13T23:30:00+00:00', created_at: '2026-10-14T15:00:00+00:00', id: '00000000-0000-4000-8000-000000000001' } });
+    const ops = l.queries[0].ops;
+    assert.ok(ops.some((o) => o[0] === 'in' && o[1] === 'leader_id'));
+    assert.ok(ops.some((o) => o[0] === 'or' && /reviewed_by\.is\.null,reviewed_by\.neq\.user-a/.test(String(o[1]))), 'someone else = another user or a deleted one');
+    assert.ok(ops.some((o) => o[0] === 'and' && /^or\(occurrence\.lt\./.test(String(o[1]))), 'keyset cursor');
+    assert.deepStrictEqual(ops.filter((o) => o[0] === 'order').map((o) => o[1]), ['occurrence', 'created_at', 'id']);
+    assert.ok(ops.every((o) => !['insert', 'update', 'upsert', 'delete'].includes(o[0] as string)));
+
+    const rpcCalls: any[] = [];
+    const rpcDb: any = { rpc: async (fn: string, args: any) => { rpcCalls.push([fn, args]); return { data: { replayed: false, record_id: '7' }, error: null }; } };
+    const writes = createSupabaseWriteRepo(rpcDb);
+    const ctx = { userId: 'user-a', grantId: 'g1', idempotencyKey: key(1), requestHash: 'h' };
+    assert.deepStrictEqual(await writes.addNote(ctx, { leaderId: 1, content: 'hi' }), { recordId: '7', replayed: false });
+    assert.strictEqual(rpcCalls[0][0], 'mcp_add_note');
+    assert.deepStrictEqual(Object.keys(rpcCalls[0][1]).sort(), ['p_content', 'p_grant_id', 'p_hash', 'p_key', 'p_leader_id', 'p_user_id']);
+    await writes.logConnection(ctx, { leaderId: 1, typeId: 2, date: '2026-10-18', note: null, mirrorNote: 'm' });
+    assert.strictEqual(rpcCalls[1][0], 'mcp_log_connection');
+    for (const [message, code] of [['mcp:idempotency_conflict', 'idempotency_conflict'], ['mcp:leader_not_found', 'leader_not_found'], ['mcp:connection_type_invalid', 'connection_type_invalid']]) {
+      const failing: any = { rpc: async () => ({ data: null, error: { message: `P0001 ${message}` } }) };
+      await assert.rejects(() => createSupabaseWriteRepo(failing).addNote(ctx, { leaderId: 1, content: 'x' }), (e: any) => e instanceof WriteError && e.code === code);
+    }
+    const broken: any = { rpc: async () => ({ data: null, error: { message: 'connection refused' } }) };
+    await assert.rejects(() => createSupabaseWriteRepo(broken).addNote(ctx, { leaderId: 1, content: 'x' }), (e: any) => !(e instanceof WriteError));
+    assert.ok(!Object.keys(writes).some((k) => /delete|update|remove/i.test(k)), 'the write repo has no edit or delete method');
+  });
+
+  await test('real store: a missing campuses column (migration not yet applied) means every campus, not a lockout', async () => {
+    let calls = 0;
+    const db: any = {
+      from() {
+        const q: any = new Proxy(function () {}, {
+          get(_t, prop: string) {
+            if (prop === 'then') {
+              calls++;
+              return (resolve: (v: unknown) => void) =>
+                resolve(calls === 1 ? { data: null, error: { message: 'column mcp_access.campuses does not exist' } } : { data: { user_id: 'u', scopes: ['radius:read'], revoked_at: null }, error: null });
+            }
+            return () => q;
+          },
+        });
+        return q;
+      },
+    };
+    const row = await createSupabaseMcpStore(db).getAccess('u');
+    assert.strictEqual(row!.user_id, 'u');
+    assert.strictEqual(row!.campuses ?? null, null);
   });
 
   // ── report ─────────────────────────────────────────────────────────────

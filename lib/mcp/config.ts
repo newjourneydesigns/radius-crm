@@ -1,5 +1,15 @@
 export const MCP_SCOPE_READ = 'radius:read';
-export const MCP_SUPPORTED_SCOPES = [MCP_SCOPE_READ] as const;
+export const MCP_SCOPE_CONTACTS_READ = 'radius:contacts:read';
+export const MCP_SCOPE_NOTES_WRITE = 'radius:notes:write';
+export const MCP_SCOPE_CONNECTIONS_WRITE = 'radius:connections:write';
+export const MCP_SUPPORTED_SCOPES = [
+  MCP_SCOPE_READ,
+  MCP_SCOPE_CONTACTS_READ,
+  MCP_SCOPE_NOTES_WRITE,
+  MCP_SCOPE_CONNECTIONS_WRITE,
+] as const;
+/** What a connection gets when the assistant names no scope: read-only. Anything more must be asked for. */
+export const MCP_DEFAULT_SCOPES = [MCP_SCOPE_READ] as const;
 
 export interface McpConfig {
   /** Public origin of the Radius site; also the OAuth issuer. No trailing slash. */

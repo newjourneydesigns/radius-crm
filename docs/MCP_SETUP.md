@@ -1,13 +1,14 @@
-# Radius MCP: read-only assistant access
+# Radius MCP: assistant access
 
 Radius runs a private [MCP](https://modelcontextprotocol.io) server so one signed-in user's AI assistant
-(ChatGPT "dot") can read Circle Leader information. **It is read-only. Nothing it exposes can change Radius.**
+(ChatGPT "dot") can read Circle Leader information. **By default it is read-only.** Contact details and the
+two write tools (add a note, log a connection) each need their own scope, switched on per user in SQL.
 
 - MCP endpoint: `https://vccradius.netlify.app/api/mcp/` (Streamable HTTP, stateless, JSON responses)
 - Login: OAuth 2.1 authorization code + PKCE (S256), run by Radius itself. Radius signs the user in with its
   existing login, then shows a consent screen at `/oauth/authorize/`.
 - Client registration: **CIMD** (client ID metadata document). No dynamic registration endpoint exists.
-- Scope: `radius:read`
+- Scopes: `radius:read` (default), `radius:contacts:read`, `radius:notes:write`, `radius:connections:write`
 
 > The trailing slash on the endpoint is deliberate. The site runs with `trailingSlash: true`, so a URL
 > without it is answered with a 308 redirect, and an external client is not required to follow a redirect on a POST.
@@ -17,12 +18,12 @@ Radius runs a private [MCP](https://modelcontextprotocol.io) server so one signe
 | Question | Answer |
 | --- | --- |
 | Who can connect an assistant? | Only a Radius user with a row in `mcp_access`. The table starts empty. |
-| What can it do? | Call five read-only tools. There are no write tools, no messaging and no delete. |
-| Whose data does it see? | Radius shares leader data with every signed-in user, so the assistant sees **all** leaders and notes, not only the user's own circles. Personal to-dos are the exception: only the token's own user's. |
+| What can it do? | By default: read leaders, notes, interactions, follow-ups and submitted event summaries. With extra scopes (below): read one leader's contact details; append one note; log one connection. There is no edit, delete, bulk change, messaging or mark-reviewed tool. |
+| Whose data does it see? | `mcp_access.campuses` limits a user to listed campuses (`NULL` = every campus, which matches how Radius itself behaves: any signed-in user sees all leaders). A leader outside the user's campuses looks exactly like one that doesn't exist, in every tool. Personal to-dos are the token's own user's only. |
 | Can it reach the database directly? | No. Its token is an opaque string that only works at `/api/mcp/`. It is not a Supabase token. |
-| What is never returned? | Phone numbers, emails, birthdays, additional-leader contact details, prayer points. |
+| What is never returned? | Birthdays, CCB profile links, raw CCB payloads, submitter IP/user agent, attendee phone numbers and emails. Leader phone/email only through `get_leader_contact`. |
 | How long does access last? | Access tokens: 1 hour. Refresh tokens: 30 days, rotating. Each approval ends after 90 days. |
-| Is it logged? | Every tool call and connection event goes to `mcp_audit_log` (tool, arguments capped at 2,000 characters, record count, outcome; not record contents). If a call can't be logged it is not answered. |
+| Is it logged? | Every tool call and connection event goes to `mcp_audit_log` (tool, arguments capped at 2,000 characters, record count, outcome; not record contents). **Write tools never log the note text**: only leader id, idempotency key, length and a short hash. Every accepted write also has a row in `mcp_write_log` (who, which tool, which record). If a call can't be logged it is not answered. |
 | Where are secrets? | Tokens and codes are stored only as SHA-256 hashes. The service key never leaves the server. |
 
 ## One-time setup
@@ -98,13 +99,38 @@ All tools require the `radius:read` scope and are annotated `readOnlyHint: true`
 against the published input schema; unknown arguments (including any `user_id`) are rejected.
 Lists are paged with `limit` and `cursor`. Each response carries `total` and `next_cursor` (null on the last page).
 
-| Tool | What it returns |
-| --- | --- |
-| `search_leaders` | A page of leaders. Filters: `query`, `campus`, `acpd`, `status[]`, `circle_type`, `day`, `leader_type`, `follow_up_required`. |
-| `get_leader` | One leader's profile and circle info, plus their latest note and latest connection. |
-| `list_leader_notes` | A leader's notes, newest first, authors by name. `since` filters by date. |
-| `list_leader_connections` | A leader's logged interactions (date, type, note), newest first. |
-| `list_follow_ups` | Follow-ups with `status` = `upcoming`, `overdue`, `completed` or `all`; optional `leader_id`, `from`, `to`. |
+| Tool | Scope | What it does |
+| --- | --- | --- |
+| `search_leaders` | `radius:read` | A page of leaders. Filters: `query`, `campus`, `acpd`, `status[]`, `circle_type`, `day`, `leader_type`, `follow_up_required`. |
+| `get_leader` | `radius:read` | One leader's profile and circle info, plus their latest note and latest connection. |
+| `list_leader_notes` | `radius:read` | A leader's notes, newest first, authors by name. `since` filters by date. |
+| `list_leader_connections` | `radius:read` | A leader's logged interactions (date, type, note), newest first. |
+| `list_follow_ups` | `radius:read` | Follow-ups with `status` = `upcoming`, `overdue`, `completed` or `all`; optional `leader_id`, `from`, `to`. |
+| `list_event_summaries` | `radius:read` | Submitted event summaries, newest meeting first. Filters: `campus`, `leader_id`, `circle`, `occurrence_from/to`, `week_start` (a Sunday), `review_status`. Keyset-paged, deterministic order. |
+| `get_event_summary` | `radius:read` | One summary in full: responses, prayer requests, attendance counts, form answers, submission details and review stamp. Never marks anything reviewed. |
+| `get_leader_contact` | `radius:contacts:read` + ACPD role | Email and phone for one leader, separately for the primary and the additional leader. |
+| `add_leader_note` | `radius:notes:write` + ACPD role | Appends one note, exactly as written. |
+| `log_connection` | `radius:connections:write` + ACPD role | Logs one interaction. |
+
+### Event summaries: submission status vs review status
+
+- **Submission status** (`submitted`, `failed`, `retrying`) is whether the report reached Radius/CCB.
+- **Review status** is the stamp on `circle_event_summaries.reviewed_at/reviewed_by`. **Radius keeps one shared stamp per summary, not one per person.**
+  `reviewed_by_me` therefore means "you are the person who stamped it", and `reviewed_by_other` means someone else did (including a reviewer whose account was later deleted).
+  If two ACPDs both need their own "I've seen this", that needs a per-user table (`event_summary_reviews`); it does not exist, and the MCP does not pretend otherwise.
+- Reporting weeks run Sunday to Saturday in Central time, derived from the meeting time.
+- Only summaries submitted through Radius are listed (`circle_event_summaries`). Reports that exist only in CCB have no response fields and are not included.
+
+### Write tools
+
+- **Confirmation:** the tool descriptions tell the assistant to show you exactly what will be saved and wait for a yes.
+- **Idempotency:** `idempotency_key` is required (8–64 chars of `A-Za-z0-9_-`). Same key and same arguments returns the original record with `replayed: true`. Same key with different arguments is refused. A failed write does not use up the key, so retrying with it is always safe. Keys are per user and per tool.
+- **Attribution and time:** the note author is the signed-in user and the timestamp is the database clock. Neither can be passed in.
+- **Atomic:** each write is one database transaction (`mcp_add_note`, `mcp_log_connection`) that also claims the key. There are no half-saved states.
+- **Read-back:** after saving, the server reads the record back and compares it to what was sent. The result says `verified: true`; a mismatch is reported with the saved record id and the assistant is told not to retry.
+- **Limits:** 20 saves a minute per connection; notes up to 5,000 characters (saved exactly, whitespace and line breaks included).
+- **`add_leader_note`** inserts into `notes` only. It does not touch the follow-up flag or date, and it is not contact: it changes no check-in date and no connection count.
+- **`log_connection`** does what the Log Connection button does, in one transaction: adds a `connections` row (with `created_by` and `source = 'mcp'`); adds the matching "Connection on {date} via {type}" line to the leader's notes; moves `last_check_in_date` (and `last_connection`, where that column exists) **forward only**; and the row counts toward the Touchpoint Tracker. It never clears or changes a follow-up. Radius stores a *date* for a connection, not a time of day; `date_of_connection` is when it happened (Central, not in the future) and `entered_at` is when it was recorded.
 
 Every record carries a stable `id`, relevant dates, and a `radius_url` link where one exists.
 
@@ -218,29 +244,34 @@ delete from public.mcp_audit_log    where at < now() - interval '180 days';
 | `MCP_OAUTH_ALLOWED_REDIRECT_URIS` | Comma-separated exact redirect URIs, in addition to the `mcp_allowed_redirects` table. Usually unnecessary. |
 | `MCP_OAUTH_ALLOWED_CLIENT_HOSTS` | Hosts a CIMD `client_id` may be fetched from. Defaults to `chatgpt.com`. |
 
-## Proposed write tools (NOT built, NOT enabled)
+## Turning on contacts and the write tools
 
-Nothing below exists in the code. It is a proposal to approve before any of it is built.
+Nothing here is on for anyone until you run SQL. Do the migration first.
 
-| Tool | Does | Needs |
-| --- | --- | --- |
-| `log_interaction` | Adds a connection (date, type, note) to a leader. | `radius:write` |
-| `add_note` | Adds a note to a leader's profile. | `radius:write` |
-| `create_follow_up` | Creates a personal to-do about a leader, or sets a leader's follow-up date. | `radius:write` |
-| `complete_follow_up` | Completes a personal to-do, or clears a leader's follow-up with a required resolution note. | `radius:write` |
+1. In the Supabase **SQL Editor**, run `supabase/migrations/20261022000000_mcp_contacts_summaries_writes.sql`. It is safe to run twice. It adds `mcp_access.campuses`, `connections.created_by/source`, the `mcp_write_log` table and the two write functions. (Deploying the code before the migration is safe: reads keep working, and the new tools just error until the functions exist.)
+2. Give the user the scopes they should have. Pick only what you want:
 
-Every write would ship with all of these, or it doesn't ship:
+```sql
+-- contact details
+update public.mcp_access set scopes = array_append(scopes, 'radius:contacts:read')
+ where user_id = (select id from public.users where lower(email) = lower('trip.ochenski@valleycreek.org'))
+   and not ('radius:contacts:read' = any(scopes));
+-- add_leader_note
+update public.mcp_access set scopes = array_append(scopes, 'radius:notes:write')
+ where user_id = (select id from public.users where lower(email) = lower('trip.ochenski@valleycreek.org'))
+   and not ('radius:notes:write' = any(scopes));
+-- log_connection (read "Write tools" above first)
+update public.mcp_access set scopes = array_append(scopes, 'radius:connections:write')
+ where user_id = (select id from public.users where lower(email) = lower('trip.ochenski@valleycreek.org'))
+   and not ('radius:connections:write' = any(scopes));
+```
 
-- **Separate permission.** A new `radius:write` scope, off by default, granted per user in `mcp_access` and
-  approved on its own consent screen. Disabling it must not break reads.
-- **No duplicates.** A required `idempotency_key` per call, enforced by a unique database constraint, so a retried call returns the first result.
-- **Conflict protection.** Edits and completions require the record's `updated_at` as it was read, and fail if it changed in the meantime.
-- **Audit history.** Each write records who, when, the exact before and after values, and the idempotency key.
-- **Saved-record response.** The tool returns the record as stored, with its id and `radius_url`, so the assistant can read it back and confirm.
-- **Written by the right person.** Notes and to-dos are attributed to the signed-in user, never to a service account.
-- **Confirmation.** The tool description tells the assistant to show the user exactly what will be saved and wait for a yes first.
+3. Optional campus limit (leave `NULL` for every campus): `update public.mcp_access set campuses = array['Denton'] where user_id = ...;`
+4. Existing connections keep read-only. Disconnect and reconnect the assistant; the ChatGPT connector must be set to request the scopes you enabled (space-separated in its Scope field). The consent screen lists exactly what is being granted.
 
-Deliberately excluded for good: sending messages to leaders, bulk changes, and any delete.
+To switch a scope off again, remove it from `mcp_access.scopes`; it takes effect on the assistant's next request.
+
+Excluded for good: sending messages to leaders, bulk changes, any delete or edit, and marking summaries reviewed.
 
 ## Open risk: someone else starting the connection (not fixed)
 

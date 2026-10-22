@@ -15,9 +15,14 @@ export function createSupabaseMcpStore(db: SupabaseClient): McpStore {
     async getAccess(userId) {
       const res = await db
         .from('mcp_access')
-        .select('user_id, scopes, revoked_at')
+        .select('user_id, scopes, campuses, revoked_at')
         .eq('user_id', userId)
         .maybeSingle();
+      // Before the campuses migration is applied the column doesn't exist; behave as "every campus" rather than lock everyone out.
+      if (res.error && /campuses/.test(res.error.message)) {
+        const legacy = await db.from('mcp_access').select('user_id, scopes, revoked_at').eq('user_id', userId).maybeSingle();
+        return must(legacy, 'mcp_access lookup') as AccessRow | null;
+      }
       return must(res, 'mcp_access lookup') as AccessRow | null;
     },
 

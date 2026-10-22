@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 // Radius's private MCP endpoint (Streamable HTTP, stateless). Every request needs an OAuth access token
-// issued by /api/mcp-oauth/*; the tools it exposes are read-only.
+// issued by /api/mcp-oauth/*; the tools it lists depend on the scopes the user approved (read-only unless a write scope was granted).
 export async function POST(request: Request) {
   let deps;
   try {

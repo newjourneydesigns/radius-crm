@@ -1,134 +1,19 @@
 import { DateTime } from 'luxon';
-import { MCP_SCOPE_READ, type McpConfig } from './config';
-import type { Principal } from './oauth';
-import { likeTerm, type ConnectionRow, type LeaderRow, type NoteRow, type ReadRepo, type TodoRow } from './repo';
-import { InputError, parseArguments, type JsonSchema } from './schema';
+import { MCP_SCOPE_READ } from './config';
+import { authorizeLeader, canSeeCampus } from './access';
+import { likeTerm, type ConnectionRow, type LeaderRow, type NoteRow, type TodoRow } from './repo';
+import { InputError, parseArguments } from './schema';
+import {
+  DATE_PATTERN, cursorProp, dateArg, decodeCursor, leaderIdProp, leaderSummary, leaderSummarySchema, limitProp,
+  nextCursor, nullableString, pageProps, radiusUrl, trimText,
+  type ToolDefinition,
+} from './tool-kit';
+import { CONTACT_TOOLS } from './tools-contacts';
+import { SUMMARY_TOOLS } from './tools-summaries';
+import { WRITE_TOOLS } from './tools-writes';
 
-export const TIMEZONE = 'America/Chicago';
-
-export interface ToolContext {
-  repo: ReadRepo;
-  principal: Principal;
-  config: McpConfig;
-  now: () => Date;
-}
-
-export interface ToolResult {
-  structured: Record<string, unknown>;
-  /** How many records came back; recorded in the audit log, never their content. */
-  count: number;
-}
-
-export interface ToolDefinition {
-  name: string;
-  title: string;
-  description: string;
-  inputSchema: JsonSchema;
-  outputSchema: JsonSchema;
-  requiredScope: string;
-  run: (args: Record<string, unknown>, ctx: ToolContext) => Promise<ToolResult>;
-}
-
-// ── shared pieces ────────────────────────────────────────────────────────
-
-const DATE_PATTERN = '^\\d{4}-\\d{2}-\\d{2}$';
-const nullableString: JsonSchema = { anyOf: [{ type: 'string' }, { type: 'null' }] };
-
-const limitProp = (max: number, fallback: number): JsonSchema => ({
-  type: 'integer',
-  minimum: 1,
-  maximum: max,
-  default: fallback,
-  description: `Page size, 1–${max}. Defaults to ${fallback}.`,
-});
-const cursorProp: JsonSchema = {
-  type: 'string',
-  maxLength: 200,
-  description: 'Pass the next_cursor from the previous response to get the next page.',
-};
-const leaderIdProp: JsonSchema = {
-  type: 'integer',
-  minimum: 1,
-  maximum: 2147483647,
-  description: 'The Radius Circle Leader id, as returned by search_leaders.',
-};
-
-const radiusUrl = (config: McpConfig, leaderId: number) => `${config.baseUrl}/circle/${leaderId}`;
-
-const encodeCursor = (offset: number) => Buffer.from(JSON.stringify({ o: offset })).toString('base64url');
-
-function decodeCursor(cursor: unknown): number {
-  if (cursor === undefined) return 0;
-  try {
-    const parsed = JSON.parse(Buffer.from(String(cursor), 'base64url').toString('utf8'));
-    if (Number.isInteger(parsed?.o) && parsed.o >= 0 && parsed.o <= 100000) return parsed.o;
-  } catch {
-    // falls through to the error below
-  }
-  throw new InputError('cursor is not valid. Use the next_cursor from a previous response.');
-}
-
-const nextCursor = (offset: number, returned: number, total: number) =>
-  offset + returned < total ? encodeCursor(offset + returned) : null;
-
-function dateArg(value: unknown, name: string): string | undefined {
-  if (value === undefined) return undefined;
-  if (!DateTime.fromISO(String(value)).isValid) throw new InputError(`"${name}" is not a real date.`);
-  return String(value);
-}
-
-const trimText = (text: string | null, max: number) => (text && text.length > max ? `${text.slice(0, max)}…` : text);
-
-function leaderSummary(row: LeaderRow, config: McpConfig) {
-  return {
-    id: row.id,
-    name: row.name,
-    campus: row.campus ?? null,
-    acpd: row.acpd ?? null,
-    status: row.status ?? null,
-    leader_type: row.leader_type ?? null,
-    circle_name: row.circle_name ?? null,
-    circle_type: row.circle_type ?? null,
-    circle_location: row.circle_location ?? null,
-    day: row.day ?? null,
-    time: row.time ?? null,
-    frequency: row.frequency ?? null,
-    check_in_cadence: row.check_in_cadence ?? null,
-    last_check_in_date: row.last_check_in_date ?? null,
-    follow_up_required: !!row.follow_up_required,
-    follow_up_date: row.follow_up_date ?? null,
-    radius_url: radiusUrl(config, row.id),
-  };
-}
-
-const leaderSummarySchema: JsonSchema = {
-  type: 'object',
-  properties: {
-    id: { type: 'integer' },
-    name: { type: 'string' },
-    campus: nullableString,
-    acpd: nullableString,
-    status: nullableString,
-    leader_type: nullableString,
-    circle_name: nullableString,
-    circle_type: nullableString,
-    circle_location: nullableString,
-    day: nullableString,
-    time: nullableString,
-    frequency: nullableString,
-    check_in_cadence: nullableString,
-    last_check_in_date: nullableString,
-    follow_up_required: { type: 'boolean' },
-    follow_up_date: nullableString,
-    radius_url: { type: 'string' },
-  },
-  required: ['id', 'name', 'radius_url'],
-};
-
-const pageProps = {
-  total: { type: 'integer', description: 'How many records match in all, across every page.' },
-  next_cursor: { anyOf: [{ type: 'string' }, { type: 'null' }], description: 'null when there are no more pages.' },
-} as const;
+export { TIMEZONE, type ToolContext, type ToolDefinition, type ToolResult } from './tool-kit';
+import { TIMEZONE } from './tool-kit';
 
 // ── search_leaders ───────────────────────────────────────────────────────
 
@@ -182,6 +67,7 @@ const searchLeaders: ToolDefinition = {
       day: args.day as string | undefined,
       leaderType: args.leader_type as string | undefined,
       followUpRequired: args.follow_up_required as boolean | undefined,
+      allowedCampuses: ctx.principal.campuses,
       limit,
       offset,
     });
@@ -237,8 +123,7 @@ const getLeader: ToolDefinition = {
   },
   async run(args, ctx) {
     const id = args.leader_id as number;
-    const row = await ctx.repo.getLeader(id);
-    if (!row) throw new InputError(`No Circle Leader with id ${id}.`);
+    const row = authorizeLeader(ctx.principal, await ctx.repo.getLeader(id), id);
 
     const [note, connection] = await Promise.all([ctx.repo.latestNote(id), ctx.repo.latestConnection(id)]);
     const authors = note?.created_by ? await ctx.repo.authorNames([note.created_by]) : new Map<string, string>();
@@ -327,7 +212,7 @@ const listLeaderNotes: ToolDefinition = {
   async run(args, ctx) {
     const id = args.leader_id as number;
     const offset = decodeCursor(args.cursor);
-    if (!(await ctx.repo.getLeader(id))) throw new InputError(`No Circle Leader with id ${id}.`);
+    authorizeLeader(ctx.principal, await ctx.repo.getLeader(id), id);
     const { rows, total } = await ctx.repo.listNotes(id, {
       since: dateArg(args.since, 'since'),
       limit: args.limit as number,
@@ -402,7 +287,7 @@ const listLeaderConnections: ToolDefinition = {
   async run(args, ctx) {
     const id = args.leader_id as number;
     const offset = decodeCursor(args.cursor);
-    if (!(await ctx.repo.getLeader(id))) throw new InputError(`No Circle Leader with id ${id}.`);
+    authorizeLeader(ctx.principal, await ctx.repo.getLeader(id), id);
     const { rows, total } = await ctx.repo.listConnections(id, {
       since: dateArg(args.since, 'since'),
       limit: args.limit as number,
@@ -504,6 +389,7 @@ const listFollowUps: ToolDefinition = {
     const offset = decodeCursor(args.cursor);
     const limit = args.limit as number;
     const today = DateTime.fromJSDate(ctx.now()).setZone(TIMEZONE).toISODate()!;
+    if (leaderId !== undefined && ctx.principal.campuses) authorizeLeader(ctx.principal, await ctx.repo.getLeader(leaderId), leaderId);
     const classify = (due: string | null): FollowUpStatus => (due && due < today ? 'overdue' : 'upcoming');
 
     const [leaders, todos] = await Promise.all([
@@ -516,8 +402,15 @@ const listFollowUps: ToolDefinition = {
         completed: wanted === 'completed' ? true : wanted === 'all' ? undefined : false,
       }),
     ]);
-    const leaderRows = leaders.rows;
-    const todoRows = todos.rows;
+    // Campus permission: shared leader follow-ups are filtered by the leader's campus; a personal to-do about
+    // a leader outside the user's campuses is hidden too. To-dos that name no leader stay (they are the user's own).
+    const leaderRows = leaders.rows.filter((r) => canSeeCampus(ctx.principal, r.campus));
+    let todoRows = todos.rows;
+    if (ctx.principal.campuses) {
+      const linked = Array.from(new Set(todoRows.map((t: TodoRow) => t.linked_leader_id).filter((v): v is number => !!v)));
+      const campuses = await ctx.repo.leaderCampuses(linked);
+      todoRows = todoRows.filter((t: TodoRow) => !t.linked_leader_id || canSeeCampus(ctx.principal, campuses.get(t.linked_leader_id)));
+    }
 
     const items: FollowUpItem[] = [];
     for (const row of leaderRows) {
@@ -581,12 +474,21 @@ const listFollowUps: ToolDefinition = {
 
 // ── registry ─────────────────────────────────────────────────────────────
 
-export const READ_TOOLS: readonly ToolDefinition[] = [
+const ORIGINAL_READ_TOOLS: readonly ToolDefinition[] = [
   searchLeaders,
   getLeader,
   listLeaderNotes,
   listLeaderConnections,
   listFollowUps,
 ];
+
+/** Tools that need only `radius:read`. */
+export const READ_TOOLS: readonly ToolDefinition[] = [...ORIGINAL_READ_TOOLS, ...SUMMARY_TOOLS];
+
+/**
+ * Every tool the server knows. A connection sees only those whose scope it holds, and the server refuses a
+ * call to any other, so listing a tool here grants nothing by itself.
+ */
+export const ALL_TOOLS: readonly ToolDefinition[] = [...READ_TOOLS, ...CONTACT_TOOLS, ...WRITE_TOOLS];
 
 export const parseToolArguments = (tool: ToolDefinition, args: unknown) => parseArguments(tool.inputSchema, args);

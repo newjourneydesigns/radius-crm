@@ -9,11 +9,11 @@ const PARAM_KEYS = [
 
 export type McpAuthorizationState =
   | { status: 'checking' }
-  | { status: 'ready'; clientName: string }
+  | { status: 'ready'; clientName: string; scope: string }
   | { status: 'invalid'; message: string }
-  | { status: 'working'; clientName: string }
-  | { status: 'not-enabled'; clientName: string }
-  | { status: 'error'; clientName: string; message: string }
+  | { status: 'working'; clientName: string; scope: string }
+  | { status: 'not-enabled'; clientName: string; scope: string }
+  | { status: 'error'; clientName: string; scope: string; message: string }
   | { status: 'leaving' };
 
 /** Drives the consent screen: checks the assistant's request, then sends the user's decision to the server. */
@@ -39,7 +39,7 @@ export function useMcpAuthorization(search: { get(name: string): string | null }
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
         if (data.ok) {
-          setState({ status: 'ready', clientName: data.client_name });
+          setState({ status: 'ready', clientName: data.client_name, scope: typeof data.scope === 'string' ? data.scope : 'radius:read' });
         } else if (data.fatal === false && data.redirectTo) {
           // A problem the assistant should hear about (e.g. an unsupported scope): send it back with the error.
           setState({ status: 'leaving' });
@@ -57,8 +57,8 @@ export function useMcpAuthorization(search: { get(name: string): string | null }
   const decide = useCallback(
     async (decision: 'approve' | 'deny') => {
       if (state.status !== 'ready' && state.status !== 'error' && state.status !== 'not-enabled') return;
-      const clientName = state.clientName;
-      setState({ status: 'working', clientName });
+      const { clientName, scope } = state;
+      setState({ status: 'working', clientName, scope });
       try {
         const res = await apiFetch('/api/mcp-oauth/authorize/', {
           method: 'POST',
@@ -70,16 +70,17 @@ export function useMcpAuthorization(search: { get(name: string): string | null }
           setState({ status: 'leaving' });
           window.location.assign(data.redirectTo);
         } else if (data.error === 'access_not_enabled') {
-          setState({ status: 'not-enabled', clientName });
+          setState({ status: 'not-enabled', clientName, scope });
         } else {
           setState({
             status: 'error',
             clientName,
+            scope,
             message: res.status === 401 ? 'Your Radius session has ended. Sign in again to continue.' : 'Something went wrong. Try again.',
           });
         }
       } catch {
-        setState({ status: 'error', clientName, message: 'Could not reach Radius. Check your connection and try again.' });
+        setState({ status: 'error', clientName, scope, message: 'Could not reach Radius. Check your connection and try again.' });
       }
     },
     [paramsKey, state]

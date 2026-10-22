@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import type { ClientInfo } from './clients';
 import { hasPassed, timestampMillis } from './time';
-import { MCP_SUPPORTED_SCOPES, isThisResource, type McpConfig } from './config';
+import { MCP_DEFAULT_SCOPES, MCP_SUPPORTED_SCOPES, isThisResource, type McpConfig } from './config';
 import {
   isValidCodeChallenge,
   isValidCodeVerifier,
@@ -122,7 +122,7 @@ export async function validateAuthorizeRequest(
   const requested = (params.scope || '').split(/\s+/).filter(Boolean);
   const supported = new Set<string>(MCP_SUPPORTED_SCOPES);
   if (requested.some((s) => !supported.has(s))) return bounce('invalid_scope', 'Unsupported scope.');
-  const scope = (requested.length ? Array.from(new Set(requested)) : [...MCP_SUPPORTED_SCOPES]).join(' ');
+  const scope = (requested.length ? Array.from(new Set(requested)) : [...MCP_DEFAULT_SCOPES]).join(' ');
 
   if (params.resource !== undefined && !isThisResource(config, params.resource)) {
     return bounce('invalid_target', 'resource does not match this server.');
@@ -368,6 +368,8 @@ export interface Principal {
   clientId: string;
   /** What this request may do: the grant's scopes intersected with the user's *current* access. */
   scopes: string[];
+  /** Campuses this user may see, from mcp_access. null = every campus. */
+  campuses: string[] | null;
 }
 
 export type BearerResult =
@@ -395,5 +397,5 @@ export async function authenticateBearer(deps: OAuthDeps, token: string): Promis
   if (scopes.length === 0) return reject;
 
   await store.touchGrant(grant.id);
-  return { ok: true, principal: { userId: grant.user_id, grantId: grant.id, clientId: grant.client_id, scopes } };
+  return { ok: true, principal: { userId: grant.user_id, grantId: grant.id, clientId: grant.client_id, scopes, campuses: access.campuses ?? null } };
 }

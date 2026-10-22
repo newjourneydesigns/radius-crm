@@ -62,13 +62,70 @@ export interface SearchFilters {
   day?: string;
   leaderType?: string;
   followUpRequired?: boolean;
+  /** The caller's campus allow-list (exact, case-insensitive). null / absent = every campus. */
+  allowedCampuses?: string[] | null;
   limit: number;
   offset: number;
 }
 
+export type ReviewFilter = 'any' | 'unreviewed' | 'reviewed_by_me' | 'reviewed_by_other' | 'reviewed_by_anyone';
+
+/** A submitted event summary, without the response fields. */
+export interface SummaryRow {
+  id: string;
+  leader_id: number;
+  ccb_event_id: string;
+  occurrence: string;
+  did_not_meet: boolean;
+  status: string;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+}
+
+export interface SummaryDetailRow extends SummaryRow {
+  did_not_meet_reason: string | null;
+  topic: string | null;
+  notes: string | null;
+  prayer_requests: string | null;
+  info: string | null;
+  attendee_ccb_ids: string[] | null;
+  manual_attendees: unknown[] | null;
+  dynamic_responses: Record<string, { label?: string; value?: unknown }> | null;
+  info_update_requested: unknown;
+  ccb_submitted_at: string | null;
+  ccb_error: string | null;
+  submitted_via: string | null;
+  updated_at: string | null;
+}
+
+export interface SummaryKeyset {
+  occurrence: string;
+  created_at: string;
+  id: string;
+}
+
+export interface SummaryFilters {
+  /** null = no leader-level filter. An empty list matches nothing. */
+  leaderIds: number[] | null;
+  occurrenceFrom?: string;
+  occurrenceToExclusive?: string;
+  review: ReviewFilter;
+  /** The caller, for the "reviewed by me" filters. */
+  userId: string;
+  after?: SummaryKeyset;
+  limit: number;
+}
+
+export interface LeaderBasics {
+  name: string;
+  circle_name: string | null;
+  campus: string | null;
+}
+
 /**
- * Everything the tools may read. Contact details (phone, email, birthdays), prayer
- * points and every write path are intentionally absent from this interface.
+ * Everything the read tools may use. Contact details live in ContactRepo and every write path in
+ * WriteRepo (lib/mcp/repo-write.ts), so a tool can only reach them by asking for them by name.
  */
 export interface ReadRepo {
   searchLeaders(filters: SearchFilters): Promise<{ rows: LeaderRow[]; total: number }>;
@@ -80,6 +137,24 @@ export interface ReadRepo {
   connectionTypeNames(ids: number[]): Promise<Map<number, string>>;
   authorNames(userIds: string[]): Promise<Map<string, string>>;
   leaderNames(ids: number[]): Promise<Map<number, string>>;
+  leaderBasics(ids: number[]): Promise<Map<number, LeaderBasics>>;
+  /** campus per leader id, for campus checks on records that only know a leader id. */
+  leaderCampuses(ids: number[]): Promise<Map<number, string | null>>;
+  /** The user's current role in Radius (`users.role`), looked up live. */
+  userRole(userId: string): Promise<string | null>;
+  /**
+   * Leader ids matching leader-level filters, or null when no filter was given. `capped` means more than
+   * `cap` leaders matched and the list was cut short.
+   */
+  leaderIdsMatching(f: {
+    allowedCampuses?: string[] | null;
+    campus?: string;
+    circle?: string;
+    leaderId?: number;
+  }): Promise<{ ids: number[]; capped: boolean } | null>;
+  listEventSummaries(f: SummaryFilters): Promise<SummaryRow[]>;
+  countEventSummaries(f: SummaryFilters): Promise<number>;
+  getEventSummary(id: string): Promise<SummaryDetailRow | null>;
   /** Leaders with an open follow-up flag. Shared data: any signed-in Radius user can see it. */
   leaderFollowUps(f: { leaderId?: number }): Promise<{ rows: LeaderRow[]; capped: boolean }>;
   /**
@@ -97,6 +172,17 @@ export const LEADER_COLUMNS =
   'follow_up_note, created_at, updated_at';
 
 const FOLLOW_UP_FETCH_CAP = 500;
+export const LEADER_ID_FILTER_CAP = 1000;
+
+const SUMMARY_COLUMNS = 'id, leader_id, ccb_event_id, occurrence, did_not_meet, status, created_at, reviewed_at, reviewed_by';
+// Deliberately omits client_ip, user_agent and ccb_response.
+const SUMMARY_DETAIL_COLUMNS =
+  `${SUMMARY_COLUMNS}, did_not_meet_reason, topic, notes, prayer_requests, info, attendee_ccb_ids, manual_attendees, ` +
+  'dynamic_responses, info_update_requested, ccb_submitted_at, ccb_error, submitted_via, updated_at';
+
+/** `campus.ilike.<exact>` clauses (no wildcards) for a PostgREST or(). */
+const campusOrClause = (campuses: string[]) =>
+  campuses.map((c) => `campus.ilike.${likeTerm(c)}`).join(',');
 
 /**
  * Makes a value safe to splice into a LIKE pattern and a PostgREST `or()` filter: LIKE wildcards, filter
@@ -109,6 +195,29 @@ export function likeTerm(raw: string): string {
 function must<T>(result: { data: T; error: { message: string } | null; count?: number | null }, what: string) {
   if (result.error) throw new Error(`${what}: ${result.error.message}`);
   return result;
+}
+
+// Applies the filters shared by the page query and the count. `keyset` is false for the count, which must
+// ignore the cursor so `total` stays the size of the whole result.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function summaryQuery(q: any, f: SummaryFilters, keyset: boolean) {
+  if (f.leaderIds) q = f.leaderIds.length ? q.in('leader_id', f.leaderIds) : q.eq('leader_id', -1);
+  if (f.occurrenceFrom) q = q.gte('occurrence', f.occurrenceFrom);
+  if (f.occurrenceToExclusive) q = q.lt('occurrence', f.occurrenceToExclusive);
+  switch (f.review) {
+    case 'unreviewed': q = q.is('reviewed_at', null); break;
+    case 'reviewed_by_anyone': q = q.not('reviewed_at', 'is', null); break;
+    case 'reviewed_by_me': q = q.not('reviewed_at', 'is', null).eq('reviewed_by', f.userId); break;
+    // A reviewer whose account was later deleted has reviewed_by = null; that still counts as someone else.
+    case 'reviewed_by_other': q = q.not('reviewed_at', 'is', null).or(`reviewed_by.is.null,reviewed_by.neq.${f.userId}`); break;
+    default: break;
+  }
+  if (keyset && f.after) {
+    // Values were validated against strict patterns when the cursor was decoded; they are never free text.
+    const { occurrence: o, created_at: c, id } = f.after;
+    q = q.and(`or(occurrence.lt.${o},and(occurrence.eq.${o},created_at.lt.${c}),and(occurrence.eq.${o},created_at.eq.${c},id.lt.${id}))`);
+  }
+  return q;
 }
 
 /** Service-role reads, narrowed to the columns above. Authorization happens before any of these run. */
@@ -127,6 +236,10 @@ export function createSupabaseReadRepo(db: SupabaseClient): ReadRepo {
       if (f.day) q = q.ilike('day', `%${likeTerm(f.day)}%`);
       if (f.leaderType) q = q.eq('leader_type', f.leaderType);
       if (f.followUpRequired !== undefined) q = q.eq('follow_up_required', f.followUpRequired);
+      if (f.allowedCampuses) {
+        // An empty allow-list means "no campus": match nothing rather than everything.
+        q = f.allowedCampuses.length ? q.or(campusOrClause(f.allowedCampuses)) : q.eq('id', -1);
+      }
       const res = must(await q.order('name').order('id').range(f.offset, f.offset + f.limit - 1), 'search leaders');
       return { rows: (res.data || []) as unknown as LeaderRow[], total: res.count ?? 0 };
     },
@@ -216,6 +329,74 @@ export function createSupabaseReadRepo(db: SupabaseClient): ReadRepo {
       const res = must(await db.from('circle_leaders').select('id, name').in('id', ids), 'leader names');
       for (const row of (res.data || []) as { id: number; name: string }[]) out.set(row.id, row.name);
       return out;
+    },
+
+    async leaderBasics(ids) {
+      const out = new Map<number, LeaderBasics>();
+      if (!ids.length) return out;
+      const res = must(await db.from('circle_leaders').select('id, name, circle_name, campus').in('id', ids), 'leader basics');
+      for (const row of (res.data || []) as unknown as (LeaderBasics & { id: number })[]) {
+        out.set(row.id, { name: row.name, circle_name: row.circle_name ?? null, campus: row.campus ?? null });
+      }
+      return out;
+    },
+
+    async leaderCampuses(ids) {
+      const out = new Map<number, string | null>();
+      if (!ids.length) return out;
+      const res = must(await db.from('circle_leaders').select('id, campus').in('id', ids), 'leader campuses');
+      for (const row of (res.data || []) as { id: number; campus: string | null }[]) out.set(row.id, row.campus ?? null);
+      return out;
+    },
+
+    async userRole(userId) {
+      const res = must(await db.from('users').select('role').eq('id', userId).maybeSingle(), 'user role');
+      const role = (res.data as { role?: string | null } | null)?.role;
+      return role ?? null;
+    },
+
+    async leaderIdsMatching(f) {
+      const restricted = !!f.allowedCampuses;
+      if (!restricted && !f.campus && !f.circle && f.leaderId === undefined) return null;
+      if (f.allowedCampuses && !f.allowedCampuses.length) return { ids: [], capped: false };
+      let q = db.from('circle_leaders').select('id');
+      if (f.leaderId !== undefined) q = q.eq('id', f.leaderId);
+      if (f.allowedCampuses) q = q.or(campusOrClause(f.allowedCampuses));
+      if (f.campus) q = q.ilike('campus', `%${likeTerm(f.campus)}%`);
+      if (f.circle) {
+        const term = likeTerm(f.circle);
+        q = q.or(`circle_name.ilike.%${term}%,name.ilike.%${term}%`);
+      }
+      const res = must(await q.order('id').limit(LEADER_ID_FILTER_CAP + 1), 'matching leaders');
+      const ids = ((res.data || []) as { id: number }[]).map((r) => r.id);
+      return { ids: ids.slice(0, LEADER_ID_FILTER_CAP), capped: ids.length > LEADER_ID_FILTER_CAP };
+    },
+
+    async listEventSummaries(f) {
+      const q = summaryQuery(db.from('circle_event_summaries').select(SUMMARY_COLUMNS), f, true);
+      const res = must(
+        await q
+          .order('occurrence', { ascending: false })
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(f.limit),
+        'list event summaries'
+      );
+      return (res.data || []) as unknown as SummaryRow[];
+    },
+
+    async countEventSummaries(f) {
+      const q = summaryQuery(db.from('circle_event_summaries').select('id', { count: 'exact', head: true }), f, false);
+      const res = must(await q, 'count event summaries');
+      return res.count ?? 0;
+    },
+
+    async getEventSummary(id) {
+      const res = must(
+        await db.from('circle_event_summaries').select(SUMMARY_DETAIL_COLUMNS).eq('id', id).maybeSingle(),
+        'get event summary'
+      );
+      return (res.data as unknown as SummaryDetailRow | null) ?? null;
     },
 
     async leaderFollowUps(f) {
