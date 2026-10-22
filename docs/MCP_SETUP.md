@@ -130,7 +130,7 @@ Lists are paged with `limit` and `cursor`. Each response carries `total` and `ne
 - **Read-back:** after saving, the server reads the record back and compares it to what was sent. The result says `verified: true`; a mismatch is reported with the saved record id and the assistant is told not to retry.
 - **Limits:** 20 saves a minute per connection; notes up to 5,000 characters (saved exactly, whitespace and line breaks included).
 - **`add_leader_note`** inserts into `notes` only. It does not touch the follow-up flag or date, and it is not contact: it changes no check-in date and no connection count.
-- **`log_connection`** does what the Log Connection button does, in one transaction: adds a `connections` row (with `created_by` and `source = 'mcp'`); adds the matching "Connection on {date} via {type}" line to the leader's notes; moves `last_check_in_date` (and `last_connection`, where that column exists) **forward only**; and the row counts toward the Touchpoint Tracker. It never clears or changes a follow-up. Radius stores a *date* for a connection, not a time of day; `date_of_connection` is when it happened (Central, not in the future) and `entered_at` is when it was recorded.
+- **`log_connection`** does what the Log Connection button does, in one transaction: adds a `connections` row (the user's id in the existing `created_by` column, and `source = 'mcp'`); adds the matching "Connection on {date} via {type}" line to the leader's notes; moves `last_check_in_date` (and `last_connection`, where that column exists) **forward only**; and the row counts toward the Touchpoint Tracker. It never clears or changes a follow-up. Radius stores a *date* for a connection, not a time of day; `date_of_connection` is when it happened (Central, not in the future) and `entered_at` is when it was recorded.
 
 Every record carries a stable `id`, relevant dates, and a `radius_url` link where one exists.
 
@@ -248,7 +248,7 @@ delete from public.mcp_audit_log    where at < now() - interval '180 days';
 
 Nothing here is on for anyone until you run SQL. Do the migration first.
 
-1. In the Supabase **SQL Editor**, run `supabase/migrations/20261022000000_mcp_contacts_summaries_writes.sql`. It is safe to run twice. It adds `mcp_access.campuses`, `connections.created_by/source`, the `mcp_write_log` table and the two write functions. (Deploying the code before the migration is safe: reads keep working, and the new tools just error until the functions exist.)
+1. In the Supabase **SQL Editor**, run `supabase/migrations/20261022000000_mcp_contacts_summaries_writes.sql`. It is safe to run twice. It adds `mcp_access.campuses`, `connections.source`, the `mcp_write_log` table and the two write functions. (Deploying the code before the migration is safe: reads keep working, and the new tools just error until the functions exist.)
 2. Give the user the scopes they should have. Pick only what you want:
 
 ```sql

@@ -12,15 +12,13 @@
 ALTER TABLE public.mcp_access
   ADD COLUMN IF NOT EXISTS campuses text[];
 
--- ── 2. Who logged a connection, and through what ───────────────────────────
--- The app records the author of a connection only on its mirror note. These columns let
--- connections made through the assistant be attributed on the row itself.
+-- ── 2. How a connection was logged ─────────────────────────────────────────
+-- connections.created_by already exists (varchar) but the app never fills it. Connections made through the
+-- assistant store the signed-in user's id there as text, and mark themselves with source = 'mcp'.
 DO $$
 BEGIN
   IF to_regclass('public.connections') IS NOT NULL THEN
-    ALTER TABLE public.connections
-      ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.users(id) ON DELETE SET NULL,
-      ADD COLUMN IF NOT EXISTS source text;
+    ALTER TABLE public.connections ADD COLUMN IF NOT EXISTS source text;
   END IF;
 END $$;
 
@@ -79,8 +77,9 @@ BEGIN
     RAISE EXCEPTION 'mcp:leader_not_found';
   END IF;
 
-  INSERT INTO public.notes (circle_leader_id, content, created_by, user_id)
-  VALUES (p_leader_id, p_content, p_user_id, p_user_id)
+  -- notes records its author in user_id (there is no created_by column on notes)
+  INSERT INTO public.notes (circle_leader_id, content, user_id)
+  VALUES (p_leader_id, p_content, p_user_id)
   RETURNING id::text INTO v_note_id;
 
   UPDATE public.mcp_write_log SET record_id = v_note_id WHERE id = v_log;
@@ -131,11 +130,11 @@ BEGIN
   END IF;
 
   INSERT INTO public.connections (circle_leader_id, date_of_connection, connection_type_id, note, created_by, source)
-  VALUES (p_leader_id, p_date, p_type_id, p_note, p_user_id, 'mcp')
+  VALUES (p_leader_id, p_date, p_type_id, p_note, p_user_id::text, 'mcp')
   RETURNING id::text INTO v_connection_id;
 
-  INSERT INTO public.notes (circle_leader_id, content, created_by, user_id)
-  VALUES (p_leader_id, p_mirror_note, p_user_id, p_user_id);
+  INSERT INTO public.notes (circle_leader_id, content, user_id)
+  VALUES (p_leader_id, p_mirror_note, p_user_id);
 
   UPDATE public.circle_leaders
      SET last_check_in_date = p_date

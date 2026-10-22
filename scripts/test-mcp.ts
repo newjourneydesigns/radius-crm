@@ -1571,6 +1571,18 @@ async function main() {
     assert.strictEqual(queries[0].ops.find((o) => o[0] === 'select')![1], 'id, name, email, phone, additional_leader_name, additional_leader_email, additional_leader_phone');
     assert.ok(!/birthday|ccb|prayer/i.test(queries[0].ops.find((o) => o[0] === 'select')![1]));
 
+    // The live notes table records its author in user_id; there is no notes.created_by column to select.
+    const nq = recordingDb({ data: [], error: null, count: 0 });
+    const readRepo = createSupabaseReadRepo(nq.db);
+    await readRepo.latestNote(1);
+    await readRepo.listNotes(1, { limit: 5, offset: 0 });
+    await createSupabaseWriteRepo(nq.db).readNote(1);
+    for (const q of nq.queries) {
+      const sel = q.ops.find((o) => o[0] === 'select')![1] as string;
+      assert.strictEqual(q.table, 'notes');
+      assert.ok(/created_by:user_id/.test(sel) && !/(^|[ ,])created_by[,\s]|created_by$/.test(sel.replace('created_by:user_id', '')), `notes select must alias user_id: ${sel}`);
+    }
+
     const s = recordingDb({ data: null, error: null });
     await createSupabaseReadRepo(s.db).getEventSummary('00000000-0000-4000-8000-000000000001');
     const cols = s.queries[0].ops.find((o) => o[0] === 'select')![1] as string;

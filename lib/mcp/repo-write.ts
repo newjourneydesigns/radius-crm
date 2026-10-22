@@ -146,7 +146,7 @@ export function createSupabaseWriteRepo(db: SupabaseClient): WriteRepo {
 
     async readNote(id) {
       const res = must(
-        await db.from('notes').select('id, circle_leader_id, content, created_at, created_by').eq('id', id).maybeSingle(),
+        await db.from('notes').select('id, circle_leader_id, content, created_at, created_by:user_id').eq('id', id).maybeSingle(),
         'read back note'
       );
       return (res as unknown as SavedNote | null) ?? null;

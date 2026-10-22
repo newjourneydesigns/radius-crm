@@ -253,7 +253,7 @@ export function createSupabaseReadRepo(db: SupabaseClient): ReadRepo {
       const res = must(
         await db
           .from('notes')
-          .select('id, content, created_at, created_by')
+          .select('id, content, created_at, created_by:user_id')
           .eq('circle_leader_id', leaderId)
           .order('created_at', { ascending: false })
           .limit(1),
@@ -265,7 +265,7 @@ export function createSupabaseReadRepo(db: SupabaseClient): ReadRepo {
     async listNotes(leaderId, f) {
       let q = db
         .from('notes')
-        .select('id, content, created_at, created_by', { count: 'exact' })
+        .select('id, content, created_at, created_by:user_id', { count: 'exact' })
         .eq('circle_leader_id', leaderId);
       if (f.since) q = q.gte('created_at', f.since);
       const res = must(
