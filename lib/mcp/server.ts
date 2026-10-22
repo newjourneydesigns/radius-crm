@@ -1,42 +1,55 @@
-import { protectedResourceMetadataUrl, MCP_SCOPE_READ } from './config';
+import { protectedResourceMetadataUrl, MCP_SUPPORTED_SCOPES } from './config';
 import { readLimitedText } from './http';
 import { authenticateBearer, type OAuthDeps, type Principal } from './oauth';
 import type { ReadRepo } from './repo';
 import { InputError } from './schema';
-import { READ_TOOLS, parseToolArguments, type ToolDefinition } from './tools';
+import type { ContactRepo, WriteRepo } from './repo-write';
+import { ALL_TOOLS, parseToolArguments, type ToolDefinition } from './tools';
 
 export interface McpServerDeps extends OAuthDeps {
   repo: ReadRepo;
+  contacts: ContactRepo;
+  writes: WriteRepo;
   tools?: readonly ToolDefinition[];
 }
 
-const SERVER_INFO = { name: 'radius-mcp', title: 'Radius', version: '1.0.0' };
+const SERVER_INFO = { name: 'radius-mcp', title: 'Radius', version: '1.1.0' };
 const SUPPORTED_PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_BODY_BYTES = 100 * 1024;
 const RATE_LIMIT_PER_MINUTE = 120;
+const WRITE_LIMIT_PER_MINUTE = 20;
 const MAX_LOGGED_ARGS_CHARS = 2000;
 // What an access token we issued looks like (rmcp_a_ + 256 bits as base64url). Anything else is rejected
 // before the database is touched.
 const ACCESS_TOKEN_SHAPE = /^rmcp_a_[A-Za-z0-9_-]{43}$/;
 
 const INSTRUCTIONS =
-  'Read-only access to Radius, the Circle Leader CRM. Start with search_leaders to find a leader id, ' +
-  'then use get_leader, list_leader_notes and list_leader_connections for detail, and list_follow_ups for what is due. ' +
+  'Access to Radius, the Circle Leader CRM. Start with search_leaders to find a leader id, ' +
+  'then use get_leader, list_leader_notes and list_leader_connections for detail, list_follow_ups for what is due, ' +
+  'and list_event_summaries / get_event_summary for the summaries leaders submit after each meeting. ' +
+  'Only the tools this connection was approved for are listed. ' +
   'This is private pastoral information: summarise it for the signed-in user and do not repeat it elsewhere. ' +
-  'Nothing here can change Radius.';
+  'Write tools (when listed) save exactly one record: always show the user what will be saved and wait for a yes first, ' +
+  'create a new idempotency_key for each different save, and reuse it only to retry the same save. ' +
+  'Nothing here can delete or edit records, send messages, or mark anything reviewed.';
 
 // Per-instance, best effort: serverless instances don't share memory, so this slows a runaway loop rather than guaranteeing a cap.
 const callCounts = new Map<string, { count: number; resetAt: number }>();
+const writeCounts = new Map<string, { count: number; resetAt: number }>();
 
-function withinRateLimit(grantId: string, nowMs: number, weight: number): boolean {
-  const entry = callCounts.get(grantId);
+function withinLimit(counts: Map<string, { count: number; resetAt: number }>, key: string, nowMs: number, weight: number, max: number): boolean {
+  const entry = counts.get(key);
   if (!entry || nowMs >= entry.resetAt) {
-    callCounts.set(grantId, { count: weight, resetAt: nowMs + 60_000 });
-    return weight <= RATE_LIMIT_PER_MINUTE;
+    counts.set(key, { count: weight, resetAt: nowMs + 60_000 });
+    return weight <= max;
   }
   entry.count += weight;
-  return entry.count <= RATE_LIMIT_PER_MINUTE;
+  return entry.count <= max;
 }
+const withinRateLimit = (grantId: string, nowMs: number, weight: number) =>
+  withinLimit(callCounts, grantId, nowMs, weight, RATE_LIMIT_PER_MINUTE);
+const withinWriteLimit = (grantId: string, nowMs: number) =>
+  withinLimit(writeCounts, grantId, nowMs, 1, WRITE_LIMIT_PER_MINUTE);
 
 /** Arguments are written to the audit log, so they are size-capped: a call can't bloat the table. */
 function loggableArguments(args: unknown): unknown {
@@ -46,7 +59,10 @@ function loggableArguments(args: unknown): unknown {
   return { truncated: true, preview: text.slice(0, MAX_LOGGED_ARGS_CHARS) };
 }
 
-export const resetRateLimits = () => callCounts.clear();
+export const resetRateLimits = () => {
+  callCounts.clear();
+  writeCounts.clear();
+};
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
@@ -59,7 +75,7 @@ function json(body: unknown, status = 200, headers: Record<string, string> = {})
 
 export function unauthorized(deps: OAuthDeps, invalid: boolean): Response {
   const challenge =
-    `Bearer resource_metadata="${protectedResourceMetadataUrl(deps.config)}", scope="${MCP_SCOPE_READ}"` +
+    `Bearer resource_metadata="${protectedResourceMetadataUrl(deps.config)}", scope="${MCP_SUPPORTED_SCOPES.join(' ')}"` +
     (invalid ? ', error="invalid_token"' : '');
   return json({ error: invalid ? 'invalid_token' : 'unauthorized' }, 401, { 'WWW-Authenticate': challenge });
 }
@@ -90,7 +106,8 @@ function listTools(tools: readonly ToolDefinition[], principal: Principal) {
       outputSchema: tool.outputSchema,
       annotations: {
         title: tool.title,
-        readOnlyHint: true,
+        readOnlyHint: !tool.writes,
+        // Writes only ever add a record, and an idempotency key makes a retry safe.
         destructiveHint: false,
         idempotentHint: true,
         openWorldHint: false,
@@ -100,12 +117,15 @@ function listTools(tools: readonly ToolDefinition[], principal: Principal) {
 }
 
 async function callTool(deps: McpServerDeps, principal: Principal, params: Record<string, unknown> | undefined) {
-  const tools = deps.tools ?? READ_TOOLS;
+  const tools = deps.tools ?? ALL_TOOLS;
   const name = typeof params?.name === 'string' ? params.name : '';
   const tool = tools.find((t) => t.name === name);
   if (!tool) return { error: { code: -32602, message: `Unknown tool: ${name || '(none)'}` } };
 
   const started = deps.now().getTime();
+  // A tool that takes pastoral text in its arguments must never have it copied into the audit log:
+  // until the arguments validate, log nothing from them, and afterwards only what the tool says is safe.
+  let auditArgs: unknown = tool.redactArgs ? { redacted: true } : loggableArguments(params?.arguments);
   const audit = (ok: boolean, count: number | null, error?: string) =>
     deps.store.audit({
       event: 'tool_call',
@@ -113,7 +133,7 @@ async function callTool(deps: McpServerDeps, principal: Principal, params: Recor
       grant_id: principal.grantId,
       client_id: principal.clientId,
       tool: tool.name,
-      args: loggableArguments(params?.arguments),
+      args: auditArgs,
       ok,
       result_count: count,
       error: error ?? null,
@@ -127,11 +147,26 @@ async function callTool(deps: McpServerDeps, principal: Principal, params: Recor
     await audit(false, null, 'insufficient_scope');
     return failure('This connection is not allowed to use that tool.');
   }
+  if (tool.writes && !withinWriteLimit(principal.grantId, deps.now().getTime())) {
+    await audit(false, null, 'write_rate_limited');
+    return failure('Too many saves in the last minute. Wait a minute, then retry with the same idempotency_key.');
+  }
 
   try {
     const args = parseToolArguments(tool, params?.arguments);
+    if (tool.redactArgs) auditArgs = tool.redactArgs(args);
+    if (tool.requiresAcpd) {
+      // Looked up on every call, so demoting someone in Radius takes effect on their next request.
+      const role = await deps.repo.userRole(principal.userId);
+      if (role !== 'ACPD') {
+        await audit(false, null, 'role_not_allowed');
+        return failure('Your Radius account is not allowed to use that tool.');
+      }
+    }
     const { structured, count } = await tool.run(args, {
       repo: deps.repo,
+      contacts: deps.contacts,
+      writes: deps.writes,
       principal,
       config: deps.config,
       now: deps.now,
@@ -152,12 +187,16 @@ async function callTool(deps: McpServerDeps, principal: Principal, params: Recor
     // Database and server details stay in the server log; the assistant only sees a generic message.
     console.error(`MCP tool ${tool.name} failed:`, err instanceof Error ? err.message : err);
     await audit(false, null, 'internal_error');
-    return failure('Radius could not complete that read. Try again in a moment.');
+    return failure(
+      tool.writes
+        ? 'Radius could not confirm that save. It may not have been saved. Retry with the same idempotency_key: a retry never saves twice.'
+        : 'Radius could not complete that read. Try again in a moment.'
+    );
   }
 }
 
 async function handleMessage(deps: McpServerDeps, principal: Principal, msg: RpcRequest) {
-  const tools = deps.tools ?? READ_TOOLS;
+  const tools = deps.tools ?? ALL_TOOLS;
   switch (msg.method) {
     case 'initialize': {
       const requested = typeof msg.params?.protocolVersion === 'string' ? msg.params.protocolVersion : '';

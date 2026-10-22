@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-10-22",
+    "date_display": "October 22, 2026",
+    "date_iso": "2026-10-22",
+    "id": "assistant-summaries-contacts-notes",
+    "type": "feature",
+    "category": "Assistant access",
+    "page": "/assistant-access",
+    "description": "Your connected AI assistant can now read the event summaries leaders submit (filtered by campus, circle, date, week or whether you've reviewed them) and open any one in full. Reading a summary never marks it reviewed. Three more abilities exist but stay off until an administrator turns them on for your account: looking up a leader's email and phone, adding a single note to a leader's profile in your name, and logging a connection. Every save needs your yes first, can't be duplicated by a retry, is checked by reading it back, and is recorded without copying the note into any log. Access can also now be limited to specific campuses.",
+    "version": "2.60.0"
+  },
+  {
     "date": "2026-10-20",
     "date_display": "October 20, 2026",
     "date_iso": "2026-10-20",

@@ -1,6 +1,8 @@
 export interface AccessRow {
   user_id: string;
   scopes: string[];
+  /** null / absent = every campus. */
+  campuses?: string[] | null;
   revoked_at: string | null;
 }
 

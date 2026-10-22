@@ -12,14 +12,40 @@ const CAN_SEE = [
   'The notes on each leader’s profile',
   'Your logged interactions with each leader',
   'Follow-ups, including your own to-dos about leaders',
+  'The event summaries leaders submit, including prayer requests and attendance counts',
 ];
 
-const CANNOT = [
-  'Change, add or delete anything in Radius',
-  'See phone numbers, emails or birthdays',
-  'See prayer requests',
+const CAN_SEE_CONTACTS = 'The email and phone number on file for a leader you ask about';
+const CAN_ADD_NOTES = 'Add one note at a time to a leader’s profile, in your name';
+const CAN_LOG_CONNECTIONS = 'Log one connection at a time. This updates the leader’s last check-in date and check-in cadence';
+
+const CANNOT_ALWAYS = [
+  'Edit or delete anything that already exists in Radius',
+  'Mark a summary reviewed',
+  'See birthdays',
   'Message your leaders',
 ];
+
+function consentLists(scope: string) {
+  const has = (s: string) => scope.split(' ').includes(s);
+  const contacts = has('radius:contacts:read');
+  const notes = has('radius:notes:write');
+  const connections = has('radius:connections:write');
+  const can = [
+    ...CAN_SEE,
+    ...(contacts ? [CAN_SEE_CONTACTS] : []),
+    ...(notes ? [CAN_ADD_NOTES] : []),
+    ...(connections ? [CAN_LOG_CONNECTIONS] : []),
+  ];
+  const cannot = [
+    ...(contacts ? [] : ['See phone numbers or emails']),
+    ...(notes || connections ? [] : ['Change or add anything in Radius']),
+    ...(notes ? [] : connections ? ['Add notes on their own'] : []),
+    ...(connections ? [] : notes ? ['Log connections'] : []),
+    ...CANNOT_ALWAYS,
+  ];
+  return { can, cannot, writes: notes || connections };
+}
 
 const pageWrap = 'min-h-screen bg-[#0f1117] flex items-center justify-center py-8 px-4';
 const cardClass = 'bg-brand-dark border border-white/10 rounded-2xl shadow-card-glass p-6 sm:p-8';
@@ -77,6 +103,7 @@ function ConsentScreen() {
   };
 
   const clientName = 'clientName' in state ? state.clientName : 'your assistant';
+  const lists = consentLists('scope' in state ? state.scope : 'radius:read');
   const busy = state.status === 'working' || state.status === 'leaving';
 
   return (
@@ -89,7 +116,7 @@ function ConsentScreen() {
           {state.status === 'invalid' ? (
             <h1 className="mt-4 text-xl font-bold text-white tracking-tight">This request can’t be approved</h1>
           ) : (
-            <h1 className="mt-4 text-xl font-bold text-white tracking-tight">Let {clientName} read Radius?</h1>
+            <h1 className="mt-4 text-xl font-bold text-white tracking-tight">{lists.writes ? `Let ${clientName} read and add to Radius?` : `Let ${clientName} read Radius?`}</h1>
           )}
           {user && state.status !== 'invalid' && (
             <p className="mt-1 text-sm text-slate-400">
@@ -112,8 +139,8 @@ function ConsentScreen() {
 
           {(state.status === 'ready' || state.status === 'working' || state.status === 'not-enabled' || state.status === 'error' || state.status === 'leaving') && (
             <>
-              <List title={`${clientName} will be able to see`} items={CAN_SEE} kind="can" />
-              <List title="It will not be able to" items={CANNOT} kind="cannot" />
+              <List title={`${clientName} will be able to see`} items={lists.can} kind="can" />
+              <List title="It will not be able to" items={lists.cannot} kind="cannot" />
               <p className="text-sm text-slate-400 leading-relaxed">
                 Radius shares leader information with every signed-in user, so this includes leaders outside your own circles. Access
                 ends after 90 days, and every request it makes is logged.
@@ -135,7 +162,7 @@ function ConsentScreen() {
               ) : (
                 <div className="flex flex-col gap-3 sm:flex-row-reverse">
                   <button type="button" onClick={() => decide('approve')} disabled={busy || loading || state.status === 'not-enabled'} className={primaryBtn}>
-                    {state.status === 'working' || state.status === 'leaving' ? 'Connecting…' : 'Allow read-only access'}
+                    {state.status === 'working' || state.status === 'leaving' ? 'Connecting…' : lists.writes ? 'Allow access' : 'Allow read-only access'}
                   </button>
                   <button type="button" onClick={() => decide('deny')} disabled={busy || loading} className={secondaryBtn}>
                     Cancel

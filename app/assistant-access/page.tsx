@@ -14,6 +14,11 @@ const TOOL_LABELS: Record<string, string> = {
   list_leader_notes: 'Read a leader’s notes',
   list_leader_connections: 'Read a leader’s interactions',
   list_follow_ups: 'Listed follow-ups',
+  list_event_summaries: 'Listed event summaries',
+  get_event_summary: 'Read an event summary',
+  get_leader_contact: 'Read a leader’s contact details',
+  add_leader_note: 'Added a note',
+  log_connection: 'Logged a connection',
 };
 
 const when = (iso: string | null) =>
@@ -162,7 +167,7 @@ export default function AssistantAccessPage() {
                 Recent activity
               </h2>
               {data.activity.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-400">Nothing yet. Each read an assistant makes shows up here.</p>
+                <p className="mt-3 text-sm text-slate-400">Nothing yet. Each request an assistant makes shows up here.</p>
               ) : (
                 <ul className="mt-3 space-y-2">
                   {data.activity.map((row, i) => (
