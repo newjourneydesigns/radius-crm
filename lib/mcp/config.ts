@@ -8,8 +8,6 @@ export const MCP_SUPPORTED_SCOPES = [
   MCP_SCOPE_NOTES_WRITE,
   MCP_SCOPE_CONNECTIONS_WRITE,
 ] as const;
-/** What a connection gets when the assistant names no scope: read-only. Anything more must be asked for. */
-export const MCP_DEFAULT_SCOPES = [MCP_SCOPE_READ] as const;
 
 export interface McpConfig {
   /** Public origin of the Radius site; also the OAuth issuer. No trailing slash. */

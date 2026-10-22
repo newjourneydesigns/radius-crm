@@ -6,6 +6,7 @@ import {
   approveAuthorization,
   buildAuthorizationRedirect,
   denyAuthorization,
+  effectiveScope,
   validateAuthorizeRequest,
   type AuthorizeParams,
 } from '../../../../lib/mcp/oauth';
@@ -77,11 +78,14 @@ async function handleAuthorize(request: Request) {
   const { request: authRequest } = validation;
 
   if (decision === undefined) {
-    return NextResponse.json({
-      ok: true,
-      client_name: authRequest.client.name,
-      scope: authRequest.scope,
-    });
+    // When the page already has a signed-in user, show what THAT account would actually be granted (the
+    // requested scopes narrowed to its mcp_access), so the consent screen never promises more than approval gives.
+    let scope = authRequest.scope;
+    const signedIn = await getUserFromAuthHeader(request);
+    if (signedIn) {
+      scope = effectiveScope(await deps.store.getAccess(signedIn.id), authRequest.scope) ?? scope;
+    }
+    return NextResponse.json({ ok: true, client_name: authRequest.client.name, scope });
   }
   if (decision !== 'approve' && decision !== 'deny') {
     return NextResponse.json({ ok: false, error: 'invalid_request' }, { status: 400 });

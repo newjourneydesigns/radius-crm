@@ -8,7 +8,7 @@ two write tools (add a note, log a connection) each need their own scope, switch
 - Login: OAuth 2.1 authorization code + PKCE (S256), run by Radius itself. Radius signs the user in with its
   existing login, then shows a consent screen at `/oauth/authorize/`.
 - Client registration: **CIMD** (client ID metadata document). No dynamic registration endpoint exists.
-- Scopes: `radius:read` (default), `radius:contacts:read`, `radius:notes:write`, `radius:connections:write`
+- Scopes: `radius:read`, `radius:contacts:read`, `radius:notes:write`, `radius:connections:write`. A connection gets the scopes enabled for the user in `mcp_access` (narrowed to what the assistant asked for), so no scope setting is needed in ChatGPT.
 
 > The trailing slash on the endpoint is deliberate. The site runs with `trailingSlash: true`, so a URL
 > without it is answered with a 308 redirect, and an external client is not required to follow a redirect on a POST.
@@ -70,7 +70,7 @@ Add a custom MCP server (or private plugin) with:
 - **URL:** `https://vccradius.netlify.app/api/mcp/`
 - **Authentication:** OAuth
 - **Client registration:** client ID metadata document (CIMD)
-- **Scope:** `radius:read`
+- **Scope:** leave it blank if there is no field. Radius grants exactly what your account has enabled in `mcp_access`, and the consent screen lists it.
 
 ChatGPT then shows the **redirect URI** it will use. Copy it exactly. It is usually
 `https://chatgpt.com/connector_platform_oauth_redirect`, but use whatever it shows.
@@ -267,7 +267,7 @@ update public.mcp_access set scopes = array_append(scopes, 'radius:connections:w
 ```
 
 3. Optional campus limit (leave `NULL` for every campus): `update public.mcp_access set campuses = array['Denton'] where user_id = ...;`
-4. Existing connections keep read-only. Disconnect and reconnect the assistant; the ChatGPT connector must be set to request the scopes you enabled (space-separated in its Scope field). The consent screen lists exactly what is being granted.
+4. Existing connections keep the access they were approved with. Disconnect and reconnect the assistant to pick up new scopes. You don't need to set anything in ChatGPT: the connection gets the scopes enabled for your account (narrowed to what the assistant asks for), and the consent screen lists exactly what is being granted. If an account has no `radius:read`, connecting is refused.
 
 To switch a scope off again, remove it from `mcp_access.scopes`; it takes effect on the assistant's next request.
 

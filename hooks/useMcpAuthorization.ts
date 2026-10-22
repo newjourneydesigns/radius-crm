@@ -31,7 +31,9 @@ export function useMcpAuthorization(search: { get(name: string): string | null }
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/mcp-oauth/authorize/', {
+        // Signed in: send the session so the server can say what this account would actually be granted.
+        const send = signedIn ? apiFetch : fetch;
+        const res = await send('/api/mcp-oauth/authorize/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ params: JSON.parse(paramsKey) }),
@@ -52,7 +54,7 @@ export function useMcpAuthorization(search: { get(name: string): string | null }
       }
     })();
     return () => { cancelled = true; };
-  }, [paramsKey]);
+  }, [paramsKey, signedIn]);
 
   const decide = useCallback(
     async (decision: 'approve' | 'deny') => {

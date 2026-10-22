@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import type { ClientInfo } from './clients';
 import { hasPassed, timestampMillis } from './time';
-import { MCP_DEFAULT_SCOPES, MCP_SUPPORTED_SCOPES, isThisResource, type McpConfig } from './config';
+import { MCP_SCOPE_READ, MCP_SUPPORTED_SCOPES, isThisResource, type McpConfig } from './config';
 import {
   isValidCodeChallenge,
   isValidCodeVerifier,
@@ -10,7 +10,7 @@ import {
   safeEqual,
   sha256Hex,
 } from './crypto';
-import type { GrantRow, McpStore } from './types';
+import type { AccessRow, GrantRow, McpStore } from './types';
 
 export interface OAuthDeps {
   store: McpStore;
@@ -122,7 +122,7 @@ export async function validateAuthorizeRequest(
   const requested = (params.scope || '').split(/\s+/).filter(Boolean);
   const supported = new Set<string>(MCP_SUPPORTED_SCOPES);
   if (requested.some((s) => !supported.has(s))) return bounce('invalid_scope', 'Unsupported scope.');
-  const scope = (requested.length ? Array.from(new Set(requested)) : [...MCP_DEFAULT_SCOPES]).join(' ');
+  const scope = (requested.length ? Array.from(new Set(requested)) : [...MCP_SUPPORTED_SCOPES]).join(' ');
 
   if (params.resource !== undefined && !isThisResource(config, params.resource)) {
     return bounce('invalid_target', 'resource does not match this server.');
@@ -138,6 +138,17 @@ export type ApprovalResult =
   | { ok: true; redirectTo: string }
   | { ok: false; error: 'access_not_enabled' };
 
+/**
+ * What a connection actually gets: the scopes the assistant asked for, narrowed to what the user's account
+ * is enabled for in mcp_access (OAuth lets a server grant less than was asked). Null when the account isn't
+ * enabled or ends up without read access, since no tool works without it.
+ */
+export function effectiveScope(access: AccessRow | null, requested: string): string | null {
+  if (!access || access.revoked_at) return null;
+  const granted = requested.split(' ').filter((s) => s && access.scopes.includes(s));
+  return granted.includes(MCP_SCOPE_READ) ? granted.join(' ') : null;
+}
+
 /** The signed-in user approved. Issues a single-use code, but only for an account that has been enabled. */
 export async function approveAuthorization(
   deps: OAuthDeps,
@@ -146,13 +157,8 @@ export async function approveAuthorization(
 ): Promise<ApprovalResult> {
   const { store, config } = deps;
   const access = await store.getAccess(userId);
-  const wanted = request.scope.split(' ');
-  if (
-    !access ||
-    access.revoked_at ||
-    !wanted.every((s) => access.scopes.includes(s)) ||
-    !(await store.userExists(userId))
-  ) {
+  const scope = effectiveScope(access, request.scope);
+  if (!scope || !(await store.userExists(userId))) {
     await store.audit({ event: 'authorize_refused', user_id: userId, client_id: request.client.clientId, ok: false });
     return { ok: false, error: 'access_not_enabled' };
   }
@@ -161,7 +167,7 @@ export async function approveAuthorization(
   const grant = await store.createGrant({
     user_id: userId,
     client_id: request.client.clientId,
-    scope: request.scope,
+    scope,
     resource: request.resource,
     expires_at: plusSeconds(now, config.grantTtlSeconds),
   });

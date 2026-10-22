@@ -12,7 +12,7 @@ import { loadMcpConfig, type McpConfig } from '../lib/mcp/config';
 import { base64Url, pkceS256, sha256Hex } from '../lib/mcp/crypto';
 import { authorizationServerMetadata, protectedResourceMetadata } from '../lib/mcp/metadata';
 import {
-  approveAuthorization, authenticateBearer, denyAuthorization, exchangeToken, revokeToken,
+  approveAuthorization, authenticateBearer, denyAuthorization, effectiveScope, exchangeToken, revokeToken,
   validateAuthorizeRequest, type OAuthDeps,
 } from '../lib/mcp/oauth';
 import { isThisResource } from '../lib/mcp/config';
@@ -84,9 +84,10 @@ function enable(world: ReturnType<typeof makeWorld>, userId: string, scopes: str
   world.store.access.set(userId, { user_id: userId, scopes, campuses, revoked_at: null });
 }
 
-async function connect(world: ReturnType<typeof makeWorld>, userId = USER_A, scope?: string) {
+/** `scope`: omit for the helper default (read), a string to ask for exactly that, or null to ask for nothing. */
+async function connect(world: ReturnType<typeof makeWorld>, userId = USER_A, scope?: string | null) {
   const verifier = base64Url(randomBytes(48));
-  const validation = await validateAuthorizeRequest(world.oauth, authorizeParams(pkceS256(verifier), scope ? { scope } : {}));
+  const validation = await validateAuthorizeRequest(world.oauth, authorizeParams(pkceS256(verifier), scope === null ? { scope: undefined } : scope ? { scope } : {}));
   assert.ok(validation.ok, 'authorize request should validate');
   if (!validation.ok) throw new Error('unreachable');
   const approval = await approveAuthorization(world.oauth, validation.request, userId);
@@ -1039,17 +1040,54 @@ async function main() {
     return { world, token: t.access_token };
   }
 
-  await test('scopes: a connection that asks for nothing gets read-only; asking for more than the account has is refused', async () => {
-    const world = makeWorld();
-    const t = await connect(world);
-    assert.strictEqual(t.scope, READ);
-    const verifier = base64Url(randomBytes(48));
-    const v = await validateAuthorizeRequest(world.oauth, authorizeParams(pkceS256(verifier), { scope: ALL_SCOPES.join(' ') }));
-    assert.ok(v.ok);
-    if (v.ok) {
-      const approval = await approveAuthorization(world.oauth, v.request, USER_A);
-      assert.strictEqual(approval.ok, false, 'user A only holds radius:read, so the wider approval must be refused');
+  await test('scopes: a connection gets what it asked for, narrowed to what the account is enabled for (no scope setting needed in ChatGPT)', async () => {
+    // asks for nothing: gets everything the account has, which for a read-only account is just read
+    const readOnly = makeWorld();
+    assert.strictEqual((await connect(readOnly, USER_A, null)).scope, READ);
+
+    // the account was given notes writing in SQL; the assistant asks for nothing, or for everything
+    for (const asked of [null, ALL_SCOPES.join(' ')]) {
+      const world = makeWorld();
+      enable(world, USER_A, [READ, NOTES_WRITE]);
+      const t = await connect(world, USER_A, asked);
+      assert.strictEqual(t.scope, `${READ} ${NOTES_WRITE}`, `asked: ${asked}`);
+      const names = ((await (await rpc(world, t.access_token, { jsonrpc: '2.0', id: 1, method: 'tools/list' })).json()).result.tools as any[]).map((x) => x.name);
+      assert.ok(names.includes('add_leader_note'));
+      assert.ok(!names.includes('get_leader_contact') && !names.includes('log_connection'), 'never more than the account has');
     }
+
+    // asking for read only stays read only even if the account could do more
+    const narrow = makeWorld();
+    enable(narrow, USER_A, ALL_SCOPES);
+    assert.strictEqual((await connect(narrow, USER_A, READ)).scope, READ);
+
+    // no read access at all, or nothing in common: refused
+    const verifier = base64Url(randomBytes(48));
+    for (const asked of [CONTACTS_SCOPE, NOTES_WRITE, `${CONTACTS_SCOPE} ${NOTES_WRITE}`]) {
+      const world = makeWorld();
+      enable(world, USER_A, [READ]);
+      const v = await validateAuthorizeRequest(world.oauth, authorizeParams(pkceS256(verifier), { scope: asked }));
+      assert.ok(v.ok);
+      if (v.ok) assert.strictEqual((await approveAuthorization(world.oauth, v.request, USER_A)).ok, false, asked);
+    }
+    const bad = await validateAuthorizeRequest(makeWorld().oauth, authorizeParams(pkceS256(verifier), { scope: 'radius:read radius:admin' }));
+    assert.strictEqual(bad.ok, false, 'an unknown scope is still an error');
+  });
+
+  await test('scopes: effectiveScope narrows to the account and requires read access', () => {
+    const access = (scopes: string[], revoked: string | null = null) => ({ user_id: 'u', scopes, revoked_at: revoked });
+    assert.strictEqual(effectiveScope(access([READ, NOTES_WRITE]), `${READ} ${CONTACTS_SCOPE} ${NOTES_WRITE}`), `${READ} ${NOTES_WRITE}`);
+    assert.strictEqual(effectiveScope(access([READ]), ALL_SCOPES.join(' ')), READ);
+    assert.strictEqual(effectiveScope(access([NOTES_WRITE]), ALL_SCOPES.join(' ')), null, 'no read access');
+    assert.strictEqual(effectiveScope(access([READ], '2026-10-01T00:00:00Z'), READ), null, 'revoked');
+    assert.strictEqual(effectiveScope(null, READ), null, 'not enabled');
+  });
+
+  await test('scopes: the sign-in challenge advertises every scope, so a client that reads it can ask for them', async () => {
+    const world = makeWorld();
+    const res = await rpc(world, null, { jsonrpc: '2.0', id: 1, method: 'ping' });
+    assert.strictEqual(res.status, 401);
+    assert.match(res.headers.get('www-authenticate') || '', /scope="radius:read radius:contacts:read radius:notes:write radius:connections:write"/);
   });
 
   await test('scopes: contact reading and writing are separate permissions, and each hides the others', async () => {

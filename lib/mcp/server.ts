@@ -1,4 +1,4 @@
-import { protectedResourceMetadataUrl, MCP_SCOPE_READ } from './config';
+import { protectedResourceMetadataUrl, MCP_SUPPORTED_SCOPES } from './config';
 import { readLimitedText } from './http';
 import { authenticateBearer, type OAuthDeps, type Principal } from './oauth';
 import type { ReadRepo } from './repo';
@@ -75,7 +75,7 @@ function json(body: unknown, status = 200, headers: Record<string, string> = {})
 
 export function unauthorized(deps: OAuthDeps, invalid: boolean): Response {
   const challenge =
-    `Bearer resource_metadata="${protectedResourceMetadataUrl(deps.config)}", scope="${MCP_SCOPE_READ}"` +
+    `Bearer resource_metadata="${protectedResourceMetadataUrl(deps.config)}", scope="${MCP_SUPPORTED_SCOPES.join(' ')}"` +
     (invalid ? ', error="invalid_token"' : '');
   return json({ error: invalid ? 'invalid_token' : 'unauthorized' }, 401, { 'WWW-Authenticate': challenge });
 }
