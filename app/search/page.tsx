@@ -10,7 +10,12 @@ import MultiSelectFilter from '../../components/dashboard/MultiSelectFilter';
 import ExportModal from '../../components/dashboard/ExportModal';
 import ContactModal from '../../components/dashboard/ContactModal';
 import InviteToCircleModal from '../../components/modals/InviteToCircleModal';
+import ConnectPersonModal from '../../components/modals/ConnectPersonModal';
+import AddPersonChoiceModal from '../../components/modals/AddPersonChoiceModal';
+import AlertModal from '../../components/ui/AlertModal';
+import { sendConnectReferral } from '../../lib/connectPersonReferral';
 import { useAuth } from '../../contexts/AuthContext';
+import { UserRoundPlus } from 'lucide-react';
 
 interface CircleSearchResult {
   id: number;
@@ -105,7 +110,7 @@ const loadRosterCounts = async () => {
 };
 
 export default function SearchPage() {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { user, isAuthenticated, isAdmin } = useAuth();
   const signedIn = isAuthenticated();
   const normalizeStatus = (status: string | null | undefined) => (status || '').trim().toLowerCase();
 
@@ -135,7 +140,11 @@ export default function SearchPage() {
 
   // State for export modal
   const [exportModal, setExportModal] = useState(false);
+  // "Add person" on a row opens a chooser, which hands off to the invite or connect modal
+  const [addPersonCircle, setAddPersonCircle] = useState<CircleSearchResult | null>(null);
   const [inviteCircle, setInviteCircle] = useState<CircleSearchResult | null>(null);
+  const [connectCircle, setConnectCircle] = useState<CircleSearchResult | null>(null);
+  const [alertState, setAlertState] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null);
 
   // Call/text contact sheet opened from a phone number in the results table
   const [contactCircle, setContactCircle] = useState<CircleSearchResult | null>(null);
@@ -746,14 +755,13 @@ export default function SearchPage() {
                       {signedIn && (
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <button
-                            onClick={() => setInviteCircle(circle)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-900/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 rounded-md transition-colors"
-                            title="Invite a new person to this circle"
+                            type="button"
+                            onClick={() => setAddPersonCircle(circle)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-900/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 active:bg-cyan-100 dark:active:bg-cyan-900/60 rounded-md transition-colors"
+                            title={`Invite a new person to ${circle.name || 'this'}'s circle, or connect them with the leader`}
                           >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                            </svg>
-                            Invite
+                            <UserRoundPlus className="w-3.5 h-3.5" aria-hidden="true" />
+                            Add person
                           </button>
                         </td>
                       )}
@@ -784,6 +792,53 @@ export default function SearchPage() {
           phone={contactCircle.phone ? formatPhoneForDisplay(contactCircle.phone) : ''}
         />
       )}
+
+      {/* Add person: choose invite or connect */}
+      <AddPersonChoiceModal
+        isOpen={!!addPersonCircle}
+        onClose={() => setAddPersonCircle(null)}
+        leaderName={addPersonCircle?.name || ''}
+        onInvite={() => {
+          setInviteCircle(addPersonCircle);
+          setAddPersonCircle(null);
+        }}
+        onConnect={() => {
+          setConnectCircle(addPersonCircle);
+          setAddPersonCircle(null);
+        }}
+      />
+
+      {/* Connect New Person Modal — texts the leader and saves a referral note */}
+      <ConnectPersonModal
+        isOpen={!!connectCircle}
+        onClose={() => setConnectCircle(null)}
+        leaderName={connectCircle?.name || ''}
+        currentUserName={user?.name || ''}
+        onSend={async (_personName, _phone, _email, message) => {
+          if (!connectCircle || !user?.id) throw new Error('Not signed in');
+          const openedMessages = await sendConnectReferral({
+            leaderId: connectCircle.id,
+            leaderPhone: connectCircle.phone,
+            userId: user.id,
+            message,
+          });
+          setAlertState({
+            type: 'success',
+            title: 'Referral Saved',
+            message: openedMessages
+              ? 'The referral has been saved to notes and Messages app opened.'
+              : 'The referral has been saved to notes.',
+          });
+        }}
+      />
+
+      <AlertModal
+        isOpen={!!alertState}
+        onClose={() => setAlertState(null)}
+        type={alertState?.type}
+        title={alertState?.title || ''}
+        message={alertState?.message || ''}
+      />
 
       {/* Invite to Circle Modal */}
       {inviteCircle && (
