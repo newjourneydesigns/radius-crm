@@ -3,6 +3,16 @@
     "date": "2026-11-04",
     "date_display": "November 4, 2026",
     "date_iso": "2026-11-04",
+    "id": "circles-add-person-spacing",
+    "type": "fix",
+    "category": "Circles",
+    "page": "/search",
+    "description": "The Circles table is a little more compact, so the Add person button sits inside the table instead of being pushed against (or past) its right edge on smaller laptop screens."
+  },
+  {
+    "date": "2026-11-04",
+    "date_display": "November 4, 2026",
+    "date_iso": "2026-11-04",
     "id": "circles-add-person-invite-or-connect",
     "type": "improvement",
     "category": "Circles",

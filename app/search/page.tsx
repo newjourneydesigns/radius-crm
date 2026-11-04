@@ -546,7 +546,7 @@ export default function SearchPage() {
                   <tr>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       onClick={() => handleSort('name')}
                     >
                       <div className="flex items-center space-x-1">
@@ -561,14 +561,14 @@ export default function SearchPage() {
                     {signedIn && (
                       <th
                         scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                       >
                         Phone
                       </th>
                     )}
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       onClick={() => handleSort('circle_type')}
                     >
                       <div className="flex items-center space-x-1">
@@ -582,7 +582,7 @@ export default function SearchPage() {
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       onClick={() => handleSort('circle_location')}
                     >
                       <div className="flex items-center space-x-1">
@@ -596,7 +596,7 @@ export default function SearchPage() {
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       onClick={() => handleSort('day')}
                     >
                       <div className="flex items-center space-x-1">
@@ -610,7 +610,7 @@ export default function SearchPage() {
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       onClick={() => handleSort('time')}
                     >
                       <div className="flex items-center space-x-1">
@@ -624,7 +624,7 @@ export default function SearchPage() {
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       onClick={() => handleSort('location')}
                     >
                       <div className="flex items-center space-x-1">
@@ -638,7 +638,7 @@ export default function SearchPage() {
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       onClick={() => handleSort('campus')}
                     >
                       <div className="flex items-center space-x-1">
@@ -654,7 +654,7 @@ export default function SearchPage() {
                     {signedIn && (
                       <th
                         scope="col"
-                        className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
+                        className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
                         onClick={() => handleSort('roster')}
                       >
                         <div className="flex items-center justify-center space-x-1">
@@ -671,7 +671,7 @@ export default function SearchPage() {
                     {signedIn && (
                       <th
                         scope="col"
-                        className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                        className="pl-2 pr-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                       >
                         <span className="sr-only">Actions</span>
                       </th>
@@ -682,7 +682,7 @@ export default function SearchPage() {
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredCircles.map((circle) => (
                     <tr key={circle.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <Link
                           href={`/circle/${circle.id}`}
                           className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
@@ -691,7 +691,7 @@ export default function SearchPage() {
                         </Link>
                       </td>
                       {signedIn && (
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-4 whitespace-nowrap">
                           {circle.phone ? (
                             <button
                               type="button"
@@ -706,39 +706,39 @@ export default function SearchPage() {
                           )}
                         </td>
                       )}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
                           {circle.circle_type || '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
                           {circle.circle_location || '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
                           {circle.day || '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
                           {formatTimeToAMPM(circle.time) || '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-4">
                         <div className="text-sm text-gray-900 dark:text-white">
                           {circle.location || <span className="text-gray-400 dark:text-gray-500">—</span>}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
                           {circle.campus || '-'}
                         </div>
                       </td>
 
                       {signedIn && (
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <td className="px-4 py-4 whitespace-nowrap text-center">
                         {typeof rosterCounts[circle.id] === 'number' ? (
                           <Link
                             href={`/circle/${circle.id}/roster`}
@@ -753,7 +753,7 @@ export default function SearchPage() {
                       )}
 
                       {signedIn && (
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <td className="pl-2 pr-4 py-4 whitespace-nowrap text-left">
                           <button
                             type="button"
                             onClick={() => setAddPersonCircle(circle)}
