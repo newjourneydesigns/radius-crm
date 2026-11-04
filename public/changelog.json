@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-11-04",
+    "date_display": "November 4, 2026",
+    "date_iso": "2026-11-04",
+    "id": "circles-add-person-invite-or-connect",
+    "type": "improvement",
+    "category": "Circles",
+    "page": "/search",
+    "description": "Each row on the Circles page now has an Add person button in place of Invite. It asks who should get the text: invite the new person to the circle (texts them the circle's details), or connect them with the leader (texts the leader the new person's contact info and saves the referral to the leader's notes), the same two options as on a circle's profile.",
+    "version": "2.60.1"
+  },
+  {
     "date": "2026-10-22",
     "date_display": "October 22, 2026",
     "date_iso": "2026-10-22",

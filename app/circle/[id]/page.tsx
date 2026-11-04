@@ -17,6 +17,7 @@ import ConfirmModal from '../../../components/ui/ConfirmModal';
 import LogConnectionModal from '../../../components/dashboard/LogConnectionModal';
 import ConnectPersonModal from '../../../components/modals/ConnectPersonModal';
 import InviteToCircleModal from '../../../components/modals/InviteToCircleModal';
+import { sendConnectReferral } from '../../../lib/connectPersonReferral';
 import EventSummaryReminderModal from '../../../components/modals/EventSummaryReminderModal';
 import CCBPersonLookup from '../../../components/ui/CCBPersonLookup';
 import type { CCBPerson } from '../../../components/ui/CCBPersonLookup';
@@ -766,47 +767,22 @@ export default function CircleLeaderProfilePage() {
     }
   };
 
-  const handleConnectPerson = async (personName: string, phone: string, email: string, message: string) => {
+  const handleConnectPerson = async (_personName: string, _phone: string, _email: string, message: string) => {
     if (!leader || !user?.id) return;
 
     try {
-      // Get today's date
-      const today = new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
+      const openedMessages = await sendConnectReferral({
+        leaderId,
+        leaderPhone: leader.phone,
+        userId: user.id,
+        message,
       });
 
-      // Create note with timestamp
-      const noteContent = `[Connect Person Referral - ${today}]\n\n${message}`;
-
-      // Save to notes
-      const { data, error } = await supabase
-        .from('notes')
-        .insert({
-          circle_leader_id: leaderId,
-          content: noteContent,
-          created_by: user.id
-        })
-        .select('*')
-        .single();
-
-      if (error) throw error;
-
-      // Open Messages app if leader has phone
-      if (leader.phone) {
-        const cleanPhone = leader.phone.replace(/\D/g, '');
-        const encodedMessage = encodeURIComponent(message);
-        const smsUrl = `sms:${cleanPhone}&body=${encodedMessage}`;
-        window.location.href = smsUrl;
-      }
-
-      // Show success message
       setShowAlert({
         isOpen: true,
         type: 'success',
         title: 'Referral Saved',
-        message: leader.phone 
+        message: openedMessages
           ? 'The referral has been saved to notes and Messages app opened.' 
           : 'The referral has been saved to notes.'
       });
